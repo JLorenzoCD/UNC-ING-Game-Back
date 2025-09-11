@@ -1,0 +1,63 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+.eggs/
+*.manifest
+*.spec
+
+# --- Entorno virtual ---
+.env
+.venv/
+env/
+venv/
+ENV/
+
+# --- Archivos de configuración local ---
+*.sqlite3
+*.db
+*.log
+*.pid
+*.gz
+
+# --- FastAPI / Uvicorn ---
+*.pyc
+*.log
+*.lock
+
+# --- IDEs ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Tests ---
+.coverage
+htmlcov/
+.cache/
+.pytest_cache/
+.tox/
+
+# --- Distribución / Build ---
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+
+# --- Docker ---
+*.pid
+*.seed
+docker-compose.override.yml
+
+# --- Configuración de entorno ---
+.env.local
+.env.*.local
+
+# --- Otros ---
+.DS_Store
+Thumbs.db
