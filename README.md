@@ -21,7 +21,7 @@ pip install -r requirements.txt
 Lo primero que hay que hacer es levantar la imagen de docker que esta en `docker-compose.yml`, para ello ejecuta:
 
 ```bash
-sudo docker-compose up -d
+docker-compose up -d
 ```
 > Nota: El contenedor de PostgreSQL expone el puerto `5433` de tu máquina. Asegúrate de que esté libre, o cambia el puerto en `docker-compose.yml`:
 
