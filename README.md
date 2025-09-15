@@ -37,7 +37,7 @@ El archivo principal de la aplicación está en `src/main.py`.
 Para iniciar el servidor en modo desarrollo, ejecuta:
 
 ```bash
-uvicorn src.main:app --reload
+uvicorn main:app --reload
 ```
 
 - `--reload`: reinicia el servidor automáticamente al detectar cambios en el código.  
