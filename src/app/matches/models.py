@@ -10,12 +10,12 @@ from enum import Enum
 from sqlalchemy import Enum as SQLEnum
 
 
-class MatchStatus(str, Enum):
+class MatchStatus(Enum):
     WAITING = "Waiting"
     IN_PROGRESS = "In_progress" 
     COMPLETED = "Completed"
 
-class Match(Base):
+class Match(Base):  
     """
     
     Represent a Match
