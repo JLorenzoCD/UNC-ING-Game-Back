@@ -6,7 +6,14 @@ from models.db import Base
 from datetime import date
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
+from enum import Enum
+from sqlalchemy import Enum as SQLEnum
 
+
+class MatchStatus(str, Enum):
+    WAITING = "Waiting"
+    IN_PROGRESS = "In_progress" 
+    COMPLETED = "Completed"
 
 class Match(Base):
     """
@@ -24,7 +31,11 @@ class Match(Base):
         default=uuid.uuid4
     )
     name: Mapped[String] = mapped_column(String) # nullable=False (inferido automáticamente)
-    status: Mapped[String] = mapped_column(String) # Crear tipo enum para status
+    status: Mapped[MatchStatus] = mapped_column(
+        Enum(MatchStatus), 
+        default=MatchStatus.WAITING,
+        index=True
+    )
     min_player: Mapped[int] = mapped_column(Integer, default=2)
     max_player: Mapped[int] = mapped_column(Integer, default=6)
     owner_id: Mapped[uuid.UUID] = mapped_column(
@@ -33,4 +44,4 @@ class Match(Base):
         nullable=False,
         index=True
     )
-    current_player_order: Mapped[int] = mapped_column(int)
+    current_player_order: Mapped[int] = mapped_column(Integer, default=0)
