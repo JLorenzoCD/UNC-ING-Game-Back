@@ -9,7 +9,7 @@ class Card_Schema(BaseModel):
     description:str
 
 
-class Card_Match_Schema(BaseModel):
+class Match_Card_Schema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id:UUID

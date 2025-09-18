@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from uuid import uuid4
 
-from models.db import Base
+from app.models.db import Base
 
 class Card(Base):
 
@@ -13,9 +13,9 @@ class Card(Base):
     name        = Column(String, index=True, nullable=False)
     description = Column(String, index=True, nullable=False)
 
-class Card_Match(Base):
+class Match_Card(Base):
 
-    __tablename__ = "cards_match"
+    __tablename__ = "match_cards"
 
     id           = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid4)
     card_id      = Column(UUID(as_uuid=True), ForeignKey('cards.id'))
@@ -23,6 +23,6 @@ class Card_Match(Base):
     player_id    = Column(UUID(as_uuid=True), ForeignKey('players.id'), nullable=False)
     is_discarded = Column(Boolean, index=True, default=False)
 
-    card   = relationship("Card", backref="card_matches")
-    match  = relationship("Match", backref="card_matches")
-    player = relationship("Player", backref="card_matches")
+    card   = relationship("Card", backref="match_cards")
+    match  = relationship("Match", backref="match_cards")
+    player = relationship("Player", backref="match_cards")
