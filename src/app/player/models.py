@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Date, Table, ForeignKey
 from sqlalchemy.orm import relationship, mapped_column
 from typing import List
 from sqlalchemy.orm import Mapped
-from models.db import Base
+from app.models.db import Base
 from datetime import date
 from sqlalchemy.dialects.postgresql import UUID
 import uuid

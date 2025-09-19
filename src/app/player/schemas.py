@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import date
 import uuid
 
@@ -14,5 +14,4 @@ class PlayerOut(BaseModel):
     avatar: str
     birthday: date
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
