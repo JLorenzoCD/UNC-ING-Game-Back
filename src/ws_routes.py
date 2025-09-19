@@ -56,8 +56,6 @@ manager = ConnectionManager()
 async def ws_endpoint(ws: WebSocket):
     await manager.connect(ws)
     try:
-        while True:
-            text = await ws.receive_text()
-            print(f"WS recv: {text}")
+        await ws.receive() #queda bloqueado hasta que el cliente cierre
     except WebSocketDisconnect:
         manager.disconnect(ws)
