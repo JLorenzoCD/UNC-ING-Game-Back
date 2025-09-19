@@ -18,10 +18,10 @@ class Match_Secret(Base):
     __tablename__ = "match_secrets"
  
     id          = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    secret_id   = Column(UUID(as_uuid=True), ForeignKey('secrets.id'), nullable=False)
-    match_id    = Column(UUID(as_uuid=True), ForeignKey('matches.id'), nullable=False)
-    player_id   = Column(UUID(as_uuid=True), ForeignKey('players.id'), index=True)
-    is_revealed = Column(Boolean, index=True, default=False)
+    secret_id   = Column(UUID(as_uuid=True), ForeignKey('secrets.id'), index=True, nullable=False)
+    match_id    = Column(UUID(as_uuid=True), ForeignKey('matches.id'), index=True, nullable=False)
+    player_id   = Column(UUID(as_uuid=True), ForeignKey('players.id'), index=True, nullable=True)
+    is_revealed = Column(Boolean, default=False)
 
 
     secret = relationship("Secret", backref="match_secrets")
