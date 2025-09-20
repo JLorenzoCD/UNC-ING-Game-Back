@@ -14,6 +14,11 @@ class MatchStatus(Enum):
     WAITING = "Waiting"
     IN_PROGRESS = "In_progress" 
     COMPLETED = "Completed"
+    
+class SecretType(Enum):
+    INOCENT = "Inocent"
+    MURDERER = "Murderer"
+    ACCOMPLICE = "Accomplice"
 
 class Match(Base):  
     """
@@ -40,8 +45,39 @@ class Match(Base):
     max_player: Mapped[int] = mapped_column(Integer, default=6)
     owner_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), 
-        ForeignKey("players.id"),
+        ForeignKey('players.id'),
         nullable=False,
         index=True
     )
     current_player_order: Mapped[int] = mapped_column(Integer, default=0)
+    
+    owner = relationship("Player", backref="matches")
+    
+    class Match_Player(Base):
+        
+        """"
+        
+        
+        
+        """
+        
+        __tablename__ = 'match_players'
+        
+        player_id: Mapped[uuid.UUID] = mapped_column(
+            UUID(as_uuid=True),
+            ForeignKey('players.id'),
+            nullable=False,
+            index=True
+        )
+        match_id: Mapped[uuid.UUID] = mapped_column(
+            UUID(as_uuid=True),
+            ForeignKey('matches.id'),
+            nullable=False,
+            index=True
+        )
+        role: Mapped[SecretType] = mapped_column(SecretType, ForeignKey('secrets.type'), nullable=True, index=True)
+        order: Mapped[int] = mapped_column(Integer, nullable=True, index=True)
+        
+        match  = relationship("Match", backref="match_players")
+        player = relationship("Player", backref="match_players")
+        secret = relationship("Secret", backref="matches_players")
