@@ -4,9 +4,10 @@ Este proyecto utiliza **FastAPI** como framework web y **Uvicorn** como servidor
 
 ## Requisitos
 
-- Python 3.8+
-- FastAPI
-- Uvicorn
+- [Python 3.8+](https://www.python.org/downloads/)
+- [Docker Engine](https://docs.docker.com/engine/install/)
+- [Docker Compose](https://docs.docker.com/compose/install/)
+
 
 Puedes instalar las dependencias ubicandote en el root del proyecto y ejecutar:
 
@@ -16,12 +17,27 @@ pip install -r requirements.txt
 
 ## Ejecutar el servidor
 
+### Iniciar la base de datos
+Lo primero que hay que hacer es levantar la imagen de docker que esta en `docker-compose.yml`, para ello ejecuta:
+
+```bash
+docker-compose up -d
+```
+> Nota: El contenedor de PostgreSQL expone el puerto `5433` de tu máquina. Asegúrate de que esté libre, o cambia el puerto en `docker-compose.yml`:
+
+```bash
+ports:
+  - "5432:5432"
+```
+
+### Iniciar el servidor
+
 El archivo principal de la aplicación está en `src/main.py`.
 
 Para iniciar el servidor en modo desarrollo, ejecuta:
 
 ```bash
-uvicorn src.main:app --reload
+uvicorn main:app --reload
 ```
 
 - `--reload`: reinicia el servidor automáticamente al detectar cambios en el código.  
