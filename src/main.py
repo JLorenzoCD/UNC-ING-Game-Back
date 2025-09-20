@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from ws_routes import websocket_router
+from websocketManager.ws_routes import websocket_router
 
 app = FastAPI()
 
