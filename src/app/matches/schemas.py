@@ -1,7 +1,7 @@
 from uuid import UUID
-from matches.models import MatchStatus
+from app.matches.models import MatchStatus
 from pydantic import BaseModel, ConfigDict
-from matches.dto import MatchDTO
+from app.matches.dto import MatchDTO
 
 class MatchIn(BaseModel):
     name: str
@@ -30,3 +30,11 @@ class MatchOut(BaseModel):
     
 class MatchResponse(MatchOut):
     pass
+
+class Match_Player_Schema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
+    player_id: UUID
+    match_id: UUID
+    role: str
+    order: int
