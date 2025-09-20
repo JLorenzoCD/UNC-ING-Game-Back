@@ -2,13 +2,13 @@ from pydantic import BaseModel, ConfigDict
 from datetime import date
 import uuid
 
-class PlayerIn(BaseModel):
+class Player_Schema_in(BaseModel):
     name: str
     avatar: str
     birthday: date
 
 
-class PlayerOut(BaseModel):
+class Player_Schema_out(BaseModel):
     id: uuid.UUID
     name: str
     avatar: str

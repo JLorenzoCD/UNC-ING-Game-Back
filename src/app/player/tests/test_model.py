@@ -1,7 +1,7 @@
 from datetime import date
 from app.player.models import Player
-from app.player.schemas import PlayerOut
-from app.player.utils import db_player_2_player_schema
+from app.player.schemas import Player_Schema_out
+from app.player.utils import db_player_2_Player_Schema_out
 
 
 def test_create_player(db_session):
@@ -27,10 +27,10 @@ def test_create_player(db_session):
     assert new_player.avatar == "avatar1"
 
     # convertierto a schema con utils
-    player_schema = db_player_2_player_schema(new_player)
+    player_schema = db_player_2_Player_Schema_out(new_player)
 
     # valido el tipo
-    assert isinstance(player_schema, PlayerOut)
+    assert isinstance(player_schema, Player_Schema_out)
     assert player_schema.id == new_player.id
     assert player_schema.name == new_player.name
     assert player_schema.avatar == new_player.avatar

@@ -1,5 +1,5 @@
 from app.player.models import Player
-from app.player.schemas import PlayerOut
+from app.player.schemas import Player_Schema_out
 
-def db_player_2_player_schema(db_player: Player) -> PlayerOut:
-    return PlayerOut.model_validate(db_player)
+def db_player_2_Player_Schema_out(db_player: Player) -> Player_Schema_out:
+    return Player_Schema_out.model_validate(db_player)
