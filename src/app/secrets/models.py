@@ -3,6 +3,8 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from uuid import uuid4
 from enum import Enum as PyEnum
+from sqlalchemy import Enum as SQlEnum, Enum
+
 
 from  app.models.db import Base
 
@@ -17,7 +19,7 @@ class Secret(Base):
     __tablename__ = "secrets"
 
     id      = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid4)
-    type    = Column(Secret_Type, index=True, nullable=False)
+    type    = Column(Enum(Secret_Type), index=True, nullable=False)
     content = Column(String, nullable=False)
 
 class Match_Secret(Base):
