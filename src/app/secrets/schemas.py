@@ -1,11 +1,12 @@
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict
+from app.secrets.models import Secret_Type
 
 class Secret_Schema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id:UUID
-    name:str
+    type:Secret_Type
     content:str
 
 
