@@ -71,9 +71,8 @@ class Match_Player(Base):
             nullable=False,
             index=True
         )
-        role: Mapped[Secret_Type] = mapped_column(Enum(Secret_Type), ForeignKey('secrets.type'), nullable=True, index=True)
+        role: Mapped[Secret_Type] = mapped_column(Enum(Secret_Type), nullable=True, index=True)
         order: Mapped[int] = mapped_column(Integer, nullable=True, index=True)
         
         match  = relationship("Match", backref="match_players")
         player = relationship("Player", backref="match_players")
-        secret = relationship("Secret", backref="matches_players")
