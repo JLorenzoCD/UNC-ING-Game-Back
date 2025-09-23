@@ -12,8 +12,11 @@ from app.secrets.models import Secret, Match_Secret
 
 from app.models.db import Base, engine
 from app.player.endpoints import player_router
+<<<<<<< HEAD
 from app.matches.endpoints import router as matches_router
 from fastapi.middleware.cors import CORSMiddleware
+=======
+>>>>>>> 31f7f82 (ING-9 endpoint)
 
 
 app = FastAPI()
