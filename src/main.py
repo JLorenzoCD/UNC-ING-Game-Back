@@ -27,6 +27,7 @@ app.add_middleware(
 
 app.include_router(websocket_router)
 app.include_router(player_router)
+app.include_router(matches_router)
 
 def init_data():
     with Session(engine) as session:
