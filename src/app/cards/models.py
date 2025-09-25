@@ -10,7 +10,7 @@ from app.models.db import Base
 
 class Card_Type(PyEnum):
     EVENT     = "EVENT"
-    DEVIUS    = "DEVIOUS"
+    DEVIOUS    = "DEVIOUS"
     DETECTIVE = "DETECTIVE"
     INSTANT   = "INSTANT"
 
