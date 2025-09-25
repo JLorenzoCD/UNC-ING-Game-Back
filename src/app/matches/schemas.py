@@ -5,15 +5,15 @@ from app.matches.dto import MatchDTO
 
 class MatchIn(BaseModel):
     name: str
-    min_player: int
-    max_player: int
+    min_players: int
+    max_players: int
     owner_id: UUID
     
     def to_dto(self) -> MatchDTO:
         return MatchDTO(
             name = self.name,
-            min_player = self.min_player,
-            max_player = self.max_player,
+            min_player = self.min_players,
+            max_player = self.max_players,
             owner_id = self.owner_id
         )
 
