@@ -11,8 +11,8 @@ def test_endpoint_matcher_POST(client):
     #Creamos Player
     response = client.post("/players", json={
         "name": "Elian",
-        "avatar": "avatar3",
-        "birthday": "2000-22-25"
+        "avatar": "avatar2",
+        "birthday": "2000-04-21"
     })
     assert response.status_code == 201
     data = response.json()
