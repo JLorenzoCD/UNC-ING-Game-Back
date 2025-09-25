@@ -2,8 +2,13 @@
 
 import pytest
 from sqlalchemy import create_engine
+from main import app
 from sqlalchemy.orm import sessionmaker
 from app.models.db import Base
+from fastapi.testclient import TestClient
+from fastapi import FastAPI
+from app.models.db import Base, get_db
+from app.matches.endpoints import router as matches_router
 
 # 👇 IMPORTA TODOS LOS MODELOS AQUÍ
 from app.matches.models import Match, Match_Player
@@ -26,3 +31,8 @@ def db_session():
     finally:
         session.close()
         Base.metadata.drop_all(bind=engine)
+
+@pytest.fixture(scope="function")
+def client():
+    with TestClient(app) as c:
+        yield c
