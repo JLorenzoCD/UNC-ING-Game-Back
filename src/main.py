@@ -12,6 +12,7 @@ from app.secrets.models import Secret, Match_Secret
 
 from app.models.db import Base, engine
 from app.player.endpoints import player_router
+from app.matches.endpoints import router as matches_router
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
