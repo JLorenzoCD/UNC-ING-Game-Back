@@ -5,8 +5,6 @@ import uuid
 
 from app.models.db import engine
 
-from app.matches.endpoints import router as matches_router
-
 from app.matches.models import Match, Match_Player
 from app.player.models import Player
 from app.cards.models import Card, Match_Card
@@ -28,7 +26,6 @@ app.add_middleware(
 
 app.include_router(websocket_router)
 app.include_router(player_router)
-app.include_router(matches_router)
 
 def init_data():
     with Session(engine) as session:
@@ -44,13 +41,11 @@ def init_data():
         if not session.query(Card).first():
             session.add_all([
                 # Instant Cards
-                Card(id=uuid.uuid4(), name="NOT SO FAST, YOU FIEND!", type="INSTANT", description="Play this card at any time, even if it is not your turn. It cancels an action before it is taken, unless otherwise stated, including cancelling another 'Not so fast...' card."),
-                
+                Card(id=uuid.uuid4(), name="NOT SO FAST", type="INSTANT", description="Play this card at any time, even if it is not your turn. It cancels an action before it is taken, unless otherwise stated, including cancelling another 'Not so fast...' card."),
+        
                 # Detective Cards
                 Card(id=uuid.uuid4(), name="PARKER PYNE", type="DETECTIVE", description="Parker Pyne focuses on helping his clients achieve happiness... Instead of revealing a secret card, flip any face-up secret card face-down. This may remove social disgrace."),
                 Card(id=uuid.uuid4(), name="LADY EILEEN", type="DETECTIVE", description="Bundle realises a vital clue was missed... Choose a player who must reveal a secret card of their choice. If cancelled by a 'Not so fast...' card, return the detective set to your hand."),
-                Card(id=uuid.uuid4(), name="BUNDLE", type="DETECTIVE", description="Bundle realises a vital clue was missed... Choose a player who must reveal a secret card of their choice. If cancelled by a 'Not so fast...' card, return the detective set to your hand."),
-                Card(id=uuid.uuid4(), name="BRENT", type="DETECTIVE", description="Bundle realises a vital clue was missed... Choose a player who must reveal a secret card of their choice. If cancelled by a 'Not so fast...' card, return the detective set to your hand."),
                 Card(id=uuid.uuid4(), name="TOMMY BERESFORD", type="DETECTIVE", description="Tommy finds a clue... Choose a player, who must reveal a secret card of their choice. If a Tommy and a Tuppence are in the same set, the action cannot be cancelled by a 'Not so Fast...' card."),
                 Card(id=uuid.uuid4(), name="TUPPENCE BERESFORD", type="DETECTIVE", description="Tuppence finds a clue... Choose a player, who must reveal a secret card of their choice. If a Tuppence and Tommy are in the same set, the action cannot be cancelled by a 'Not so Fast...' card."),
                 Card(id=uuid.uuid4(), name="HARLEY QUIN WILDCARD", type="DETECTIVE", description="Quin has an almost supernatural gift for helping solve the crime... Play in conjunction with any original detective card to play a set in front of you."),
@@ -65,13 +60,13 @@ def init_data():
                 Card(id=uuid.uuid4(), name="DEAD CARD FOLLY", type="EVENT", description="All players must pass one card from their hand, face-down, to the player on their right or left. The active player decides which direction. You may ask for a card of your choice, but beware you may be tricked."),
                 Card(id=uuid.uuid4(), name="LOOK INTO THE ASHES", type="EVENT", description="A pattern emerges! You may look though the top five cards of the discard pile and take one into your hand."),
                 Card(id=uuid.uuid4(), name="CARD TRADE", type="EVENT", description="Meet in the drawing room for high tea. Choose another player and exchange one card from your hand with them. They cannot refuse. You may ask for a card of your choice, but beware you may be tricked."),
-                Card(id=uuid.uuid4(), name="AND THEN THERE WAS ONE MORE...", type="EVENT", description="Choose one revealed secret card and add it, face-down, to any player's secrets, including your own. This may remove social disgrace."),
-                Card(id=uuid.uuid4(), name="DELAY THE MURDERER'S ESCAPE!", type="EVENT", description="Take up to five cards from the top of the discard pile and place them face-down on the draw pile in any order, then remove this card from the game."),
+                Card(id=uuid.uuid4(), name="AND THEN THERE WAS ONE MORE", type="EVENT", description="Choose one revealed secret card and add it, face-down, to any player's secrets, including your own. This may remove social disgrace."),
+                Card(id=uuid.uuid4(), name="DELAY THE MURDERER'S ESCAPE", type="EVENT", description="Take up to five cards from the top of the discard pile and place them face-down on the draw pile in any order, then remove this card from the game."),
                 Card(id=uuid.uuid4(), name="EARLY TRAIN TO PADDINGTON", type="EVENT", description="The murderer's escape nears! Take the top six cards from the draw pile and place them face-up on the discard pile, then remove this card from the game. Discarding this card is treated the same as if you had played it."),
                 Card(id=uuid.uuid4(), name="POINT YOUR SUSPICIONS", type="EVENT", description="All the guests are gathered in the dining room... The active player counts down: 3-2-1. Then all players must point at the person they suspect as the Murderer. The active player breaks ties. The most suspected player must reveal a secret card of their choice."),
                 
                 # Devious Cards
-                Card(id=uuid.uuid4(), name="BLACKMAILED!", type="DEVIOUS", description="You have been blackmailed! If you have received this card from another player, you must show them one secret card of their choice, before returning it face-down to your secrets. This action cannot be cancelled by a 'Not so fast...' card. This card can only be used during a Card Trade or a Dead Card Folly."),
+                Card(id=uuid.uuid4(), name="BLACKMAILED", type="DEVIOUS", description="You have been blackmailed! If you have received this card from another player, you must show them one secret card of their choice, before returning it face-down to your secrets. This action cannot be cancelled by a 'Not so fast...' card. This card can only be used during a Card Trade or a Dead Card Folly."),
                 Card(id=uuid.uuid4(), name="SOCIAL FAUX PAS", type="DEVIOUS", description="At dinner, you have been tricked into ordering a dessert wine with a starter... If you have received this card from another player, you must reveal a secret card of your choice. This card can only be used during a Card Trade or a Dead Card Folly.")
             ])
             session.commit()
