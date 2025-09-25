@@ -82,8 +82,8 @@ def test_create_match(db_session):
     owner_id = uuid.uuid4()
     data = {
         "name": "Partida Test",
-        "min_player": 2,
-        "max_player": 6,
+        "min_players": 2,
+        "max_players": 6,
         "owner_id": str(owner_id),
     }
 
@@ -92,8 +92,8 @@ def test_create_match(db_session):
 
     # Aserciones de validación
     assert match_in.name == "Partida Test"
-    assert match_in.min_player == 2
-    assert match_in.max_player == 6
+    assert match_in.min_players == 2
+    assert match_in.max_players == 6
     assert isinstance(match_in.owner_id, uuid.UUID)
     assert match_in.owner_id == owner_id
 
@@ -101,11 +101,46 @@ def test_create_match(db_session):
     dto = match_in.to_dto()
     assert isinstance(dto, MatchDTO)
     assert dto.name == match_in.name
-    assert dto.min_player == match_in.min_player
-    assert dto.max_player == match_in.max_player
+    assert dto.min_player == match_in.min_players
+    assert dto.max_player == match_in.max_players
     assert dto.owner_id == match_in.owner_id
 
     # Serializar el schema a dict
     dumped = match_in.model_dump()
-    for key in ["name", "min_player", "max_player", "owner_id"]:
+    for key in ["name", "min_players", "max_players", "owner_id"]:
         assert key in dumped
+        
+    def test_endpoint_matcher_POST(client, db_session):
+        
+        #Creamos Player owner de Match
+    
+        new_player_owner = Player(
+            name="Elian",
+            avatar="Mao Zedong",
+            birthday=date(2000, 8, 22)
+        )
+        db_session.add(new_player_owner)
+        db_session.commit()
+        db_session.refresh(new_player_owner)
+        
+        # Payload
+        match_post = {
+            "name": "Partida Test",
+            "min_player": 2,
+            "max_player": 6,
+            "owner_id": str(new_player_owner.id),
+        }
+
+        # Llamada al endpoint
+        response = client.post("/matches/", json=match_post)
+        assert response.status_code == 201
+
+        body = response.json()
+        assert "id" in body
+
+        # Validar en la DB
+        from app.matches.models import Match
+        created = db_session.get(Match, uuid.UUID(body["id"]))
+        assert created is not None
+        assert created.name == "Partida Test"
+        assert created.owner_id == new_player_owner.id
