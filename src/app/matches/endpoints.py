@@ -74,7 +74,7 @@ async def join_match(match_id: UUID,player_id: UUID, db=Depends(get_db)):
     info_player = db.query(Player).filter(Player.id == player_id).first()
     if not info_player:
         raise HTTPException(status_code=404, detail="Player not found")
-    services.MatchService(db).join(match_id, player_id)
+    services.MatchService(db).join(match_id, player_id) 
     payload={
         "id": info_player.id,
         "name": info_player.name,
