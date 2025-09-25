@@ -28,8 +28,8 @@ class MatchOut(BaseModel):
     owner_id: UUID
     current_player_order: int
     
-class MatchResponse(MatchOut):
-    pass
+class MatchResponse(BaseModel):
+    id: UUID
 
 class Match_Player_Schema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
