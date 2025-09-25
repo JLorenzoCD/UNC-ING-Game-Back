@@ -12,8 +12,8 @@ class MatchIn(BaseModel):
     def to_dto(self) -> MatchDTO:
         return MatchDTO(
             name = self.name,
-            min_player = self.min_players,
-            max_player = self.max_players,
+            min_players = self.min_players,
+            max_players = self.max_players,
             owner_id = self.owner_id
         )
 
@@ -23,8 +23,8 @@ class MatchOut(BaseModel):
     id: UUID
     name: str
     status: MatchStatus
-    min_player: int
-    max_player: int
+    min_players: int
+    max_players: int
     owner_id: UUID
     current_player_order: int
     

@@ -24,7 +24,7 @@ class MatchService:
         self._db = db
     
     def create(self, match_dto: schemas.MatchDTO) -> schemas.MatchResponse:
-        if match_dto.min_player < 2 or match_dto.max_player > 6:
+        if match_dto.min_players < 2 or match_dto.max_players > 6:
             raise MatchValidationError("Incorrect number of players")
         
         owner:Player = self._db.get(Player, match_dto.owner_id)
@@ -33,8 +33,8 @@ class MatchService:
         
         new_match = Match(
             name = match_dto.name,
-            min_player = match_dto.min_player,
-            max_player = match_dto.max_player,
+            min_players = match_dto.min_players,
+            max_players = match_dto.max_players,
             owner_id = owner.id
         )
         try:

@@ -35,8 +35,8 @@ class Match(Base):
         default=MatchStatus.WAITING,
         index=True
     )
-    min_player: Mapped[int] = mapped_column(Integer, default=2)
-    max_player: Mapped[int] = mapped_column(Integer, default=6)
+    min_players: Mapped[int] = mapped_column(Integer, default=2)
+    max_players: Mapped[int] = mapped_column(Integer, default=6)
     owner_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), 
         ForeignKey('players.id'),
