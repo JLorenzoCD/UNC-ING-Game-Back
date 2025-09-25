@@ -2,6 +2,7 @@
 
 import pytest
 from sqlalchemy import create_engine
+from main import app
 from sqlalchemy.orm import sessionmaker
 from app.models.db import Base
 from fastapi.testclient import TestClient
@@ -31,18 +32,7 @@ def db_session():
         session.close()
         Base.metadata.drop_all(bind=engine)
 
-@pytest.fixture
-def client(db_session):
-    # App temporal de prueba
-    app = FastAPI()
-    app.include_router(matches_router)
-
-    # Override de dependencia get_db
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
-    return TestClient(app)
+@pytest.fixture(scope="function")
+def client():
+    with TestClient(app) as c:
+        yield c

@@ -109,38 +109,3 @@ def test_create_match(db_session):
     dumped = match_in.model_dump()
     for key in ["name", "min_players", "max_players", "owner_id"]:
         assert key in dumped
-        
-    def test_endpoint_matcher_POST(client, db_session):
-        
-        #Creamos Player owner de Match
-    
-        new_player_owner = Player(
-            name="Elian",
-            avatar="Mao Zedong",
-            birthday=date(2000, 8, 22)
-        )
-        db_session.add(new_player_owner)
-        db_session.commit()
-        db_session.refresh(new_player_owner)
-        
-        # Payload
-        match_post = {
-            "name": "Partida Test",
-            "min_player": 2,
-            "max_player": 6,
-            "owner_id": str(new_player_owner.id),
-        }
-
-        # Llamada al endpoint
-        response = client.post("/matches/", json=match_post)
-        assert response.status_code == 201
-
-        body = response.json()
-        assert "id" in body
-
-        # Validar en la DB
-        from app.matches.models import Match
-        created = db_session.get(Match, uuid.UUID(body["id"]))
-        assert created is not None
-        assert created.name == "Partida Test"
-        assert created.owner_id == new_player_owner.id
