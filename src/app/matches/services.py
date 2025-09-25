@@ -38,10 +38,17 @@ class MatchService:
             owner_id = owner.id
         )
         try:
-
             self._db.add(new_match)
             self._db.commit()
             self._db.refresh(new_match)
+        except SQLAlchemyError:
+            self._db.rollback()
+            raise
+        try:
+            match_player = Match_Player (match_id = new_match.id, player_id=owner.id, order=0)
+            self._db.add(match_player)
+            self._db.commit()
+            self._db.refresh(match_player)
         except SQLAlchemyError:
             self._db.rollback()
             raise
