@@ -45,4 +45,8 @@ def client(db_session):
     with TestClient(app) as c:
         yield c
     
+<<<<<<< HEAD
     app.dependency_overrides.clear()
+=======
+    app.dependency_overrides.clear()
+>>>>>>> ff37ef6 (ING-22 Inicializamos todas las match_cards y pasamos los test)
