@@ -5,6 +5,7 @@ from uuid import UUID
 from app.matches import schemas
 from app.player.models import Player
 from app.matches.utils import db_match_2_match_schema
+from typing import List, Optional
 
 
 # Excepciones
@@ -23,7 +24,7 @@ class MatchService:
     def __init__(self, db):
         self._db = db
     
-    def create(self, match_dto: schemas.MatchDTO) -> schemas.MatchResponse:
+    def create(self, match_dto: schemas.MatchDTO) -> schemas.MatchOut:
         if match_dto.min_players < 2 or match_dto.max_players > 6:
             raise MatchValidationError("Incorrect number of players")
         
@@ -53,13 +54,13 @@ class MatchService:
             self._db.rollback()
             raise
         match_out = db_match_2_match_schema(new_match)
-        return schemas.MatchResponse(id=match_out.id)    
+        return match_out  
 
-    def get_all() -> list[Match]:
-        pass
+    def get_all(self) -> List[schemas.MatchOut]:
+        return self._db.query(Match).all()
 
-    def get_match_by_id() -> Match | None:
-        pass
+    def get_match_by_id(self, match_id: UUID) -> Match | None:
+        return self._db.query(Match).filter(Match.id == match_id).first()
 
     def update_match() -> Match:
         pass
