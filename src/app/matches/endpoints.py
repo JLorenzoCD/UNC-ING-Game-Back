@@ -9,7 +9,7 @@ from websocketManager.ws_routes import manager
 from websocketManager.ws_messages import WSEvent, make_ws_message
 
 from app.matches import services
-from app.matches.schemas import MatchIn, MatchOut, MatchResponse, MatchDTO
+from app.matches.schemas import MatchIn, MatchOut, MatchResponse, MatchDTO, Players_by_Match_Schema
 
 router = APIRouter(
     tags=["matches"],
@@ -46,3 +46,7 @@ async def get_all_matches(db=Depends(get_db)) -> List[MatchOut]:
 @router.get("/{ID_match}", status_code=status.HTTP_200_OK, response_model=MatchOut)
 async def get_match_by_match_ID(ID_match: UUID, db=Depends(get_db)) -> MatchOut:
     return services.MatchService(db).get_match_by_id(ID_match)
+
+@router.get("/{ID_match}/players", status_code=status.HTTP_200_OK, response_model=List[Players_by_Match_Schema])
+async def get_player_by_ID_match(ID_match: UUID, db=Depends(get_db)) -> List[Players_by_Match_Schema]:
+    return services.MatchService(db).get_players_by_match(ID_match)

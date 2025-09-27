@@ -61,6 +61,22 @@ class MatchService:
 
     def get_match_by_id(self, match_id: UUID) -> Match | None:
         return self._db.query(Match).filter(Match.id == match_id).first()
+    
+    def get_players_by_match(self, match_id: UUID) -> List[schemas.Players_by_Match_Schema]:
+        match = self._db.query(Match).filter(Match.id == match_id).first()
+        result = []
+        for mp in match.match_players:
+            result.append({
+                "id": mp.player.id,
+                "player_id": mp.player.id,
+                "match_id" : mp.match.id,
+                "role": mp.role.value if mp.role else None,
+                "order": mp.order,
+                "name": mp.player.name,
+                "avatar": mp.player.avatar,
+                "birthday": mp.player.birthday 
+            }) 
+        return result
 
     def update_match() -> Match:
         pass
