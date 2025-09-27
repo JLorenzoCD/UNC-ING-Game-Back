@@ -1,61 +1,65 @@
 from fastapi import WebSocket,FastAPI,WebSocketDisconnect,APIRouter
 import uuid
 from typing import List, Dict, Any, Optional
-from dataclasses import dataclass
 
 websocket_router = APIRouter()
 
-@dataclass
-class ConnectionInfo:
-    ws: WebSocket
-    matchID: Optional[uuid.UUID] = None
-
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: list[ConnectionInfo] = []
+        self.matches: dict[uuid.UUID, set[WebSocket]] = {}
+        self.players: dict[uuid.UUID, WebSocket] = {}
+        self.waiting_room: set[WebSocket] = set()
 
-    async def connect(self, ws: WebSocket):
+    async def connect(self, ws: WebSocket, player_id: uuid.UUID):
         await ws.accept()
-        connection=ConnectionInfo(ws=ws, matchID=None)
-        self.active_connections.append(connection)
+        self.players[player_id] = ws
+        self.waiting_room.add(ws)
 
-    def disconnect(self, ws: WebSocket):
-        for connection in self.active_connections:
-            if connection.ws == ws:
-                self.active_connections.remove(connection)
-                break
+    def disconnect(self, player_id:uuid.UUID):
+        ws=self.players.pop(player_id, None) #aplica None por defecto si no encuentra un player con ese ID
+        if ws is None:
+            raise ValueError(f"El jugador {player_id} no se encontro en los jugadores activos")
+        self.waiting_room.discard(ws)
+
+        #lo desasocia si esta en alguna partida. No deberia poder desconectarse en partida(por ahora al menos)
+        for match_set in self.matches.values():
+            match_set.discard(ws)
     
-    def enterMatch(self, ws:WebSocket, matchID:uuid.UUID):
-        for connection in self.active_connections:
-            if connection.ws == ws:
-                connection.matchID = matchID
-                break
+    def enterMatch(self, player_id:uuid.UUID, matchID:uuid.UUID):
+        ws=self.players.get(player_id)
+        if matchID not in self.matches:
+            self.matches[matchID] = set()
+        self.matches[matchID].add(ws)
+        self.waiting_room.discard(ws)
 
-    def quitMatch(self, ws:WebSocket):
-        for connection in self.active_connections:
-            if connection.ws == ws:
-                connection.matchID = None
-                break
+    def quitMatch(self, player_id:uuid.UUID, matchID:uuid.UUID):
+        ws = self.players.get(player_id)
+        if matchID in self.matches:
+            self.matches[matchID].discard(ws)
+        self.waiting_room.add(ws)
 
     async def send_message(self, message: str, ws: WebSocket):
         await ws.send_text(message)
 
-    async def generalBroadcast(self,message:str):
-        for connection in self.active_connections:
-            await self.send_message(message, connection.ws)
+    async def waiting_room_broadcast(self,message:str):
+        for ws in self.waiting_room:
+            await self.send_message(message, ws)
 
     async def specificBroadcast(self, message:str, matchID: uuid.UUID):
-        for connection in self.active_connections:
-            if connection.matchID == matchID:
-                await self.send_message(message, connection.ws)
+        setws = self.matches.get(matchID)
+        if setws is not None:
+            for ws in setws:
+                await self.send_message(message, ws)
             
 
 manager = ConnectionManager()
 
+#el endpoint con el parametro quedaria similar a ws://localhost:8000/ws?player_id={player_id}
 @websocket_router.websocket("/ws")
 async def ws_endpoint(ws: WebSocket):
-    await manager.connect(ws)
+    player_id = uuid.UUID(ws.query_params.get("player_id")) #sacamos el id de los queryparametros
+    await manager.connect(ws,player_id)
     try:
         await ws.receive() #queda bloqueado hasta que el cliente cierre
     except WebSocketDisconnect:
-        manager.disconnect(ws)
+        manager.disconnect(player_id)

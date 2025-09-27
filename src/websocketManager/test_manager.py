@@ -1,6 +1,6 @@
 import uuid
 import pytest
-from ws_routes import ConnectionManager, ConnectionInfo
+from ws_routes import ConnectionManager
 
 class FakeWebSocket:
     def __init__(self):
@@ -17,38 +17,45 @@ class FakeWebSocket:
 async def test_connect_and_disconnect():
     manager = ConnectionManager()
     ws = FakeWebSocket()
+    player_id = uuid.uuid4()
 
-    await manager.connect(ws)
-    assert len(manager.active_connections) == 1
-    assert manager.active_connections[0].ws == ws
+    await manager.connect(ws,player_id)
+    assert player_id in manager.players
+    assert ws in manager.waiting_room
     assert ws.accepted is True
 
-    manager.disconnect(ws)
-    assert len(manager.active_connections) == 0
+    manager.disconnect(player_id)
+    assert player_id not in manager.players
+    assert ws not in manager.waiting_room
 
 @pytest.mark.asyncio
 async def test_enter_and_quit_match():
     manager = ConnectionManager()
     ws = FakeWebSocket()
+    player_id = uuid.uuid4()
 
-    await manager.connect(ws)
+
+    await manager.connect(ws, player_id)
     match_id = uuid.uuid4()
 
-    manager.enterMatch(ws, match_id)
-    assert manager.active_connections[0].matchID == match_id
+    manager.enterMatch(player_id, match_id)
+    assert ws in manager.matches[match_id]
+    assert ws not in manager.waiting_room
 
-    manager.quitMatch(ws)
-    assert manager.active_connections[0].matchID is None
+    manager.quitMatch(player_id, match_id)
+    assert ws not in manager.matches[match_id]
+    assert ws in manager.waiting_room
 
 @pytest.mark.asyncio
-async def test_general_broadcast():
+async def test_waiting_room_broadcast():
     manager = ConnectionManager()
     ws1, ws2 = FakeWebSocket(), FakeWebSocket()
+    pl_id1,pl_id2= uuid.uuid4(), uuid.uuid4()
 
-    await manager.connect(ws1)
-    await manager.connect(ws2)
+    await manager.connect(ws1,pl_id1)
+    await manager.connect(ws2,pl_id2)
 
-    await manager.generalBroadcast("Hello")
+    await manager.waiting_room_broadcast("Hello")
     assert "Hello" in ws1.sent_messages
     assert "Hello" in ws2.sent_messages
 
@@ -56,31 +63,15 @@ async def test_general_broadcast():
 async def test_specific_broadcast():
     manager = ConnectionManager()
     ws1, ws2 = FakeWebSocket(), FakeWebSocket()
+    pl_id1,pl_id2= uuid.uuid4(), uuid.uuid4()
 
-    await manager.connect(ws1)
-    await manager.connect(ws2)
+
+    await manager.connect(ws1,pl_id1)
+    await manager.connect(ws2,pl_id2)
 
     match_id = uuid.uuid4()
-    manager.enterMatch(ws1, match_id)
+    manager.enterMatch(pl_id1, match_id)
 
     await manager.specificBroadcast("Match only", match_id)
     assert "Match only" in ws1.sent_messages
     assert ws2.sent_messages == []
-
-@pytest.mark.asyncio
-async def test_specific_broadcast_only_reaches_target():
-    manager = ConnectionManager()
-    ws1, ws2, ws3 = FakeWebSocket(), FakeWebSocket(), FakeWebSocket()
-
-    await manager.connect(ws1)
-    await manager.connect(ws2)
-    await manager.connect(ws3)
-
-    match_id = uuid.uuid4()
-    manager.enterMatch(ws1, match_id)
-
-    await manager.specificBroadcast("hola", match_id)
-
-    assert ws1.sent_messages == ["hola"]
-    assert ws2.sent_messages == []
-    assert ws3.sent_messages == []
