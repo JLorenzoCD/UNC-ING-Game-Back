@@ -30,6 +30,8 @@ def test_iniciar_crear_partida(client, db_session):
     response = client.get("/matches")
     assert response.status_code == 200
     
-    
     response = client.get(f"/matches/{match['id']}")
-    assert response.status_code == 200   
+    assert response.status_code == 200
+    
+    response = client.get(f"/matches/{match['id']}/players")
+    assert response.status_code == 200 

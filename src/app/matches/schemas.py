@@ -1,7 +1,11 @@
 from uuid import UUID
+from typing import Optional
 from app.matches.models import MatchStatus
 from pydantic import BaseModel, ConfigDict
 from app.matches.dto import MatchDTO
+from datetime import date
+from app.secrets.models import Secret_Type
+from app.cards.models import Card_Type
 
 class MatchIn(BaseModel):
     name: str
@@ -38,3 +42,37 @@ class Match_Player_Schema(BaseModel):
     match_id: UUID
     role: str
     order: int
+    
+    
+class Players_by_Match_Schema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: UUID
+    player_id: UUID
+    match_id: UUID
+    role: Optional[str] = None
+    order: int
+    name: str
+    avatar: str
+    birthday: date
+    
+class Secrets_by_Match_Schema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
+    card_id: UUID
+    match_id: UUID
+    player_id: Optional[UUID] = None
+    is_discarded: Optional[bool] = False
+    name: str
+    type: Card_Type
+    description: str
+    
+class Cards_by_Match_Schema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
+    secret_id: UUID
+    match_id: UUID
+    player_id: Optional[UUID] = None
+    is_revealed: Optional[bool] = False
+    type: Secret_Type
+    content: str
