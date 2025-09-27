@@ -41,12 +41,27 @@ async def create_match(match_in: MatchIn,
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=List[MatchOut])
 async def get_all_matches(db=Depends(get_db)) -> List[MatchOut]:
-    return services.MatchService(db).get_all()
+    try:
+        matches: List[MatchOut] = services.MatchService(db).get_all()
+    except Exception:
+        raise HTTPException(status_code=404, detail="Matches not found")
+    
+    return matches
 
 @router.get("/{ID_match}", status_code=status.HTTP_200_OK, response_model=MatchOut)
 async def get_match_by_match_ID(ID_match: UUID, db=Depends(get_db)) -> MatchOut:
-    return services.MatchService(db).get_match_by_id(ID_match)
+    try:
+        match: MatchOut = services.MatchService(db).get_match_by_id(ID_match)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Match not found")
+    
+    return match
 
 @router.get("/{ID_match}/players", status_code=status.HTTP_200_OK, response_model=List[Players_by_Match_Schema])
 async def get_player_by_ID_match(ID_match: UUID, db=Depends(get_db)) -> List[Players_by_Match_Schema]:
-    return services.MatchService(db).get_players_by_match(ID_match)
+    try:
+        players_match: List[Players_by_Match_Schema] = services.MatchService(db).get_players_by_match(ID_match)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    return players_match
