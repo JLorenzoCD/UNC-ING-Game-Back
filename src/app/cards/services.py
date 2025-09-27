@@ -1,55 +1,53 @@
 from uuid import UUID
-
-from app.cards.models import Match_Card
+from app.cards.models import Card, Match_Card
 
 
 class Cards_Services:
     def __init__(self, db):
         self._db = db
 
-    def iniciar_cartas(self, match_id: UUID) -> None:
+    def iniciar_match_cards(self, match_id: UUID) -> None:
+        # Lista de cartas con cantidad
         all_cards = [
-            # Detective cards
-            {"type": "Detective", "name": "Harley Quin Wildcard", "quantity": 4},
-            {"type": "Detective", "name": "Adriane Oliver", "quantity": 3},
-            {"type": "Detective", "name": "Miss Maple", "quantity": 3},
-            {"type": "Detective", "name": "Parker Pyne", "quantity": 3},
-            {"type": "Detective", "name": "Tommy Beresford", "quantity": 3},
-            {"type": "Detective", "name": "Lady Eileen \"Bundle\" Brent", "quantity": 3},
-            {"type": "Detective", "name": "Tuppence Beresford", "quantity": 2},
-            {"type": "Detective", "name": "Hercule Poirot", "quantity": 1},
-            {"type": "Detective", "name": "Mr Satterthwaite", "quantity": 2},
-            
-            # Instant cards
-            {"type": "Instant", "name": "Not so fast", "quantity": 10},
-            
-            # Devious cards
-            {"type": "Devious", "name": "Blackmailed", "quantity": 3},
-            {"type": "Devious", "name": "Social Faux Pas", "quantity": 3},
-            
-            # Event cards
-            {"type": "Event", "name": "Delay the murderer's escape!", "quantity": 3},
-            {"type": "Event", "name": "Point your suspicions", "quantity": 3},
-            {"type": "Event", "name": "Dead end clue", "quantity": 3},
-            {"type": "Event", "name": "Another Victim", "quantity": 2},
-            {"type": "Event", "name": "Look into the ashes", "quantity": 3},
-            {"type": "Event", "name": "Card trade", "quantity": 2},
-            {"type": "Event", "name": "And then there was one more...", "quantity": 2},
-            {"type": "Event", "name": "Early train to paddington", "quantity": 2},
-            {"type": "Event", "name": "Cards off the table", "quantity": 2},
+            {"type": "INSTANT", "name": "NOT SO FAST", "quantity": 10},
+            {"type": "DETECTIVE", "name": "PARKER PYNE", "quantity": 3},
+            {"type": "DETECTIVE", "name": "LADY EILEEN", "quantity": 3},
+            {"type": "DETECTIVE", "name": "TOMMY BERESFORD", "quantity": 2},
+            {"type": "DETECTIVE", "name": "TUPPENCE BERESFORD", "quantity": 2},
+            {"type": "DETECTIVE", "name": "HARLEY QUIN WILDCARD", "quantity": 4},
+            {"type": "DETECTIVE", "name": "ARIADNE OLIVER", "quantity": 3},
+            {"type": "DETECTIVE", "name": "HERCULE POIROT", "quantity": 1},
+            {"type": "DETECTIVE", "name": "MISS MARPLE", "quantity": 3},
+            {"type": "DETECTIVE", "name": "MR SATTERTHWAITE", "quantity": 2},
+            {"type": "EVENT", "name": "CARDS OFF THE TABLE", "quantity": 1},
+            {"type": "EVENT", "name": "ANOTHER VICTIM", "quantity": 2},
+            {"type": "EVENT", "name": "DEAD CARD FOLLY", "quantity": 3},
+            {"type": "EVENT", "name": "LOOK INTO THE ASHES", "quantity": 3},
+            {"type": "EVENT", "name": "CARD TRADE", "quantity": 2},
+            {"type": "EVENT", "name": "AND THEN THERE WAS ONE MORE", "quantity": 2},
+            {"type": "EVENT", "name": "DELAY THE MURDERER ESCAPE", "quantity": 3},
+            {"type": "EVENT", "name": "EARLY TRAIN TO PADDINGTON", "quantity": 2},
+            {"type": "EVENT", "name": "POINT YOUR SUSPICIONS", "quantity": 3},
+            {"type": "DEVIOUS", "name": "BLACKMAILED", "quantity": 3},
+            {"type": "DEVIOUS", "name": "SOCIAL FAUX PAS", "quantity": 3},
         ]
-        
-        # Crear la lista completa de cartas expandida
-        cards = []
-        for card_info in all_cards:
-            for _ in range(card_info["quantity"]):
-                cards.append({
-                    "type": card_info["type"],
-                    "name": card_info["name"]
-                })
 
-        for card in cards:
-            new_card = Match_Card(match_id=match_id, type=card.get("type"), name=card.get("name"))
-            self._db.add(new_card)
-            self._db.commit()
-            self._db.refresh(new_card)
+        # Crear Match_Card según la cantidad
+        for card_info in all_cards:
+            # Buscar la carta base en la tabla cards
+            card_base = (
+                self._db.query(Card)
+                .filter_by(name=card_info["name"], type=card_info["type"])
+                .first()
+            )
+            if not card_base:
+                continue  # O lanzar excepción si no existe
+
+            for _ in range(card_info["quantity"]):
+                match_card = Match_Card(
+                    match_id=match_id,
+                    card_id=card_base.id,
+                )
+                self._db.add(match_card)
+
+        self._db.commit()
