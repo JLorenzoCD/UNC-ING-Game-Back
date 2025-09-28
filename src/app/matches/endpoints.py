@@ -10,7 +10,7 @@ from websocketManager.ws_messages import WSEvent, make_ws_message
 from app.player.models import Player
 
 from app.matches import services
-from app.matches.schemas import MatchIn, MatchOut, MatchResponse, MatchDTO, Players_by_Match_Schema
+from app.matches.schemas import MatchIn, MatchOut, MatchResponse, MatchDTO, Players_by_Match_Schema, Match_number_of_Player
 
 router = APIRouter(
     tags=["matches"],
@@ -40,8 +40,8 @@ async def create_match(match_in: MatchIn,
     return MatchResponse(id=new_match.id)
 
 
-@router.get("/", status_code=status.HTTP_200_OK, response_model=List[MatchOut])
-async def get_all_matches(db=Depends(get_db)) -> List[MatchOut]:
+@router.get("/", status_code=status.HTTP_200_OK, response_model=List[Match_number_of_Player])
+async def get_all_matches(db=Depends(get_db)) -> List[Match_number_of_Player]:
     try:
         matches: List[MatchOut] = services.MatchService(db).get_all()
     except Exception:
