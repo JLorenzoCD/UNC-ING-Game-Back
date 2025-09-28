@@ -56,12 +56,31 @@ class MatchService:
         match_out = db_match_2_match_schema(new_match)
         return match_out  
 
-    def get_all(self) -> List[schemas.MatchOut]:
+    def get_all(self) -> List[schemas.Match_number_of_Player]:
         try:
-            matches: List[schemas.MatchOut] = self._db.query(Match).all()
-        except Exception:
+            matches = self._db.query(Match).all()
+            
+            combined = []
+            for match in matches:
+                # Convertir a schema base
+                match_out = db_match_2_match_schema(match)
+                
+                # Obtener conteo de jugadores
+                player_count = self.count_players_by_match(match.id)
+                
+                # Crear schema extendido
+                extended_match = schemas.Match_number_of_Player(
+                    **match_out.model_dump(),
+                    current_player_count=player_count
+                )
+                combined.append(extended_match)
+            
+            return combined
+        except SQLAlchemyError as e:
+            self._db.rollback()
             raise
-        return matches
+        except Exception as e:
+            raise
 
     def get_match_by_id(self, match_id: UUID) -> Match | None:
         try:
@@ -94,6 +113,13 @@ class MatchService:
         except Exception as e:
             raise 
         return result
+    
+    def count_players_by_match(self, match_id: UUID) -> int:
+        return (
+        self._db.query(Match_Player)
+        .filter(Match_Player.match_id == match_id)
+        .count()
+    )   
 
     def update_match() -> Match:
         pass

@@ -76,3 +76,6 @@ class Cards_by_Match_Schema(BaseModel):
     is_revealed: Optional[bool] = False
     type: Secret_Type
     content: str
+    
+class Match_number_of_Player(MatchOut):
+    current_player_count: int
