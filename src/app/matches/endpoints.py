@@ -7,6 +7,7 @@ from uuid import UUID
 from typing import List, Optional
 from websocketManager.ws_routes import manager
 from websocketManager.ws_messages import WSEvent, make_ws_message
+from app.player.models import Player
 
 from app.matches import services
 from app.matches.schemas import MatchIn, MatchOut, MatchResponse, MatchDTO, Players_by_Match_Schema
@@ -65,3 +66,39 @@ async def get_player_by_ID_match(ID_match: UUID, db=Depends(get_db)) -> List[Pla
         raise HTTPException(status_code=404, detail="Not found")
 
     return players_match
+
+@router.post("/{match_id}/join", status_code=status.HTTP_200_OK)
+async def join_match(match_id: UUID,player_id: UUID, db=Depends(get_db)):
+    #Para el futuro estaria bien hacer services de player
+    info_player = db.query(Player).filter(Player.id == player_id).first()
+    if not info_player:
+        raise HTTPException(status_code=404, detail="Player not found")
+    services.MatchService(db).join(match_id, player_id)
+    payload={
+        "id": info_player.id,
+        "name": info_player.name,
+        "avatar": info_player.avatar,
+        "birthday": info_player.birthday
+    }
+    await manager.specificBroadcast(make_ws_message(WSEvent.PLAYER_JOIN, payload), match_id)
+    manager.enterMatch(player_id, match_id)
+
+    match_service = services.MatchService(db)
+    match = match_service.get_match_by_id(match_id)
+    players_count = match_service.count_players_by_match(match_id)
+
+    #payload para WS
+    match_payload = {
+        "id_match": str(match.id),
+        "name": match.name,
+        "status": match.status.value,   # asumiendo que es Enum
+        "min_players": match.min_players,
+        "max_players": match.max_players,
+        "id_creator": str(match.owner_id),
+        "current_player_count": players_count
+    }   
+
+    message_ws = make_ws_message(WSEvent.MATCH, match_payload)
+    await manager.waiting_room_broadcast(message_ws)
+
+    return {"match_id": match_id}

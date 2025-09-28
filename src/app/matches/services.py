@@ -6,6 +6,7 @@ from app.matches import schemas
 from app.player.models import Player
 from app.matches.utils import db_match_2_match_schema
 from typing import List, Optional
+from fastapi import HTTPException 
 
 
 # Excepciones
@@ -94,6 +95,37 @@ class MatchService:
         except Exception as e:
             raise 
         return result
+
+    def join(self, match_id:UUID, player_id:UUID):
+        match = self._db.query(Match).filter(Match.id == match_id).first()
+        if not match:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        # contar jugadores con el nuevo servicio
+        current_players = self.count_players_by_match(match_id)
+        if current_players >= match.max_players:
+            raise HTTPException(status_code=400, detail="Match is full")
+        
+        #no se mete 2 veces el mismo jugador
+        already_joined = (
+        self._db.query(Match_Player)
+        .filter(Match_Player.match_id == match_id, Match_Player.player_id == player_id)
+        .first()
+        )
+        if already_joined:
+            raise HTTPException(status_code=400, detail="Player already in")
+
+        match_player = Match_Player (match_id = match_id, player_id=player_id, order=0)
+        self._db.add(match_player)
+        self._db.commit()
+        self._db.refresh(match_player)
+    
+    def count_players_by_match(self, match_id: UUID) -> int:
+        return (
+        self._db.query(Match_Player)
+        .filter(Match_Player.match_id == match_id)
+        .count()
+    )
 
     def update_match() -> Match:
         pass
