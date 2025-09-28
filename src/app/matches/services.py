@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from uuid import UUID
 from app.matches import schemas
+from app.secrets import schemas
+from app.secrets.models import Secret, Match_Secret, Secret_Type
 from app.player.models import Player
 from app.matches.utils import db_match_2_match_schema
 from typing import List, Optional
@@ -126,6 +128,28 @@ class MatchService:
         .filter(Match_Player.match_id == match_id)
         .count()
     )
+
+    def get_secrets_by_match(self, match_id: UUID):
+        results = (
+            self._db.query(Match_Secret, Secret)
+            .join(Secret, Match_Secret.secret_id == Secret.id)
+            .filter(Match_Secret.match_id == match_id)
+            .all()
+        )
+
+        #formato de info de lo que pide el front
+        combined = []
+        for ms, s in results:
+            combined.append({
+                "id": ms.id,
+                "secret_id": ms.secret_id,
+                "match_id": ms.match_id,
+                "player_id": ms.player_id,
+                "is_revealed": ms.is_revealed,
+                "type": s.type,
+                "content": s.content,
+            })
+        return combined
 
     def update_match() -> Match:
         pass
