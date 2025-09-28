@@ -1,32 +1,35 @@
 import uuid
-from app.matches.models import Match
-from app.matches.schemas import MatchOut, MatchIn
-from app.matches.dto import MatchDTO
-from app.matches.models import MatchStatus
-from app.player.models import Player
-from datetime import date
-        
-def test_endpoint_matcher_POST(client):
-        
-    #Creamos Player
+import pytest
+
+from app.matches.services import MatchService
+from app.cards.models import Card, Card_Type, Match_Card
+from unittest.mock import MagicMock, patch
+
+def test_iniciar_crear_partida(client, db_session):
+    # 1. Crear player
     response = client.post("/players", json={
         "name": "Elian",
         "avatar": "avatar2",
         "birthday": "2000-04-21"
     })
     assert response.status_code == 201
-    data = response.json()
+    player = response.json()
 
-    # body request Match
+    # 2. Crear match
     match_post = {
         "name": "Partida Test",
         "min_players": 2,
         "max_players": 6,
-        "owner_id": data["id"],
+        "owner_id": player["id"],
     }
-    # Llamada al endpoint
     response = client.post("/matches", json=match_post)
+    match = response.json()
     assert response.status_code == 201
-
-    body = response.json()
-    assert "id" in body
+    
+    # 3. Metedos GET 
+    response = client.get("/matches")
+    assert response.status_code == 200
+    
+    
+    response = client.get(f"/matches/{match['id']}")
+    assert response.status_code == 200   
