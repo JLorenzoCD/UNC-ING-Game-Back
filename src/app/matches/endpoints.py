@@ -67,7 +67,7 @@ async def get_player_by_ID_match(ID_match: UUID, db=Depends(get_db)) -> List[Pla
 
     return players_match
 
-@router.post("{match_id}/join", status_code=status.HTTP_200_OK)
+@router.post("/{match_id}/join", status_code=status.HTTP_200_OK)
 async def join_match(match_id: UUID,player_id: UUID, db=Depends(get_db)):
     #Para el futuro estaria bien hacer services de player
     info_player = db.query(Player).filter(Player.id == player_id).first()
@@ -81,7 +81,7 @@ async def join_match(match_id: UUID,player_id: UUID, db=Depends(get_db)):
         "birthday": info_player.birthday
     }
     await manager.specificBroadcast(make_ws_message(WSEvent.PLAYER_JOIN, payload), match_id)
-    await manager.enterMatch(player_id, match_id)
+    manager.enterMatch(player_id, match_id)
 
     match_service = services.MatchService(db)
     match = match_service.get_match_by_id(match_id)
