@@ -57,10 +57,43 @@ class MatchService:
         return match_out  
 
     def get_all(self) -> List[schemas.MatchOut]:
-        return self._db.query(Match).all()
+        try:
+            matches: List[schemas.MatchOut] = self._db.query(Match).all()
+        except Exception:
+            raise
+        return matches
 
     def get_match_by_id(self, match_id: UUID) -> Match | None:
-        return self._db.query(Match).filter(Match.id == match_id).first()
+        try:
+            match: Match = self._db.query(Match).filter(Match.id == match_id).first()
+            if not Match:
+                raise Exception("Partida no encontrada")
+        except Exception:
+            raise
+        return match
+    
+    def get_players_by_match(self, match_id: UUID) -> List[schemas.Players_by_Match_Schema]:
+        
+        try:    
+            match = self._db.query(Match).filter(Match.id == match_id).first()
+            if not match:
+                raise Exception("Partida no encontrada")
+            
+            result = []
+            for mp in match.match_players:
+                result.append({
+                    "id": mp.player.id,
+                    "player_id": mp.player.id,
+                    "match_id" : mp.match.id,
+                    "role": mp.role.value if mp.role else None,
+                    "order": mp.order,
+                    "name": mp.player.name,
+                    "avatar": mp.player.avatar,
+                    "birthday": mp.player.birthday 
+                })
+        except Exception as e:
+            raise 
+        return result
 
     def update_match() -> Match:
         pass
