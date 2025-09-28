@@ -1,4 +1,5 @@
 from uuid import UUID
+
 from app.cards.models import Card, Match_Card
 
 
@@ -51,3 +52,10 @@ class Cards_Services:
                 self._db.add(match_card)
 
         self._db.commit()
+
+    def get_cards_by_match(self, match_id: UUID) -> list[Match_Card]:
+        return (
+            self._db.query(Match_Card)
+            .filter(Match_Card.match_id == match_id)
+            .all()
+        )

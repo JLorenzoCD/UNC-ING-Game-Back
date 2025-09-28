@@ -1,4 +1,7 @@
 from uuid import UUID
+from datetime import date
+import random
+
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -8,6 +11,9 @@ from app.matches.utils import db_match_2_match_schema
 from typing import List, Optional
 from fastapi import HTTPException
 from app.cards.models import Card, Match_Card
+
+from app.secrets.models import Secret, Match_Secret, Secret_Type
+from app.secrets.services import Secrets_Services
 
 
 # Excepciones
@@ -51,7 +57,9 @@ class MatchService:
 
         try:
             match_player = Match_Player(
-                match_id=new_match.id, player_id=owner.id, order=0
+                match_id=new_match.id,
+                player_id=owner.id,
+                order=0,
             )
             self._db.add(match_player)
             self._db.commit()
@@ -215,12 +223,138 @@ class MatchService:
             .all()
         )
 
+    def asignar_orden_jugadores(self, match_id: UUID) -> None:
+        # Obtener jugadores de la partida
+        match_players: list[Match_Player] = self.get_players_from_match(match_id)
+        players: list[Player] = []
+
+        for mp in match_players:
+            player = self._db.get(Player, mp.player_id)
+            if player:
+                players.append(player)
+
+        # Función para calcular distancia al 15 de septiembre
+        def distancia_a_septiembre_15(birthday: date) -> int:
+            objetivo_mes, objetivo_dia = 9, 15
+
+            def dias_del_año(mes, dia):
+                dias_por_mes = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+                return sum(dias_por_mes[: mes - 1]) + dia
+
+            objetivo_dia_año = dias_del_año(objetivo_mes, objetivo_dia)
+            birthday_dia_año = dias_del_año(birthday.month, birthday.day)
+
+            distancia_directa = abs(objetivo_dia_año - birthday_dia_año)
+            distancia_circular = 366 - distancia_directa
+
+            return min(distancia_directa, distancia_circular)
+
+        # Calcular distancias
+        players_con_distancia = [
+            (player, distancia_a_septiembre_15(player.birthday))
+            for player in players
+        ]
+
+        # Agrupar por distancia
+        distancias_agrupadas = {}
+        for player, distancia in players_con_distancia:
+            if distancia not in distancias_agrupadas:
+                distancias_agrupadas[distancia] = []
+            distancias_agrupadas[distancia].append(player)
+
+        # Ordenar por distancia y randomizar empates
+        orden_final = []
+        for distancia in sorted(distancias_agrupadas.keys()):
+            jugadores_empatados = distancias_agrupadas[distancia]
+            random.shuffle(jugadores_empatados)
+            orden_final.extend(jugadores_empatados)
+
+        # Asignar órdenes (empezando en 1)
+        for nuevo_orden, player in enumerate(orden_final, start=1):
+            match_player = next(
+                (mp for mp in match_players if mp.player_id == player.id),
+                None,
+            )
+            if match_player:
+                match_player.order = nuevo_orden
+
+        try:
+            self._db.commit()
+        except SQLAlchemyError as exception:
+            self._db.rollback()
+            raise exception
+
     def iniciar_partida(self, match_id: UUID) -> None:
-        # Actualizar estado de la partida
+        # Estado de la partida
         self.update_status_match(match_id, MatchStatus.IN_PROGRESS)
 
-        # Obtener jugadores (si los necesitás para lógica futura)
         match_players: list[Match_Player] = self.get_players_from_match(match_id)
 
-        # Inicializar cartas con el servicio de cartas
+        # Inicializar cartas y secretos
         Cards_Services(self._db).iniciar_match_cards(match_id)
+        Secrets_Services(self._db).iniciar_match_secrets(len(match_players), match_id)
+
+        # Obtener cartas y secretos
+        match_cards: list[Match_Card] = Cards_Services(self._db).get_cards_by_match(match_id)
+        match_secrets: list[Match_Secret] = Secrets_Services(self._db).get_secrets_by_match(match_id)
+
+        random.shuffle(match_cards)
+        random.shuffle(match_secrets)
+
+        # Reparto de secretos
+        secrets_unassigned = len(match_secrets)
+        murderer_assigned = False
+        while secrets_unassigned > 0:
+            for player in match_players:
+                if secrets_unassigned == 0:
+                    break
+
+                match_secret = match_secrets[secrets_unassigned - 1]
+                match_secret.player_id = player.player_id
+                secrets_unassigned -= 1
+
+                secret_obj = self._db.get(Secret, match_secret.secret_id)
+
+                if secret_obj and secret_obj.type == Secret_Type.MURDERER:
+                    murderer_assigned = True
+                    player.role = Secret_Type.MURDERER
+                elif player.role == Secret_Type.MURDERER:
+                    continue
+                else:
+                    player.role = Secret_Type.INNOCENT
+
+        # Reparto de cartas
+        not_so_fast_cards = []
+        other_cards = []
+
+        for card in match_cards:
+            card_obj = self._db.get(Card, card.card_id)
+            if card_obj and card_obj.name == "NOT SO FAST":
+                not_so_fast_cards.append(card)
+            else:
+                other_cards.append(card)
+
+        for i, player in enumerate(match_players):
+            if i < len(not_so_fast_cards):
+                not_so_fast_cards[i].player_id = player.player_id
+
+        remaining_not_so_fast = not_so_fast_cards[len(match_players) :]
+        other_cards.extend(remaining_not_so_fast)
+
+        random.shuffle(other_cards)
+
+        card_index = 0
+        for player in match_players:
+            cards_dealt = 0
+            while cards_dealt < 5 and card_index < len(other_cards):
+                other_cards[card_index].player_id = player.player_id
+                card_index += 1
+                cards_dealt += 1
+
+        self.asignar_orden_jugadores(match_id)
+
+        try:
+            self._db.commit()
+        except SQLAlchemyError as exception:
+            self._db.rollback()
+            raise exception
