@@ -91,7 +91,7 @@ class MatchService:
         except Exception as e:
             raise
 
-    def get_match_by_id(self, match_id: UUID) -> schemas.Match_number_of_Player | None:
+    def get_match_by_id(self, match_id: UUID) -> match_schemas.Match_number_of_Player | None:
         try:
             match: Match = self._db.query(Match).filter(Match.id == match_id).first()
             # Convertir a schema base
@@ -101,7 +101,7 @@ class MatchService:
             player_count = self.count_players_by_match(match.id)
                 
             # Crear schema extendido
-            extended_match = schemas.Match_number_of_Player(
+            extended_match = match_schemas.Match_number_of_Player(
                     **match_out.model_dump(),
                     current_player_count=player_count
                 )
