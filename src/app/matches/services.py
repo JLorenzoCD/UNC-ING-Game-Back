@@ -1,7 +1,6 @@
 from uuid import UUID
 from datetime import date
 import random
-
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
@@ -9,7 +8,11 @@ from fastapi import HTTPException
 from typing import List
 
 from app.matches.models import Match, Match_Player, MatchStatus
-from app.matches import schemas
+from app.matches import schemas as match_schemas
+from app.secrets import schemas as secret_schemas
+from app.secrets.models import Secret, Match_Secret, Secret_Type
+from app.player.models import Player
+
 from app.matches.utils import db_match_2_match_schema
 from app.player.models import Player
 from app.cards.models import Match_Card, Card
@@ -34,7 +37,7 @@ class MatchService:
     def __init__(self, db):
         self._db = db
     
-    def create(self, match_dto: schemas.MatchDTO) -> schemas.MatchOut:
+    def create(self, match_dto: match_schemas.MatchDTO) -> match_schemas.MatchOut:
         if match_dto.min_players < 2 or match_dto.max_players > 6:
             raise MatchValidationError("Incorrect number of players")
         
@@ -65,8 +68,9 @@ class MatchService:
             raise
         match_out = db_match_2_match_schema(new_match)
         return match_out  
+      
 
-    def get_all(self) -> List[schemas.Match_number_of_Player]:
+    def get_all(self) -> List[match_schemas.Match_number_of_Player]:
         try:
             matches = self._db.query(Match).all()
             
@@ -79,7 +83,7 @@ class MatchService:
                 player_count = self.count_players_by_match(match.id)
                 
                 # Crear schema extendido
-                extended_match = schemas.Match_number_of_Player(
+                extended_match = match_schemas.Match_number_of_Player(
                     **match_out.model_dump(),
                     current_player_count=player_count
                 )
@@ -101,7 +105,7 @@ class MatchService:
             raise
         return match
     
-    def get_players_by_match(self, match_id: UUID) -> List[schemas.Players_by_Match_Schema]:
+    def get_players_by_match(self, match_id: UUID) -> List[match_schemas.Players_by_Match_Schema]:
         
         try:    
             match = self._db.query(Match).filter(Match.id == match_id).first()
@@ -155,7 +159,7 @@ class MatchService:
         self._db.commit()
         self._db.refresh(match_player)
 
-    def get_cards_by_match (self, match_id:UUID) -> List[schemas.Cards_by_Match_Schema]:
+    def get_cards_by_match (self, match_id:UUID) -> List[match_schemas.Cards_by_Match_Schema]:
           
         try:
             match = self._db.query(Match).filter(Match.id == match_id).first()
@@ -175,7 +179,7 @@ class MatchService:
             .filter(Match_Card.match_id == match_id)\
             .all()
             
-            combined: List[schemas.Cards_by_Match_Schema] = []
+            combined: List[match_schemas.Cards_by_Match_Schema] = []
             for r in results:
                 combined.append({
                     "id": r.id,
@@ -198,6 +202,28 @@ class MatchService:
         .filter(Match_Player.match_id == match_id)
         .count()
     )
+
+    def get_secrets_by_match(self, match_id: UUID):
+        results = (
+            self._db.query(Match_Secret, Secret)
+            .join(Secret, Match_Secret.secret_id == Secret.id)
+            .filter(Match_Secret.match_id == match_id)
+            .all()
+        )
+
+        #formato de info de lo que pide el front
+        combined = []
+        for ms, s in results:
+            combined.append({
+                "id": ms.id,
+                "secret_id": ms.secret_id,
+                "match_id": ms.match_id,
+                "player_id": ms.player_id,
+                "is_revealed": ms.is_revealed,
+                "type": s.type,
+                "content": s.content,
+            })
+        return combined
 
     def update_match() -> Match:
         pass
