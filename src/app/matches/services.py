@@ -65,7 +65,7 @@ class MatchService:
         return match_out  
       
 
-    def get_all(self) -> List[schemas.Match_number_of_Player]:
+    def get_all(self) -> List[match_schemas.Match_number_of_Player]:
         try:
             matches = self._db.query(Match).all()
             
@@ -78,7 +78,7 @@ class MatchService:
                 player_count = self.count_players_by_match(match.id)
                 
                 # Crear schema extendido
-                extended_match = schemas.Match_number_of_Player(
+                extended_match = match_schemas.Match_number_of_Player(
                     **match_out.model_dump(),
                     current_player_count=player_count
                 )
@@ -154,7 +154,7 @@ class MatchService:
         self._db.commit()
         self._db.refresh(match_player)
 
-    def get_cards_by_match (self, match_id:UUID) -> List[schemas.Cards_by_Match_Schema]:
+    def get_cards_by_match (self, match_id:UUID) -> List[match_schemas.Cards_by_Match_Schema]:
           
         try:
             match = self._db.query(Match).filter(Match.id == match_id).first()
@@ -174,7 +174,7 @@ class MatchService:
             .filter(Match_Card.match_id == match_id)\
             .all()
             
-            combined: List[schemas.Cards_by_Match_Schema] = []
+            combined: List[match_schemas.Cards_by_Match_Schema] = []
             for r in results:
                 combined.append({
                     "id": r.id,
