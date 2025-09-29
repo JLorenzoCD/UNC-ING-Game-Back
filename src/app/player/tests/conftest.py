@@ -1,27 +1,48 @@
+# conftest.py
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.models.db import Base
-from fastapi.testclient import TestClient
+from sqlalchemy.pool import StaticPool
+
 from main import app
+from app.models.db import get_db, Base
 
-# Usamos SQLite en memoria para test
-TEST_DATABASE_URL = "sqlite:///:memory:"
+# Base de datos en memoria para tests
+SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
-@pytest.fixture(scope="function")
-def db_session():
-    engine = create_engine(TEST_DATABASE_URL, echo=False)
-    TestingSessionLocal = sessionmaker(bind=engine)
-    
-    Base.metadata.create_all(bind=engine)
-    
-    session = TestingSessionLocal()
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def override_get_db():
     try:
-        yield session
+        db = TestingSessionLocal()
+        yield db
     finally:
-        session.close()
+        db.close()
 
-@pytest.fixture(scope="function")
-def client():
+@pytest.fixture
+def db_session():
+    """Fixture que provee una sesión de base de datos de prueba"""
+    Base.metadata.create_all(bind=engine)
+    session = TestingSessionLocal()
+    yield session
+    session.close()
+    Base.metadata.drop_all(bind=engine)
+
+@pytest.fixture
+def client(db_session):
+    """Fixture que provee un cliente de prueba con DB mockeada"""
+    def override_get_db_with_session():
+        yield db_session
+    
+    app.dependency_overrides[get_db] = override_get_db_with_session
+    
     with TestClient(app) as c:
         yield c
+    
+    app.dependency_overrides.clear()

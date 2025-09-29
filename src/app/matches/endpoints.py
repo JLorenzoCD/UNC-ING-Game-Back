@@ -104,6 +104,11 @@ async def join_match(match_id: UUID,player_id: UUID, db=Depends(get_db)):
 
     return {"match_id": match_id}
 
+@router.get("/{match_id}/secrets", status_code=status.HTTP_200_OK)
+async def get_secrets(match_id: UUID, db=Depends(get_db)):
+    secrets=services.MatchService(db).get_secrets_by_match(match_id)
+    return secrets
+
 @router.get("/{match_id}/cards", status_code=status.HTTP_200_OK, response_model=List[Cards_by_Match_Schema])
 async def get_cards(match_id: UUID, db = Depends(get_db)):
     try:
