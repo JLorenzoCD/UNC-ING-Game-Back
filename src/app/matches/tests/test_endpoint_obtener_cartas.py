@@ -1,9 +1,6 @@
 import uuid
 import pytest
-import uuid
-from app.matches.services import MatchService
-from app.cards.models import Card, Card_Type, Match_Card
-from unittest.mock import MagicMock, patch
+from app.cards.models import Card, Match_Card
 from app.cards import models
 from sqlalchemy import func
 
