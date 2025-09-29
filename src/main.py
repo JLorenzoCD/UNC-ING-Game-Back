@@ -15,15 +15,23 @@ from app.player.endpoints import player_router
 from app.matches.endpoints import router as matches_router
 from fastapi.middleware.cors import CORSMiddleware
 
+
 app = FastAPI()
 
 app.add_middleware(
+
     CORSMiddleware,
+
     allow_origins=["http://localhost:5173"],  # o ["*"] para todos los orígenes
+
     allow_credentials=True,
+
     allow_methods=["*"],
+
     allow_headers=["*"],
+
 )
+
 
 app.include_router(websocket_router)
 app.include_router(player_router)

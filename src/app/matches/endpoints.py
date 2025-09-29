@@ -10,7 +10,7 @@ from websocketManager.ws_messages import WSEvent, make_ws_message
 from app.player.models import Player
 
 from app.matches import services
-from app.matches.schemas import MatchIn, MatchOut, MatchResponse, MatchDTO, Players_by_Match_Schema
+from app.matches.schemas import MatchIn, MatchOut, MatchResponse, MatchDTO, Players_by_Match_Schema, Match_number_of_Player, Cards_by_Match_Schema
 
 router = APIRouter(
     tags=["matches"],
@@ -34,14 +34,15 @@ async def create_match(match_in: MatchIn,
         raise HTTPException(status_code=500, detail=str(e))
 
     match_dict = new_match.model_dump(mode='json')
+    match_dict["current_player_count"] = 1
     ws_message = make_ws_message(WSEvent.MATCH, match_dict)
     await manager.waiting_room_broadcast(ws_message)
         
     return MatchResponse(id=new_match.id)
 
 
-@router.get("/", status_code=status.HTTP_200_OK, response_model=List[MatchOut])
-async def get_all_matches(db=Depends(get_db)) -> List[MatchOut]:
+@router.get("/", status_code=status.HTTP_200_OK, response_model=List[Match_number_of_Player])
+async def get_all_matches(db=Depends(get_db)) -> List[Match_number_of_Player]:
     try:
         matches: List[MatchOut] = services.MatchService(db).get_all()
     except Exception:
@@ -49,19 +50,19 @@ async def get_all_matches(db=Depends(get_db)) -> List[MatchOut]:
     
     return matches
 
-@router.get("/{ID_match}", status_code=status.HTTP_200_OK, response_model=MatchOut)
-async def get_match_by_match_ID(ID_match: UUID, db=Depends(get_db)) -> MatchOut:
+@router.get("/{match_id}", status_code=status.HTTP_200_OK, response_model=MatchOut)
+async def get_match_by_match_ID(match_id: UUID, db=Depends(get_db)) -> MatchOut:
     try:
-        match: MatchOut = services.MatchService(db).get_match_by_id(ID_match)
+        match: MatchOut = services.MatchService(db).get_match_by_id(match_id)
     except Exception:
         raise HTTPException(status_code=404, detail="Match not found")
     
     return match
 
-@router.get("/{ID_match}/players", status_code=status.HTTP_200_OK, response_model=List[Players_by_Match_Schema])
-async def get_player_by_ID_match(ID_match: UUID, db=Depends(get_db)) -> List[Players_by_Match_Schema]:
+@router.get("/{match_id}/players", status_code=status.HTTP_200_OK, response_model=List[Players_by_Match_Schema])
+async def get_player_by_ID_match(match_id: UUID, db=Depends(get_db)) -> List[Players_by_Match_Schema]:
     try:
-        players_match: List[Players_by_Match_Schema] = services.MatchService(db).get_players_by_match(ID_match)
+        players_match: List[Players_by_Match_Schema] = services.MatchService(db).get_players_by_match(match_id)
     except Exception:
         raise HTTPException(status_code=404, detail="Not found")
 
@@ -73,7 +74,7 @@ async def join_match(match_id: UUID,player_id: UUID, db=Depends(get_db)):
     info_player = db.query(Player).filter(Player.id == player_id).first()
     if not info_player:
         raise HTTPException(status_code=404, detail="Player not found")
-    services.MatchService(db).join(match_id, player_id)
+    services.MatchService(db).join(match_id, player_id) 
     payload={
         "id": info_player.id,
         "name": info_player.name,
@@ -103,8 +104,18 @@ async def join_match(match_id: UUID,player_id: UUID, db=Depends(get_db)):
 
     return {"match_id": match_id}
 
-
 @router.get("/{match_id}/secrets", status_code=status.HTTP_200_OK)
 async def get_secrets(match_id: UUID, db=Depends(get_db)):
     secrets=services.MatchService(db).get_secrets_by_match(match_id)
     return secrets
+
+@router.get("/{match_id}/cards", status_code=status.HTTP_200_OK, response_model=List[Cards_by_Match_Schema])
+async def get_cards(match_id: UUID, db = Depends(get_db)):
+    try:
+        cards = services.MatchService(db).get_cards_by_match(match_id)
+    except services.SQLAlchemyError:
+        raise HTTPException(status_code=500)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    return cards

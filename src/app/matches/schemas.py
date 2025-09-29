@@ -56,23 +56,27 @@ class Players_by_Match_Schema(BaseModel):
     avatar: str
     birthday: date
     
-class Secrets_by_Match_Schema(BaseModel):
+class Cards_by_Match_Schema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     
+    id: UUID
     card_id: UUID
     match_id: UUID
     player_id: Optional[UUID] = None
-    is_discarded: Optional[bool] = False
+    is_discarded: bool
     name: str
     type: Card_Type
     description: str
     
-class Cards_by_Match_Schema(BaseModel):
+class Secrets_by_Match_Schema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     
     secret_id: UUID
     match_id: UUID
     player_id: Optional[UUID] = None
-    is_revealed: Optional[bool] = False
+    is_revealed: bool
     type: Secret_Type
     content: str
+    
+class Match_number_of_Player(MatchOut):
+    current_player_count: int
