@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 from app.matches.models import Match_Player, MatchStatus
 
 @pytest.mark.parametrize("num_players", [2, 3, 4, 5, 6])
-def test_endpoint_start_partida(client, db_session, num_players):
+def test_endpoint_start_match(client, db_session, num_players):
     from app.matches.models import Match
     from app.cards.models import Card, Card_Type
     from app.secrets.models import Secret, Secret_Type

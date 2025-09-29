@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 from app.secrets import models
 from sqlalchemy import func
 
-def test_obtener_secretos(client, db_session):
+def test_get_secrets(client, db_session):
     #creo player
     response = client.post("/players", json={
         "name": "creador",
