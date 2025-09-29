@@ -10,7 +10,7 @@ from app.matches.models import Match_Player
 
 # 🔹 Parametrizamos para probar con distintas cantidades de jugadores
 @pytest.mark.parametrize("num_players", [2, 3, 4, 5, 6])
-def test_iniciar_partida_con_varios_jugadores(client, db_session, num_players):
+def test_start_match_many_players(client, db_session, num_players):
     # 1. Crear jugadores con diferentes fechas de nacimiento
     birthdates = [
         "2000-09-10",  # Muy cerca del 15 sep

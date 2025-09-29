@@ -4,7 +4,7 @@ from app.cards.models import Card, Match_Card
 from app.cards import models
 from sqlalchemy import func
 
-def test_obtener_cartas(client, db_session):
+def test_get_cards(client, db_session):
     #creo player owner
     response = client.post("/players", json={
         "name": "Owner",
