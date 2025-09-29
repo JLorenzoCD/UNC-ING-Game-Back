@@ -1,53 +1,48 @@
-from uuid import UUID
-from datetime import date
-import random
-
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
-from fastapi import HTTPException
-
-from typing import List, Optional
-
 from app.matches.models import Match, Match_Player, MatchStatus
-from app.matches import schemas
-from app.matches.utils import db_match_2_match_schema
-from app.cards.models import Card, Match_Card
-from app.cards.services import Cards_Services
-from app.secrets.models import Secret, Match_Secret, Secret_Type
+from app.secrets.models import Match_Secret, Secret, Secret_Type
 from app.secrets.services import Secrets_Services
-
-
+from app.cards.models import Match_Card, Card
+from app.cards.services import Cards_Services
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
+from uuid import UUID
+from app.matches import schemas
+from app.player.models import Player
+from app.matches.utils import db_match_2_match_schema
+from typing import List, Optional
+from fastapi import HTTPException 
+import random
+from datetime import date
 
 # Excepciones
 class OwnerNotFound(Exception):
     pass
 
-
 class MatchNotFound(Exception):
     pass
-
 
 class MatchValidationError(Exception):
     pass
 
 
-class MatchService:
-    def __init__(self, db: Session):
-        self._db = db
 
-    def create(self, match_dto: schemas.MatchDTO) -> schemas.MatchResponse:
+class MatchService:
+    def __init__(self, db):
+        self._db = db
+    
+    def create(self, match_dto: schemas.MatchDTO) -> schemas.MatchOut:
         if match_dto.min_players < 2 or match_dto.max_players > 6:
             raise MatchValidationError("Incorrect number of players")
-
-        owner: Player = self._db.get(Player, match_dto.owner_id)
+        
+        owner:Player = self._db.get(Player, match_dto.owner_id)
         if not owner:
             raise OwnerNotFound()
-
+        
         new_match = Match(
-            name=match_dto.name,
-            min_players=match_dto.min_players,
-            max_players=match_dto.max_players,
-            owner_id=owner.id,
+            name = match_dto.name,
+            min_players = match_dto.min_players,
+            max_players = match_dto.max_players,
+            owner_id = owner.id
         )
         try:
             self._db.add(new_match)
@@ -56,20 +51,14 @@ class MatchService:
         except SQLAlchemyError:
             self._db.rollback()
             raise
-
         try:
-            match_player = Match_Player(
-                match_id=new_match.id,
-                player_id=owner.id,
-                order=0,
-            )
+            match_player = Match_Player (match_id = new_match.id, player_id=owner.id, order=0)
             self._db.add(match_player)
             self._db.commit()
             self._db.refresh(match_player)
         except SQLAlchemyError:
             self._db.rollback()
             raise
-
         match_out = db_match_2_match_schema(new_match)
         return match_out  
 
@@ -205,6 +194,9 @@ class MatchService:
         .filter(Match_Player.match_id == match_id)
         .count()
     )
+
+    def update_match() -> Match:
+        pass
 
     def update_status_match(self, match_id: UUID, new_status: str) -> None:
         match: Match = self.get_match_by_id(match_id)
