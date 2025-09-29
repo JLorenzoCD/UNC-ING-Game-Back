@@ -38,18 +38,27 @@ class ConnectionManager:
             self.matches[matchID].discard(ws)
         self.waiting_room.add(ws)
 
-    async def send_message(self, message: str, ws: WebSocket):
-        await ws.send_text(message)
+    async def safe_send_message(self, message: str, ws: WebSocket):
+        try:
+            await ws.send_text(message)
+        except RuntimeError:
+            # Si el socket está cerrado, limpiamos
+            player_id_to_remove = next((pid for pid, conn in self.players.items() if conn == ws), None)
+            if player_id_to_remove:
+                self.disconnect(player_id_to_remove)
+            else:
+                self.waiting_room.discard(ws)
+        except Exception as e:
+            print(f"Error inesperado al enviar mensaje: {e}")
 
-    async def waiting_room_broadcast(self,message:str):
-        for ws in self.waiting_room:
-            await self.send_message(message, ws)
+    async def waiting_room_broadcast(self, message: str):
+        for ws in list(self.waiting_room):
+            await self.safe_send_message(message, ws)
 
-    async def specificBroadcast(self, message:str, matchID: uuid.UUID):
-        setws = self.matches.get(matchID)
-        if setws is not None:
-            for ws in setws:
-                await self.send_message(message, ws)
+    async def specificBroadcast(self, message: str, matchID: uuid.UUID):
+        setws = self.matches.get(matchID, set())
+        for ws in list(setws):
+            await self.safe_send_message(message, ws)
             
 
 manager = ConnectionManager()
