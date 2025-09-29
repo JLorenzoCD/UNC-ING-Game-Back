@@ -1,16 +1,27 @@
-from fastapi import APIRouter, HTTPException, status
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError
-from fastapi import Depends
-from app.models.db import get_db
 from uuid import UUID
-from typing import List, Optional
+from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+
 from websocketManager.ws_routes import manager
 from websocketManager.ws_messages import WSEvent, make_ws_message
-from app.player.models import Player
 
+from app.models.db import get_db
+from app.player.models import Player
 from app.matches import services
-from app.matches.schemas import MatchIn, MatchOut, MatchResponse, MatchDTO, Players_by_Match_Schema, Match_number_of_Player, Cards_by_Match_Schema
+from app.matches.models import MatchStatus
+from app.matches.schemas import (
+    Cards_by_Match_Schema,
+    MatchIn,
+    MatchOut,
+    MatchResponse,
+    MatchDTO,
+    Players_by_Match_Schema,
+    Match_number_of_Player,
+)
+
 
 router = APIRouter(
     tags=["matches"],
@@ -39,7 +50,6 @@ async def create_match(match_in: MatchIn,
     await manager.waiting_room_broadcast(ws_message)
         
     return MatchResponse(id=new_match.id)
-
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=List[Match_number_of_Player])
 async def get_all_matches(db=Depends(get_db)) -> List[Match_number_of_Player]:
@@ -105,6 +115,23 @@ async def join_match(match_id: UUID,player_id: UUID, db=Depends(get_db)):
 
     return {"match_id": match_id}
 
+@router.post("/{match_id}/start", status_code=status.HTTP_200_OK)
+async def start_match(match_id: UUID, db=Depends(get_db)):
+    try:
+        services.MatchService(db).start_game(match_id)
+        payload = {
+            "status": MatchStatus.IN_PROGRESS.value
+        }
+        await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, payload))
+        return {"status": "Match started successfully"}
+
+    except services.MatchNotFound:
+        raise HTTPException(status_code=404, detail="Match not found")
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not start match: {str(e)}")
+    
 @router.get("/{match_id}/secrets", status_code=status.HTTP_200_OK)
 async def get_secrets(match_id: UUID, db=Depends(get_db)):
     secrets=services.MatchService(db).get_secrets_by_match(match_id)
