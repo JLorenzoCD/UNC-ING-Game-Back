@@ -1,18 +1,22 @@
+from uuid import UUID
+from datetime import date
+import random
+
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+from fastapi import HTTPException
+
+from typing import List
+
 from app.matches.models import Match, Match_Player, MatchStatus
-from app.secrets.models import Match_Secret, Secret, Secret_Type
-from app.secrets.services import Secrets_Services
+from app.matches import schemas
+from app.matches.utils import db_match_2_match_schema
+from app.player.models import Player
 from app.cards.models import Match_Card, Card
 from app.cards.services import Cards_Services
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError
-from uuid import UUID
-from app.matches import schemas
-from app.player.models import Player
-from app.matches.utils import db_match_2_match_schema
-from typing import List, Optional
-from fastapi import HTTPException 
-import random
-from datetime import date
+from app.secrets.models import Match_Secret, Secret, Secret_Type
+from app.secrets.services import Secrets_Services
+
 
 # Excepciones
 class OwnerNotFound(Exception):
@@ -150,7 +154,44 @@ class MatchService:
         self._db.add(match_player)
         self._db.commit()
         self._db.refresh(match_player)
-    
+
+    def get_cards_by_match (self, match_id:UUID) -> List[schemas.Cards_by_Match_Schema]:
+          
+        try:
+            match = self._db.query(Match).filter(Match.id == match_id).first()
+            if not match:
+                raise Exception("Partida no encontrada")
+            
+            results = self._db.query(
+                Match_Card.id,
+                Match_Card.card_id,
+                Match_Card.match_id,
+                Match_Card.player_id,
+                Match_Card.is_discarded,
+                Card.name,
+                Card.type,
+                Card.description
+            ).join(Card, Match_Card.card_id == Card.id)\
+            .filter(Match_Card.match_id == match_id)\
+            .all()
+            
+            combined: List[schemas.Cards_by_Match_Schema] = []
+            for r in results:
+                combined.append({
+                    "id": r.id,
+                    "card_id": r.card_id,
+                    "match_id": r.match_id,
+                    "player_id": r.player_id,
+                    "is_discarded": r.is_discarded,
+                    "name": r.name,
+                    "type": r.type,
+                    "description": r.description  
+                })
+            
+            return combined
+        except SQLAlchemyError as e:
+            raise Exception(f"Database error: {str(e)}")
+
     def count_players_by_match(self, match_id: UUID) -> int:
         return (
         self._db.query(Match_Player)
@@ -160,9 +201,6 @@ class MatchService:
 
     def update_match() -> Match:
         pass
-
-        match_out = db_match_2_match_schema(new_match)
-        return schemas.MatchResponse(id=match_out.id)
 
     def update_status_match(self, match_id: UUID, new_status: str) -> None:
         match: Match = self.get_match_by_id(match_id)
