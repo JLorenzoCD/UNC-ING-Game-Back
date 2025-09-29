@@ -42,7 +42,7 @@ class Match(Base):
         nullable=False,
         index=True,
     )
-    current_player_order: Mapped[int] = mapped_column(Integer, default=0)
+    current_player_order: Mapped[int] = mapped_column(Integer, default=1)
 
     owner = relationship("Player", backref="matches")
 
@@ -69,7 +69,7 @@ class Match_Player(Base):
         index=True,
     )
     role: Mapped[Secret_Type] = mapped_column(Enum(Secret_Type), nullable=True, index=True)
-    order: Mapped[int] = mapped_column(Integer, nullable=True, index=True)
+    order: Mapped[int] = mapped_column(Integer, nullable=True, index=True, default=0)
 
     match = relationship("Match", backref="match_players")
     player = relationship("Player", backref="match_players")
