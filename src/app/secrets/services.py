@@ -7,7 +7,7 @@ class Secrets_Services:
     def __init__(self, db):
         self._db = db
 
-    def iniciar_match_secrets(self, cant_players: int, match_id: UUID) -> None:
+    def init_match_secrets(self, cant_players: int, match_id: UUID) -> None:
         all_secrets = [
             {"type": "MURDERER", "quantity": 1},
         ]
