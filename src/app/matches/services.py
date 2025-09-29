@@ -1,4 +1,8 @@
-from app.matches.models import Match, Match_Player
+from app.matches.models import Match, Match_Player, MatchStatus
+from app.secrets.models import Match_Secret, Secret, Secret_Type
+from app.secrets.services import Secrets_Services
+from app.cards.models import Match_Card, Card
+from app.cards.services import Cards_Services
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from uuid import UUID
@@ -7,26 +11,8 @@ from app.player.models import Player
 from app.matches.utils import db_match_2_match_schema
 from typing import List, Optional
 from fastapi import HTTPException 
-from uuid import UUID
-from datetime import date
 import random
-
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError
-
-from app.matches.models import Match, Match_Player, MatchStatus
-from app.matches import schemas
-from app.matches.utils import db_match_2_match_schema
-
-from app.player.models import Player
-
-from app.cards.models import Card, Match_Card
-from app.cards.schemas import Match_Card_Schema
-from app.cards.services import Cards_Services
-
-from app.secrets.models import Secret, Match_Secret, Secret_Type
-from app.secrets.services import Secrets_Services
-
+from datetime import date
 
 # Excepciones
 class OwnerNotFound(Exception):
@@ -177,6 +163,25 @@ class MatchService:
 
         match_out = db_match_2_match_schema(new_match)
         return schemas.MatchResponse(id=match_out.id)
+
+    def update_status_match(self, match_id: UUID, new_status: str) -> None:
+        match: Match = self.get_match_by_id(match_id)
+        if not match:
+            raise MatchNotFound()
+        match.status = new_status
+        try:
+            self._db.commit()
+            self._db.refresh(match)
+        except SQLAlchemyError as exception:
+            self._db.rollback()
+            raise exception
+
+    def get_players_from_match(self, match_id: UUID):
+        return (
+            self._db.query(Match_Player)
+            .filter(Match_Player.match_id == match_id)
+            .all()
+        )
 
     def assign_player_order(self, match_id: UUID) -> None:
         # Obtener jugadores de la partida
