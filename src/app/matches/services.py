@@ -6,7 +6,8 @@ from app.matches import schemas
 from app.player.models import Player
 from app.matches.utils import db_match_2_match_schema
 from typing import List, Optional
-from fastapi import HTTPException 
+from fastapi import HTTPException
+from app.cards.models import Card, Match_Card
 
 
 # Excepciones
@@ -145,7 +146,44 @@ class MatchService:
         self._db.add(match_player)
         self._db.commit()
         self._db.refresh(match_player)
-    
+
+    def get_cards_by_match (self, match_id:UUID) -> List[schemas.Cards_by_Match_Schema]:
+          
+        try:
+            match = self._db.query(Match).filter(Match.id == match_id).first()
+            if not match:
+                raise Exception("Partida no encontrada")
+            
+            results = self._db.query(
+                Match_Card.id,
+                Match_Card.card_id,
+                Match_Card.match_id,
+                Match_Card.player_id,
+                Match_Card.is_discarded,
+                Card.name,
+                Card.type,
+                Card.description
+            ).join(Card, Match_Card.card_id == Card.id)\
+            .filter(Match_Card.match_id == match_id)\
+            .all()
+            
+            combined: List[schemas.Cards_by_Match_Schema] = []
+            for r in results:
+                combined.append({
+                    "id": r.id,
+                    "card_id": r.card_id,
+                    "match_id": r.match_id,
+                    "player_id": r.player_id,
+                    "is_discarded": r.is_discarded,
+                    "name": r.name,
+                    "type": r.type,
+                    "description": r.description  
+                })
+            
+            return combined
+        except SQLAlchemyError as e:
+            raise Exception(f"Database error: {str(e)}")
+
     def count_players_by_match(self, match_id: UUID) -> int:
         return (
         self._db.query(Match_Player)
