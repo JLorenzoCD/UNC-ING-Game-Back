@@ -49,7 +49,7 @@ def test_create_match(db_session):
     assert new_match.owner_id is not None
     assert new_match.owner_id == new_player_owner.id
     assert new_match.status == MatchStatus.WAITING
-    assert new_match.current_player_order == 0
+    assert new_match.current_player_order == 1
     
     #Schema de Match
     
