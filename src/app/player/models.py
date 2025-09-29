@@ -1,26 +1,26 @@
-from sqlalchemy import Column, Integer, String, Date, Table, ForeignKey
-from sqlalchemy.orm import relationship, mapped_column
-from typing import List
-from sqlalchemy.orm import Mapped
-from app.models.db import Base
-from datetime import date
-from sqlalchemy.dialects.postgresql import UUID
 import uuid
+from datetime import date
+
+from sqlalchemy import String, Date
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.models.db import Base
+
 
 class Player(Base):
     """
-    Represent a Player
-
+    Representa un jugador
     """
 
     __tablename__ = "players"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),               # usa UUID en Postgres
+        UUID(as_uuid=True),
         primary_key=True,
         index=True,
-        default=uuid.uuid4               # genera UUID automáticamente
+        default=uuid.uuid4,
     )
     name: Mapped[str] = mapped_column(String, nullable=False)
     avatar: Mapped[str] = mapped_column(String, nullable=False)
-    birthday: Mapped[date] = mapped_column(Date,nullable=False)
+    birthday: Mapped[date] = mapped_column(Date, nullable=False)
