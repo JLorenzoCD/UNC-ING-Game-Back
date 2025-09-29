@@ -34,6 +34,7 @@ async def create_match(match_in: MatchIn,
         raise HTTPException(status_code=500, detail=str(e))
 
     match_dict = new_match.model_dump(mode='json')
+    match_dict["current_player_count"] = 1
     ws_message = make_ws_message(WSEvent.MATCH, match_dict)
     await manager.waiting_room_broadcast(ws_message)
         
