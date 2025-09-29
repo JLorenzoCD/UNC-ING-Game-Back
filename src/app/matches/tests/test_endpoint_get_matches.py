@@ -4,7 +4,7 @@ from app.cards.models import Card, Match_Card
 from app.cards import models
 from sqlalchemy import func
 
-def test_obtener_cartas(client, db_session):
+def test_get_matches(client, db_session):
     # Lista para guardar información de las partidas creadas
     created_matches = []
 
