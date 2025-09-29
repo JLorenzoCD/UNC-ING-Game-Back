@@ -2,18 +2,20 @@ from uuid import UUID
 from datetime import date
 import random
 
-from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+from fastapi import HTTPException
+
+from typing import List, Optional
 
 from app.matches.models import Match, Match_Player, MatchStatus
 from app.matches import schemas
 from app.matches.utils import db_match_2_match_schema
-from typing import List, Optional
-from fastapi import HTTPException
 from app.cards.models import Card, Match_Card
-
+from app.cards.services import Cards_Services
 from app.secrets.models import Secret, Match_Secret, Secret_Type
 from app.secrets.services import Secrets_Services
+
 
 
 # Excepciones
@@ -284,44 +286,68 @@ class MatchService:
             self._db.rollback()
             raise exception
 
-    def start_game(self, match_id: UUID) -> None:
-        # Estado de la partida
-        self.update_status_match(match_id, MatchStatus.IN_PROGRESS)
-
-        match_players: list[Match_Player] = self.get_players_from_match(match_id)
-
-        # Inicializar cartas y secretos
-        Cards_Services(self._db).init_match_cards(match_id)
-        Secrets_Services(self._db).init_match_secrets(len(match_players), match_id)
-
-        # Obtener cartas y secretos
-        match_cards: list[Match_Card] = Cards_Services(self._db).get_cards_by_match(match_id)
-        match_secrets: list[Match_Secret] = Secrets_Services(self._db).get_secrets_by_match(match_id)
-
-        random.shuffle(match_cards)
+    def deal_secrets(self, match_id: UUID, match_secrets: list[Match_Secret], match_players: list[Match_Player]) -> None:
+        # Obtener todos los IDs de secretos por tipo
+        murderer_secret = self._db.query(Secret).filter(Secret.type == Secret_Type.MURDERER).first()
+        accomplice_secret = self._db.query(Secret).filter(Secret.type == Secret_Type.ACCOMPLICE).first()
+        innocent_secret_ids = [s.id for s in self._db.query(Secret.id).filter(Secret.type == Secret_Type.INNOCENT).all()]
+        
+        # Filtrar match_secrets por tipo
+        innocent_match_secrets = [ms for ms in match_secrets if ms.secret_id in innocent_secret_ids]
+        
+        # Crear COPIA de la lista para no modificar la original
+        available_players = match_players.copy()
+        
+        # Reparto de MURDERER
+        murderer = random.choice(available_players)
+        available_players.remove(murderer)  # ✅ Ahora solo modificas la copia
+        
+        # Asignar carta de MURDERER
+        murderer_secret_match = next(ms for ms in match_secrets if ms.secret_id == murderer_secret.id)
+        murderer_secret_match.player_id = murderer.player_id
+        murderer.role = Secret_Type.MURDERER
+        match_secrets.remove(murderer_secret_match)
+        
+        # Asignar 2 secretos inocentes al murderer
+        for i in range(2):
+            innocent_match_secrets[i].player_id = murderer.player_id
+            match_secrets.remove(innocent_match_secrets[i])
+        
+        innocent_match_secrets = innocent_match_secrets[2:]
+        
+        # Reparto de ACCOMPLICE (solo si existe)
+        accomplice_secret_match = next((ms for ms in match_secrets if ms.secret_id == accomplice_secret.id), None)
+        
+        if accomplice_secret_match:
+            accomplice = random.choice(available_players)
+            available_players.remove(accomplice)  # ✅ Modificas la copia
+            
+            accomplice_secret_match.player_id = accomplice.player_id
+            accomplice.role = Secret_Type.ACCOMPLICE
+            match_secrets.remove(accomplice_secret_match)
+            
+            # Asignar 2 secretos inocentes al accomplice
+            for i in range(2):
+                innocent_match_secrets[i].player_id = accomplice.player_id
+                match_secrets.remove(innocent_match_secrets[i])
+            
+            innocent_match_secrets = innocent_match_secrets[2:]
+        
+        # Repartir el resto de secretos aleatoriamente
         random.shuffle(match_secrets)
+        
+        if len(available_players) > 0:  # ✅ Usas la copia aquí también
+            secrets_per_player = len(match_secrets) // len(available_players)
+            
+            for idx, player in enumerate(available_players):
+                player.role = Secret_Type.INNOCENT
+                for i in range(secrets_per_player):
+                    secret_idx = idx * secrets_per_player + i
+                    match_secrets[secret_idx].player_id = player.player_id
+        
+        self._db.commit()
 
-        # Reparto de secretos
-        secrets_unassigned = len(match_secrets)
-        while secrets_unassigned > 0:
-            for player in match_players:
-                if secrets_unassigned == 0:
-                    break
-
-                match_secret = match_secrets[secrets_unassigned - 1]
-                match_secret.player_id = player.player_id
-                secrets_unassigned -= 1
-
-                secret_obj = self._db.get(Secret, match_secret.secret_id)
-
-                if secret_obj and secret_obj.type == Secret_Type.MURDERER:
-                    player.role = Secret_Type.MURDERER
-                elif player.role == Secret_Type.MURDERER:
-                    continue
-                else:
-                    player.role = Secret_Type.INNOCENT
-
-        # Reparto de cartas
+    def deal_cards(self, match_id: UUID, match_cards: list[Match_Card], match_players: list[Match_Player]) -> None:
         not_so_fast_cards = []
         other_cards = []
 
@@ -348,6 +374,31 @@ class MatchService:
                 other_cards[card_index].player_id = player.player_id
                 card_index += 1
                 cards_dealt += 1
+
+        self._db.commit()
+
+    def start_game(self, match_id: UUID) -> None:
+        # Estado de la partida
+        self.update_status_match(match_id, MatchStatus.IN_PROGRESS)
+
+        match_players: list[Match_Player] = self.get_players_from_match(match_id)
+
+        # Inicializar cartas y secretos
+        Cards_Services(self._db).init_match_cards(match_id, len(match_players))
+        Secrets_Services(self._db).init_match_secrets(len(match_players), match_id)
+
+        # Obtener cartas y secretos
+        match_cards: list[Match_Card] = Cards_Services(self._db).get_cards_by_match(match_id)
+        match_secrets: list[Match_Secret] = Secrets_Services(self._db).get_secrets_by_match(match_id)
+
+        random.shuffle(match_cards)
+        random.shuffle(match_secrets)
+
+        # Reparto de secretos
+        self.deal_secrets(match_id, match_secrets, match_players)
+
+        # Reparto de cartas
+        self.deal_cards(match_id, match_cards, match_players)
 
         self.assign_player_order(match_id)
 
