@@ -53,7 +53,8 @@ async def get_all_matches(db=Depends(get_db)) -> List[Match_number_of_Player]:
 @router.get("/{match_id}", status_code=status.HTTP_200_OK, response_model=Match_number_of_Player)
 async def get_match_by_match_ID(match_id: UUID, db=Depends(get_db)):
     try:
-        match_extended: MatchOut = services.MatchService(db).get_match_by_id(match_id)
+        match: MatchOut = services.MatchService(db).get_match_by_id(match_id)
+        match_extended = services.MatchService(db).extended_match(match)
     except Exception:
         raise HTTPException(status_code=404, detail="Match not found")
     

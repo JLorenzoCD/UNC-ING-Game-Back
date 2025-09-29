@@ -78,5 +78,15 @@ class Secrets_by_Match_Schema(BaseModel):
     type: Secret_Type
     content: str
     
-class Match_number_of_Player(MatchOut):
+class Match_number_of_Player(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    
+    id: UUID
+    name: str
+    status: MatchStatus
+    min_players: int
+    max_players: int
+    owner_id: UUID
+    current_player_order: int
     current_player_count: int
