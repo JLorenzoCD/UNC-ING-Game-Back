@@ -167,7 +167,7 @@ class MatchService:
             .filter(Match_Card.match_id == match_id)\
             .all()
             
-            combined = []
+            combined: List[schemas.Cards_by_Match_Schema] = []
             for r in results:
                 combined.append({
                     "id": r.id,
