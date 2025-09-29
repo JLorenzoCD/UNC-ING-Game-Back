@@ -100,6 +100,20 @@ class MatchService:
             raise
         return match
     
+    def extended_match(self, match:Match) -> match_schemas.Match_number_of_Player | None:
+        # Convertir a schema base
+        match_out = db_match_2_match_schema(match)
+                
+            # Obtener conteo de jugadores
+        player_count = self.count_players_by_match(match.id)
+                
+            # Crear schema extendido
+        extended_match = match_schemas.Match_number_of_Player(
+                    **match_out.model_dump(),
+                    current_player_count=player_count
+                )
+        return extended_match
+        
     def get_players_by_match(self, match_id: UUID) -> List[match_schemas.Players_by_Match_Schema]:
         
         try:    
