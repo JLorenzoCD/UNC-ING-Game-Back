@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from typing import List
 
 from app.matches.models import Match, Match_Player, MatchStatus
+from app.matches.schemas import MatchOut
 from app.matches import schemas as match_schemas
 from app.secrets import schemas as secret_schemas
 from app.secrets.models import Secret, Match_Secret, Secret_Type
@@ -413,7 +414,7 @@ class MatchService:
 
         self._db.commit()
 
-    def start_game(self, match_id: UUID) -> None:
+    def start_game(self, match_id: UUID) -> MatchOut:
         match = self.get_match_by_id(match_id)
         if match.status == MatchStatus.WAITING:
             # Estado de la partida
@@ -445,5 +446,7 @@ class MatchService:
             except SQLAlchemyError as exception:
                 self._db.rollback()
                 raise exception
+            
+            return db_match_2_match_schema(match)
         else:
             raise MatchValidationError("Match is not in a valid state to start")
