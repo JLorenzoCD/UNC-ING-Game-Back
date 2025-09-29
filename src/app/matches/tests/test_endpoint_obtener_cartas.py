@@ -115,9 +115,9 @@ def test_obtener_cartas(client, db_session):
     
     #verificar que es una lista y tiene elementos
     assert isinstance(data, list)
-    assert len(data) == 5  # Deberían ser 5 cartas como creaste
+    assert len(data) == 5
 
-    #cerificar cada diccionario en la lista
+    #verificar cada diccionario en la lista
     for card_data in data:
         # 1. 'id' sea distinto al 'card_id'
         assert card_data['id'] != card_data['card_id'], f"id y card_id no deben ser iguales: {card_data}"
