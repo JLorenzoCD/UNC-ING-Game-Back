@@ -102,7 +102,7 @@ def test_iniciar_partida_con_varios_jugadores(client, db_session, num_players):
     db_session.commit()
 
     # 6. Iniciar partida
-    MatchService(db_session).iniciar_partida(match_uuid)
+    MatchService(db_session).start_game(match_uuid)
     db_session.commit()
 
     # 7. Obtener cartas y secretos con información completa

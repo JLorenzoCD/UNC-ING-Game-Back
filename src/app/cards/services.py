@@ -7,7 +7,7 @@ class Cards_Services:
     def __init__(self, db):
         self._db = db
 
-    def iniciar_match_cards(self, match_id: UUID) -> None:
+    def init_match_cards(self, match_id: UUID) -> None:
         # Lista de cartas con cantidad
         all_cards = [
             {"type": "INSTANT", "name": "NOT SO FAST", "quantity": 10},

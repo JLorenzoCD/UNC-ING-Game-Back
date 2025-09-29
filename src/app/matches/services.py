@@ -99,7 +99,7 @@ class MatchService:
             .all()
         )
 
-    def asignar_orden_jugadores(self, match_id: UUID) -> None:
+    def assign_player_order(self, match_id: UUID) -> None:
         # Obtener jugadores de la partida
         match_players: list[Match_Player] = self.get_players_from_match(match_id)
         players: list[Player] = []
@@ -110,49 +110,49 @@ class MatchService:
                 players.append(player)
 
         # Función para calcular distancia al 15 de septiembre
-        def distancia_a_septiembre_15(birthday: date) -> int:
-            objetivo_mes, objetivo_dia = 9, 15
+        def distance_to_september_15(birthday: date) -> int:
+            target_month, target_day = 9, 15
 
-            def dias_del_año(mes, dia):
-                dias_por_mes = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-                return sum(dias_por_mes[: mes - 1]) + dia
+            def day_of_year(month, day):
+                days_per_month = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+                return sum(days_per_month[: month - 1]) + day
 
-            objetivo_dia_año = dias_del_año(objetivo_mes, objetivo_dia)
-            birthday_dia_año = dias_del_año(birthday.month, birthday.day)
+            target_day_of_year = day_of_year(target_month, target_day)
+            birthday_day_of_year = day_of_year(birthday.month, birthday.day)
 
-            distancia_directa = abs(objetivo_dia_año - birthday_dia_año)
-            distancia_circular = 366 - distancia_directa
+            direct_distance = abs(target_day_of_year - birthday_day_of_year)
+            circular_distance = 366 - direct_distance
 
-            return min(distancia_directa, distancia_circular)
+            return min(direct_distance, circular_distance)
 
         # Calcular distancias
-        players_con_distancia = [
-            (player, distancia_a_septiembre_15(player.birthday))
+        players_with_distance = [
+            (player, distance_to_september_15(player.birthday))
             for player in players
         ]
 
         # Agrupar por distancia
-        distancias_agrupadas = {}
-        for player, distancia in players_con_distancia:
-            if distancia not in distancias_agrupadas:
-                distancias_agrupadas[distancia] = []
-            distancias_agrupadas[distancia].append(player)
+        grouped_distances = {}
+        for player, distance in players_with_distance:
+            if distance not in grouped_distances:
+                grouped_distances[distance] = []
+            grouped_distances[distance].append(player)
 
         # Ordenar por distancia y randomizar empates
-        orden_final = []
-        for distancia in sorted(distancias_agrupadas.keys()):
-            jugadores_empatados = distancias_agrupadas[distancia]
-            random.shuffle(jugadores_empatados)
-            orden_final.extend(jugadores_empatados)
+        final_order = []
+        for distance in sorted(grouped_distances.keys()):
+            tied_players = grouped_distances[distance]
+            random.shuffle(tied_players)
+            final_order.extend(tied_players)
 
         # Asignar órdenes (empezando en 1)
-        for nuevo_orden, player in enumerate(orden_final, start=1):
+        for new_order, player in enumerate(final_order, start=1):
             match_player = next(
                 (mp for mp in match_players if mp.player_id == player.id),
                 None,
             )
             if match_player:
-                match_player.order = nuevo_orden
+                match_player.order = new_order
 
         try:
             self._db.commit()
@@ -160,15 +160,15 @@ class MatchService:
             self._db.rollback()
             raise exception
 
-    def iniciar_partida(self, match_id: UUID) -> None:
+    def start_game(self, match_id: UUID) -> None:
         # Estado de la partida
         self.update_status_match(match_id, MatchStatus.IN_PROGRESS)
 
         match_players: list[Match_Player] = self.get_players_from_match(match_id)
 
         # Inicializar cartas y secretos
-        Cards_Services(self._db).iniciar_match_cards(match_id)
-        Secrets_Services(self._db).iniciar_match_secrets(len(match_players), match_id)
+        Cards_Services(self._db).init_match_cards(match_id)
+        Secrets_Services(self._db).init_match_secrets(len(match_players), match_id)
 
         # Obtener cartas y secretos
         match_cards: list[Match_Card] = Cards_Services(self._db).get_cards_by_match(match_id)
@@ -179,7 +179,6 @@ class MatchService:
 
         # Reparto de secretos
         secrets_unassigned = len(match_secrets)
-        murderer_assigned = False
         while secrets_unassigned > 0:
             for player in match_players:
                 if secrets_unassigned == 0:
@@ -192,7 +191,6 @@ class MatchService:
                 secret_obj = self._db.get(Secret, match_secret.secret_id)
 
                 if secret_obj and secret_obj.type == Secret_Type.MURDERER:
-                    murderer_assigned = True
                     player.role = Secret_Type.MURDERER
                 elif player.role == Secret_Type.MURDERER:
                     continue
@@ -227,7 +225,7 @@ class MatchService:
                 card_index += 1
                 cards_dealt += 1
 
-        self.asignar_orden_jugadores(match_id)
+        self.assign_player_order(match_id)
 
         try:
             self._db.commit()
