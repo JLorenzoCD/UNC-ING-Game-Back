@@ -2,8 +2,8 @@ from app.matches.models import Match, Match_Player
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from uuid import UUID
-from app.matches import schemas
-from app.secrets import schemas
+from app.matches import schemas as match_schemas
+from app.secrets import schemas as secret_schemas
 from app.secrets.models import Secret, Match_Secret, Secret_Type
 from app.player.models import Player
 from app.matches.utils import db_match_2_match_schema
@@ -27,7 +27,7 @@ class MatchService:
     def __init__(self, db):
         self._db = db
     
-    def create(self, match_dto: schemas.MatchDTO) -> schemas.MatchOut:
+    def create(self, match_dto: match_schemas.MatchDTO) -> match_schemas.MatchOut:
         if match_dto.min_players < 2 or match_dto.max_players > 6:
             raise MatchValidationError("Incorrect number of players")
         
@@ -59,9 +59,9 @@ class MatchService:
         match_out = db_match_2_match_schema(new_match)
         return match_out  
 
-    def get_all(self) -> List[schemas.MatchOut]:
+    def get_all(self) -> List[match_schemas.MatchOut]:
         try:
-            matches: List[schemas.MatchOut] = self._db.query(Match).all()
+            matches: List[match_schemas.MatchOut] = self._db.query(Match).all()
         except Exception:
             raise
         return matches
@@ -75,7 +75,7 @@ class MatchService:
             raise
         return match
     
-    def get_players_by_match(self, match_id: UUID) -> List[schemas.Players_by_Match_Schema]:
+    def get_players_by_match(self, match_id: UUID) -> List[match_schemas.Players_by_Match_Schema]:
         
         try:    
             match = self._db.query(Match).filter(Match.id == match_id).first()
