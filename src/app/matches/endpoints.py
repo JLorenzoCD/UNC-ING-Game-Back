@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from websocketManager.ws_routes import manager
 from websocketManager.ws_messages import WSEvent, make_ws_message
 
+from app.matches.utils import db_match_2_match_schema
 from app.models.db import get_db
 from app.player.models import Player
 from app.matches import services
@@ -99,18 +100,11 @@ async def join_match(match_id: UUID,player_id: UUID, db=Depends(get_db)):
     match = match_service.get_match_by_id(match_id)
     players_count = match_service.count_players_by_match(match_id)
 
-    #payload para WS
-    match_payload = {
-        "id_match": str(match.id),
-        "name": match.name,
-        "status": match.status.value,   # asumiendo que es Enum
-        "min_players": match.min_players,
-        "max_players": match.max_players,
-        "id_creator": str(match.owner_id),
-        "current_player_count": players_count
-    }   
+    new_match=db_match_2_match_schema(match)
+    match_dict = new_match.model_dump(mode='json')
+    match_dict["current_player_count"] = players_count
 
-    message_ws = make_ws_message(WSEvent.MATCH, match_payload)
+    message_ws = make_ws_message(WSEvent.MATCH, match_dict)
     await manager.waiting_room_broadcast(message_ws)
 
     return {"match_id": match_id}
