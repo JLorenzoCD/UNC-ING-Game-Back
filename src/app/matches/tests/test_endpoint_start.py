@@ -1,20 +1,22 @@
 import uuid
 import pytest
-from unittest.mock import AsyncMock, patch
-from app.matches.models import Match_Player, MatchStatus
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from app.matches.models import MatchStatus
+from app.player.models  import Match_Player
+
 
 @pytest.mark.parametrize("num_players", [2, 3, 4, 5, 6])
 def test_endpoint_start_match(client, db_session, num_players):
     from app.matches.models import Match
-    from app.cards.models import Card, Card_Type
-    from app.secrets.models import Secret, Secret_Type
-    from unittest.mock import MagicMock
+    from app.cards.models   import Card, Card_Type
+    from app.secrets.models  import Secret, Secret_Type
 
     # Mock del WebSocket manager
     with patch('app.matches.endpoints.manager') as mock_manager:
-        mock_manager.specificBroadcast = AsyncMock()
+        mock_manager.specificBroadcast      = AsyncMock()
         mock_manager.waiting_room_broadcast = AsyncMock()
-        mock_manager.enterMatch = MagicMock()
+        mock_manager.enterMatch             = MagicMock()
         
         # 1. Crear jugadores
         birthdates = [
@@ -24,8 +26,8 @@ def test_endpoint_start_match(client, db_session, num_players):
         players = []
         for i in range(num_players):
             response = client.post("/players", json={
-                "name": f"Jugador{i+1}",
-                "avatar": f"avatar{i+1}",
+                "name":     f"Jugador{i+1}",
+                "avatar":   f"avatar{i+1}",
                 "birthday": birthdates[i]
             })
             assert response.status_code == 201
@@ -33,14 +35,14 @@ def test_endpoint_start_match(client, db_session, num_players):
         
         # 2. Crear partida
         match_post = {
-            "name": f"Partida Test {num_players} jugadores",
+            "name":        f"Partida Test {num_players} jugadores",
             "min_players": 2,
             "max_players": 6,
-            "owner_id": players[0]["id"],
+            "owner_id":    players[0]["id"],
         }
         response = client.post("/matches", json=match_post)
         assert response.status_code == 201
-        match_id = response.json()["id"]
+        match_id   = response.json()["id"]
         match_uuid = uuid.UUID(match_id)
         
         # 3. Unir jugadores (excepto owner)
@@ -82,23 +84,23 @@ def test_endpoint_start_match(client, db_session, num_players):
         ]
         for carta_data in cartas_base:
             carta = Card(
-                id=uuid.UUID(carta_data["id"]),
-                name=carta_data["name"],
-                type=carta_data["type"],
-                description=f"Description for {carta_data['name']}"
+                id          = uuid.UUID(carta_data["id"]),
+                name        = carta_data["name"],
+                type        = carta_data["type"],
+                description = f"Description for {carta_data['name']}"
             )
             db_session.add(carta)
 
         secretos_base = [
-            {"type": Secret_Type.INNOCENT, "content": "Eres un inocente"},
-            {"type": Secret_Type.MURDERER, "content": "Eres el asesino"},
-            {"type": Secret_Type.ACCOMPLICE, "content": "Eres el cómplice"},
+            {"type": Secret_Type.INNOCENT,    "content": "Eres un inocente"},
+            {"type": Secret_Type.MURDERER,    "content": "Eres el asesino"},
+            {"type": Secret_Type.ACCOMPLICE,  "content": "Eres el cómplice"},
         ]
         for secret_data in secretos_base:
             secret = Secret(
-                id=uuid.uuid4(),
-                type=secret_data["type"],
-                content=secret_data["content"],
+                id      = uuid.uuid4(),
+                type    = secret_data["type"],
+                content = secret_data["content"],
             )
             db_session.add(secret)
 
