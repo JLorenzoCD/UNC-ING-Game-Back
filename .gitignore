@@ -9,6 +9,7 @@ __pycache__/
 .eggs/
 *.manifest
 *.spec
+*.ini
 
 # --- Entorno virtual ---
 .env
