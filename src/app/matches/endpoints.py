@@ -122,10 +122,8 @@ async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
 async def start_match(match_id: UUID, db=Depends(get_db)):
     try:
         match = services.MatchService(db).start_game(match_id)
-        
-        payload = {
-            "status": match.model_dump(mode='json')
-        }
+
+        payload = match.model_dump(mode='json')
         
         await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, payload))
         await manager.specificBroadcast(make_ws_message(WSEvent.MATCH, payload), match_id)
