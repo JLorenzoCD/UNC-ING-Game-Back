@@ -46,8 +46,8 @@ async def create_match(
     
     match_dict                         = new_match.model_dump(mode='json')
     match_dict["current_player_count"] = 1
-    ws_message                         = make_ws_message(WSEvent.MATCH, match_dict)
-    
+    ws_message = make_ws_message(WSEvent.MATCH, match_dict)
+    manager.enterMatch(new_match.owner_id, new_match.id)
     await manager.waiting_room_broadcast(ws_message)
     
     return MatchResponse(id=new_match.id)
