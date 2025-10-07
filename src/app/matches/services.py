@@ -378,37 +378,40 @@ class MatchService:
 
     def start_game(self, match_id: UUID) -> MatchOut:
         match = self.get_match_by_id(match_id)
-        if match.status == MatchStatus.WAITING:
-            # Estado de la partida
-            self.update_status_match(match_id, MatchStatus.IN_PROGRESS)
+        match_players: list[Match_Player] = self.get_players_from_match(match_id)
+        len_match_players = len(match_players)
+        if len_match_players >= match.min_players: 
+            if match.status == MatchStatus.WAITING:
+                # Estado de la partida
+                self.update_status_match(match_id, MatchStatus.IN_PROGRESS)
 
-            match_players: list[Match_Player] = self.get_players_from_match(match_id)
+                # Inicializar cartas y secretos
+                Cards_Services(self._db).init_match_cards(match_id, len(match_players))
+                Secrets_Services(self._db).init_match_secrets(len(match_players), match_id)
 
-            # Inicializar cartas y secretos
-            Cards_Services(self._db).init_match_cards(match_id, len(match_players))
-            Secrets_Services(self._db).init_match_secrets(len(match_players), match_id)
+                # Obtener cartas y secretos
+                match_cards:   list[Match_Card]   = Cards_Services(self._db).get_cards_by_match(match_id)
+                match_secrets: list[Match_Secret] = Secrets_Services(self._db).get_secrets_by_match(match_id)
 
-            # Obtener cartas y secretos
-            match_cards:   list[Match_Card]   = Cards_Services(self._db).get_cards_by_match(match_id)
-            match_secrets: list[Match_Secret] = Secrets_Services(self._db).get_secrets_by_match(match_id)
+                random.shuffle(match_cards)
+                random.shuffle(match_secrets)
 
-            random.shuffle(match_cards)
-            random.shuffle(match_secrets)
+                # Reparto de secretos
+                self.deal_secrets(match_secrets, match_players)
 
-            # Reparto de secretos
-            self.deal_secrets(match_secrets, match_players)
+                # Reparto de cartas
+                self.deal_cards(match_cards, match_players)
 
-            # Reparto de cartas
-            self.deal_cards(match_cards, match_players)
+                self.assign_player_order(match_id)
 
-            self.assign_player_order(match_id)
-
-            try:
-                self._db.commit()
-            except SQLAlchemyError as exception:
-                self._db.rollback()
-                raise exception
-            
-            return db_match_2_match_schema(match)
+                try:
+                    self._db.commit()
+                except SQLAlchemyError as exception:
+                    self._db.rollback()
+                    raise exception
+                
+                return db_match_2_match_schema(match)
+            else:
+                raise MatchValidationError("Match is not in a valid state to start")
         else:
-            raise MatchValidationError("Match is not in a valid state to start")
+                raise MatchValidationError("Match is not in a valid state to start")
