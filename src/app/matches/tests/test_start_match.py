@@ -3,9 +3,8 @@ import pytest
 
 from app.matches.services import MatchService
 from app.cards.models import Card, Card_Type, Match_Card
-from app.player.models import Player
+from app.player.models import Player, Match_Player
 from app.secrets.models import Secret, Secret_Type, Match_Secret
-from app.matches.models import Match_Player
 
 
 # 🔹 Parametrizamos para probar con distintas cantidades de jugadores

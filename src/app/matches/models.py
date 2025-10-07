@@ -1,75 +1,61 @@
 import uuid
 from enum import Enum as PyEnum
-
 from sqlalchemy import Integer, ForeignKey, Enum
-from sqlalchemy.orm import relationship, mapped_column, Mapped
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.models.db import Base
-from app.secrets.models import Secret_Type
 
 
 class MatchStatus(PyEnum):
-    WAITING = "Waiting"
+    WAITING     = "Waiting"
     IN_PROGRESS = "In_progress"
-    COMPLETED = "Completed"
+    COMPLETED   = "Completed"
 
 
 class Match(Base):
     """
     Representa una partida (Match).
     """
-
     __tablename__ = "matches"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        primary_key=True,
-        index=True,
-        default=uuid.uuid4,
+        primary_key = True,
+        index       = True,
+        default     = uuid.uuid4,
     )
-    name: Mapped[str] = mapped_column(nullable=False)
+    
+    name: Mapped[str] = mapped_column(
+        nullable = False
+    )
+    
     status: Mapped[MatchStatus] = mapped_column(
         Enum(MatchStatus, name="match_status"),
-        default=MatchStatus.WAITING,
-        index=True,
+        default = MatchStatus.WAITING,
+        index   = True,
     )
-    min_players: Mapped[int] = mapped_column(Integer, default=2)
-    max_players: Mapped[int] = mapped_column(Integer, default=6)
+    
+    min_players: Mapped[int] = mapped_column(
+        Integer,
+        default = 2
+    )
+    
+    max_players: Mapped[int] = mapped_column(
+        Integer,
+        default = 6
+    )
+    
     owner_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("players.id"),
-        nullable=False,
-        index=True,
+        nullable = False,
+        index    = True,
     )
-    current_player_order: Mapped[int] = mapped_column(Integer, default=1)
-
+    
+    current_player_order: Mapped[int] = mapped_column(
+        Integer,
+        default = 1
+    )
+    
     owner = relationship("Player", backref="matches")
-
-
-class Match_Player(Base):
-    """
-    Tabla intermedia que representa la relación Match <-> Player.
-    """
-
-    __tablename__ = "match_players"
-
-    player_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("players.id"),
-        primary_key=True,
-        nullable=False,
-        index=True,
-    )
-    match_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("matches.id"),
-        primary_key=True,
-        nullable=False,
-        index=True,
-    )
-    role: Mapped[Secret_Type] = mapped_column(Enum(Secret_Type), nullable=True, index=True)
-    order: Mapped[int] = mapped_column(Integer, nullable=True, index=True, default=0)
-
-    match = relationship("Match", backref="match_players")
-    player = relationship("Player", backref="match_players")
