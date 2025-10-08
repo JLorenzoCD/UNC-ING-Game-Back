@@ -432,11 +432,9 @@ class PileService:
                     taken_cards.append(match_card)
             self._db.commit()
             return cards
-        except HTTPException as exception:
-            if(exception.status_code == status.HTTP_404_NOT_FOUND):
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "card not found"})
-            else:
-                raise exception
+        except SQLAlchemyError as exception:
+            self._db.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Database error", "details": str(exception)})
     
     def discard_cards(self, cards: list[UUID]) -> list[UUID]:
         discarded_cards = []
