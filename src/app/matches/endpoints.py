@@ -20,6 +20,7 @@ from app.matches.schemas import (
     Players_by_Match_Schema,
     Match_number_of_Player,
 )
+from app.cards.schemas import (take_discard_Match_Cards_in)
 
 router = APIRouter(
     tags   = ["matches"],
@@ -153,3 +154,21 @@ async def get_cards(match_id: UUID, db=Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
     
     return cards
+
+
+@router.put("/{match_id}/cards", status_code=status.HTTP_200_OK)
+async def take_discard_cards(match_id: UUID, cards: take_discard_Match_Cards_in, db = Depends(get_db)):
+    player_id           = cards.player_id
+    taken_cards_ids     = cards.taken_card_ids
+    discarded_cards_ids = cards.discarded_card_ids
+
+    len_taken_cards_ids     = len(taken_cards_ids)
+    len_discarded_cards_ids = len(discarded_cards_ids)
+
+    if (len_taken_cards_ids == len_discarded_cards_ids) & (len_taken_cards_ids <= 6):
+        taken_cards     = services.PileService(db).take_cards(player_id, taken_cards_ids)
+        discarded_cards = services.PileService(db).discard_cards(player_id, discarded_cards_ids)
+
+        await manager.specificBroadcast(make_ws_message(WSEvent.CARDS, taken_cards + discarded_cards), match_id)
+    else:
+        raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE)

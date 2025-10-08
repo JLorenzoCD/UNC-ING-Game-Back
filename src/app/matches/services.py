@@ -6,7 +6,7 @@ from typing import List
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 
 from app.matches.models import Match, MatchStatus
 from app.matches.schemas import MatchOut
@@ -415,3 +415,34 @@ class MatchService:
                 raise MatchValidationError("Match is not in a valid state to start")
         else:
                 raise MatchValidationError("Match is not in a valid state to start")
+
+
+class PileService:
+    def __init__(self, db):
+        self._db = db
+
+
+    def take_cards(self, player_id: UUID, cards: list[UUID]) -> list[UUID]:
+        taken_cards = []
+        try:
+            for card in cards:
+                match_card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
+                if match_card and (match_card.player_id == None):
+                    match_card.player_id = player_id
+                    taken_cards.append(match_card)
+            self._db.commit()
+            return cards
+        except SQLAlchemyError as exception:
+            self._db.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Database error", "details": str(exception)})
+    
+    def discard_cards(self, player_id: UUID, cards: list[UUID]) -> list[UUID]:
+        discarded_cards = []
+        for card in cards:
+            match_card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
+            if match_card and (match_card.player_id == player_id):
+                match_card.player_id    = None
+                match_card.is_discarded = True
+                discarded_cards.append(match_card)
+        self._db.commit()
+        return cards

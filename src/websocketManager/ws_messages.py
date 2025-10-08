@@ -5,9 +5,10 @@ from uuid import UUID
 from datetime import date, datetime
 
 class WSEvent(str, Enum):
-    MATCH = "match"
+    MATCH       = "match"
     PLAYER_JOIN = "player_join"
-    TURN = "turn"
+    TURN        = "turn"
+    CARDS       = "cards"
 
 def custom_encoder(o):
     if isinstance(o, UUID):
