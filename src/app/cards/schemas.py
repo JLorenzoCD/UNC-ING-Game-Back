@@ -23,7 +23,7 @@ class Match_Card_Schema(BaseModel):
     player_id   : UUID
     is_discarded: bool
 
-class take_dicard_Match_Cards_in(BaseModel):
+class take_discard_Match_Cards_in(BaseModel):
     player_id         : UUID
     taken_card_ids    : List[UUID]
     discarded_card_ids: List[UUID]
