@@ -163,8 +163,8 @@ async def take_discard_cards(match_id, cards: take_dicard_Match_Cards_in, db = D
     discarded_cards_ids = cards.discarded_card_ids
 
     if(len(taken_cards_ids) <= 6):
-        taken_cards     = services.PileService(db).discard_cards(discarded_cards_ids)
-        discarded_cards = services.PileService(db).take_cards(player_id, taken_cards_ids)
+        taken_cards     = services.PileService(db).take_cards(player_id, taken_cards_ids)
+        discarded_cards = services.PileService(db).discard_cards(discarded_cards_ids)
 
         await manager.specificBroadcast(make_ws_message(WSEvent.CARDS, taken_cards + discarded_cards), match_id)
 
