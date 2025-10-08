@@ -18,6 +18,8 @@ from app.secrets.services import Secrets_Services
 from app.player.models import Player, Match_Player
 from app.cards.models import Match_Card, Card
 from app.cards.services import Cards_Services
+from app.cards.schemas import Match_Card_Schema
+from app.cards.utils import db_match_card_2_match_card_schema
 
 
 # Excepciones
@@ -421,34 +423,25 @@ class PileService:
     def __init__(self, db):
         self._db = db
 
-
-    def take_cards(self, player_id: UUID, cards: list[UUID]) -> list[Match_Card]:
-        taken_cards = []
+    def take_cards(self, player_id: UUID, cards: list[UUID]) -> None:
         try:
             for card in cards:
                 match_card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
                 if match_card and (match_card.player_id == None):
                     match_card.player_id = player_id
-                    json_match_card = match_card.model_dump()
-                    taken_cards.append(json_match_card)
             self._db.commit()
-            return taken_cards
         except SQLAlchemyError as exception:
             self._db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Database error", "details": str(exception)})
     
-    def discard_cards(self, player_id: UUID, cards: list[UUID]) -> list[Match_Card]:
-        discarded_cards = []
+    def discard_cards(self, player_id: UUID, cards: list[UUID]) -> None:
         try:
             for card in cards:
                 match_card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
                 if match_card and (match_card.player_id == player_id):
                     match_card.player_id    = None
                     match_card.is_discarded = True
-                    json_match_card = match_card.model_dump()
-                    discarded_cards.append(json_match_card)
             self._db.commit()
-            return discarded_cards
         except SQLAlchemyError as exception:
             self._db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Database error", "details": str(exception)})
