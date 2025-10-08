@@ -135,7 +135,15 @@ async def start_match(match_id: UUID, db=Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Could not start match: {str(e)}")
+    
 
+@router.post("/{match_id}/pass_turn", status_code=status.HTTP_200_OK)
+async def pass_turn(match_id: UUID, db=Depends(get_db)):
+    match=services.MatchService(db).pass_turn_by_id(match_id)
+    match_dict=db_match_2_match_schema(match).model_dump(mode="json")
+    msg=make_ws_message(WSEvent.TURN, match_dict)
+    await manager.specificBroadcast(msg, match_id)
+    return {"match_id": match_id}
 
 @router.get("/{match_id}/secrets", status_code=status.HTTP_200_OK)
 async def get_secrets(match_id: UUID, db=Depends(get_db)):
