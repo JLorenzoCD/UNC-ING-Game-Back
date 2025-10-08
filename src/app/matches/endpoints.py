@@ -20,7 +20,7 @@ from app.matches.schemas import (
     Players_by_Match_Schema,
     Match_number_of_Player,
 )
-from app.cards.schemas import (take_dicard_Match_Cards_in)
+from app.cards.schemas import (take_discard_Match_Cards_in)
 
 router = APIRouter(
     tags   = ["matches"],
