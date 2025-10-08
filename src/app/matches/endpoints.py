@@ -157,7 +157,7 @@ async def get_cards(match_id: UUID, db=Depends(get_db)):
 
 
 @router.put("/{match_id}/cards", status_code=status.HTTP_200_OK)
-async def take_discard_cards(match_id, cards: take_dicard_Match_Cards_in, db = Depends(get_db)):
+async def take_discard_cards(match_id: UUID, cards: take_dicard_Match_Cards_in, db = Depends(get_db)):
     player_id           = cards.player_id
     taken_cards_ids     = cards.taken_card_ids
     discarded_cards_ids = cards.discarded_card_ids
