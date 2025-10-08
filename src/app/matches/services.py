@@ -422,7 +422,7 @@ class PileService:
         self._db = db
 
 
-    def take_cards(self, player_id: UUID, cards: list[UUID]) -> list[UUID]:
+    def take_cards(self, player_id: UUID, cards: list[UUID]) -> list[Match_Card]:
         taken_cards = []
         try:
             for card in cards:
@@ -431,18 +431,22 @@ class PileService:
                     match_card.player_id = player_id
                     taken_cards.append(match_card)
             self._db.commit()
-            return cards
+            return taken_cards
         except SQLAlchemyError as exception:
             self._db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Database error", "details": str(exception)})
     
-    def discard_cards(self, player_id: UUID, cards: list[UUID]) -> list[UUID]:
+    def discard_cards(self, player_id: UUID, cards: list[UUID]) -> list[Match_Card]:
         discarded_cards = []
-        for card in cards:
-            match_card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
-            if match_card and (match_card.player_id == player_id):
-                match_card.player_id    = None
-                match_card.is_discarded = True
-                discarded_cards.append(match_card)
-        self._db.commit()
-        return cards
+        try:
+            for card in cards:
+                match_card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
+                if match_card and (match_card.player_id == player_id):
+                    match_card.player_id    = None
+                    match_card.is_discarded = True
+                    discarded_cards.append(match_card)
+            self._db.commit()
+            return discarded_cards
+        except SQLAlchemyError as exception:
+            self._db.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Database error", "details": str(exception)})

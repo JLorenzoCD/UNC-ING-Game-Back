@@ -20,7 +20,7 @@ class Match_Card_Schema(BaseModel):
     id          : UUID
     card_id     : UUID
     match_id    : UUID
-    player_id   : UUID
+    player_id   : UUID | None
     is_discarded: bool
 
 class take_discard_Match_Cards_in(BaseModel):

@@ -20,7 +20,7 @@ from app.matches.schemas import (
     Players_by_Match_Schema,
     Match_number_of_Player,
 )
-from app.cards.schemas import (take_discard_Match_Cards_in)
+from app.cards.schemas import (take_discard_Match_Cards_in, Match_Card_Schema)
 
 router = APIRouter(
     tags   = ["matches"],
@@ -169,6 +169,11 @@ async def take_discard_cards(match_id: UUID, cards: take_discard_Match_Cards_in,
         taken_cards     = services.PileService(db).take_cards(player_id, taken_cards_ids)
         discarded_cards = services.PileService(db).discard_cards(player_id, discarded_cards_ids)
 
-        await manager.specificBroadcast(make_ws_message(WSEvent.CARDS, taken_cards + discarded_cards), match_id)
+        # Convert Match_Card objects to serializable schemas
+        serializable_cards = []
+        for card in taken_cards + discarded_cards:
+            serializable_cards.append(Match_Card_Schema.model_validate(card).model_dump())
+        
+        await manager.specificBroadcast(make_ws_message(WSEvent.CARDS, serializable_cards), match_id)
     else:
         raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE)
