@@ -429,7 +429,8 @@ class PileService:
                 match_card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
                 if match_card and (match_card.player_id == None):
                     match_card.player_id = player_id
-                    taken_cards.append(match_card)
+                    json_match_card = match_card.model_dump()
+                    taken_cards.append(json_match_card)
             self._db.commit()
             return taken_cards
         except SQLAlchemyError as exception:
@@ -444,7 +445,8 @@ class PileService:
                 if match_card and (match_card.player_id == player_id):
                     match_card.player_id    = None
                     match_card.is_discarded = True
-                    discarded_cards.append(match_card)
+                    json_match_card = match_card.model_dump()
+                    discarded_cards.append(json_match_card)
             self._db.commit()
             return discarded_cards
         except SQLAlchemyError as exception:
