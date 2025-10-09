@@ -107,12 +107,16 @@ class MatchService:
         return match
 
     def pass_turn_by_id(self,match_id:UUID):
-        match=self.get_match_by_id(match_id)
+        try:
+            match=self.get_match_by_id(match_id)
+        except Exception:
+            raise MatchNotFound
+
         count_players=self.count_players_by_match(match_id)
-        if count_players<=0:
-            raise ValueError("No players in the match")
+        if match.status!=MatchStatus.IN_PROGRESS:
+            raise ValueError("The match is not in progress")
         if match.current_player_order is None:
-            raise ValueError("countPlayers invalid")
+            raise ValueError("current_player_order Invalid")
         if match.current_player_order>=count_players:
             match.current_player_order=1
         else:
@@ -195,7 +199,7 @@ class MatchService:
         try:
             match = self._db.query(Match).filter(Match.id == match_id).first()
             if not match:
-                raise Exception("Partida no encontrada")
+                raise Exception("Match not found")
             
             results = self._db.query(
                 Match_Card.id,
