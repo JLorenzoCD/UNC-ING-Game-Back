@@ -3,6 +3,7 @@ from datetime import date
 from collections import defaultdict
 import random
 from typing import List
+from datetime import datetime
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -455,6 +456,7 @@ class PileService:
             self._db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Database error", "details": str(exception)})
     
+<<<<<<< HEAD
     def discard_cards(self, player_id: UUID, cards: list[UUID]) -> None:
         try:
             for card in cards:
@@ -466,3 +468,16 @@ class PileService:
         except SQLAlchemyError as exception:
             self._db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Database error", "details": str(exception)})
+=======
+    def discard_cards(self, player_id: UUID, cards: list[UUID]) -> list[UUID]:
+        discarded_cards = []
+        for card in cards:
+            match_card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
+            if match_card and (match_card.player_id == player_id):
+                match_card.player_id    = None
+                match_card.is_discarded = True
+                match_card.discarded_at = datetime.now()
+                discarded_cards.append(match_card)
+        self._db.commit()
+        return cards
+>>>>>>> d1fa266 (ING-103 Añadimos campo discarded_at y lo actualizamos al descartar)
