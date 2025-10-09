@@ -169,7 +169,7 @@ async def take_discard_cards(match_id: UUID, cards: take_discard_Match_Cards_in,
         len_match_cards         = len(services.MatchService(db).get_cards_by_match(match_id))
 
         if (len_match_cards < len_taken_cards_ids):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"error":"No puedes descartar mas cartas de las que quedan en el mazo"})
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"error":"No puedes tomar más cartas de las que quedan en el mazo"})
         elif (len_taken_cards_ids > 6):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"error":"No puedes tomar mas de 6 cartas"})
         elif (len_taken_cards_ids == len_discarded_cards_ids):
