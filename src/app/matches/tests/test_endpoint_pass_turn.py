@@ -1,14 +1,15 @@
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
+from conftest import setup_match_and_players
 
-def test_pass_turn_success_increment(client, setup_match_and_players):
+def test_pass_turn_success_increment(client,db_session):
     # Mock WS manager SOLO en este test
     with patch('app.matches.endpoints.manager') as ws:
         ws.specificBroadcast = AsyncMock()
         ws.waiting_room_broadcast = AsyncMock()
         ws.enterMatch = MagicMock()
 
-        ctx = setup_match_and_players
+        ctx = setup_match_and_players(client, db_session)
         match_id   = ctx["match_str_id"]
         player2_id = ctx["player2_str_id"]
 
@@ -39,14 +40,14 @@ def test_pass_turn_success_increment(client, setup_match_and_players):
         else:
             assert current_after == 1
 
-def test_pass_turn_match_not_in_progress(client, setup_match_and_players):
+def test_pass_turn_match_not_in_progress(client,db_session):
     # Mock WS manager SOLO en este test
     with patch('app.matches.endpoints.manager') as ws:
         ws.specificBroadcast = AsyncMock()
         ws.waiting_room_broadcast = AsyncMock()
         ws.enterMatch = MagicMock()
 
-        ctx = setup_match_and_players
+        ctx = setup_match_and_players(client,db_session)
         match_id   = ctx["match_str_id"]
         player2_id = ctx["player2_str_id"]
 
@@ -55,7 +56,7 @@ def test_pass_turn_match_not_in_progress(client, setup_match_and_players):
         assert resp.status_code == 400
         assert resp.json()["detail"] == "The match is not in progress"
 
-def test_pass_turn_invalid_match_id(client):
+def test_pass_turn_invalid_match_id(client,db_session):
     with patch('app.matches.endpoints.manager') as ws:
         ws.specificBroadcast = AsyncMock()
         ws.waiting_room_broadcast = AsyncMock()
