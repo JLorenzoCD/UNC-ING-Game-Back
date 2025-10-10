@@ -121,7 +121,7 @@ class Secrets_Services:
             self._db.rollback()
             raise e
 
-    def update_secret(self, action: Secret_action, match_secret_id:UUID, player_id: UUID = None):
+    def update_secret(self, action: Secret_action, match_secret_id:UUID, player_id: UUID = None) -> Match_Secret:
         if action == Secret_action.REVEAL:
             self.reveal_secret(match_secret_id)
         elif action == Secret_action.HIDE:
@@ -132,3 +132,6 @@ class Secrets_Services:
             self.steal_secret(match_secret_id, player_id)
         else:
             raise ValueError("Invalid action")
+        
+        match_secret = self._db.query(Match_Secret).filter(Match_Secret.id == match_secret_id).first()
+        return match_secret
