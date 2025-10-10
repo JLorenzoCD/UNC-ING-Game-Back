@@ -6,12 +6,12 @@ from app.secrets.utils import db_secret_2_secret_schema
 
 print("Test module loaded successfully!")  # Debugfrom ..utils import *
 
-def test_create_card(db):
+def test_create_card(db_session):
     # Creamos una Card en la DB
     new_secret = Secret(type=Secret_Type.MURDERER, content="Your the murderer")
-    db.add(new_secret)
-    db.commit()
-    db.refresh(new_secret)
+    db_session.add(new_secret)
+    db_session.commit()
+    db_session.refresh(new_secret)
 
     # Verificamos que se guardó
     assert new_secret.id is not None
