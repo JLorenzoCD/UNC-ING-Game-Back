@@ -12,8 +12,6 @@ def test_pass_turn_success_increment(client, setup_match_and_players):
         match_id   = ctx["match_str_id"]
         player2_id = ctx["player2_str_id"]
 
-        # unir al player2 y arrancar la partida (ya hay cartas + secretos sembrados)
-        assert client.post(f"/matches/{match_id}/join", params={"player_id": player2_id}).status_code == 200
         r = client.post(f"/matches/{match_id}/start")
         assert r.status_code == 200, r.json()
 
