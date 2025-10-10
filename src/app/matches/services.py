@@ -211,6 +211,27 @@ class MatchService:
         except SQLAlchemyError as e:
             raise Exception(f"Database error: {str(e)}")
 
+    def get_extended_cards_by_match(self, match_id: UUID, ids: List[UUID]) -> List[Match_Card_Schema]:
+        result = (
+                self._db.query(
+                Match_Card.id,
+                Match_Card.card_id,
+                Match_Card.match_id,
+                Match_Card.player_id,
+                Match_Card.is_discarded,
+                Card.name,
+                Card.type,
+                Card.description,
+                )
+                .join(Card, Match_Card.card_id == Card.id)
+                .filter(
+                Match_Card.match_id == match_id,
+                Match_Card.id.in_(ids),
+                )
+                .all()
+            )
+        return result
+
     def get_secrets_by_match(self, match_id: UUID):
         results = (
             self._db.query(Match_Secret, Secret)

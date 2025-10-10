@@ -178,24 +178,7 @@ async def take_discard_cards(match_id: UUID, cards: take_discard_Match_Cards_in,
             
             ids = list(set(taken_cards_ids + discarded_cards_ids))
 
-            results = (
-                db.query(
-                Match_Card.id,
-                Match_Card.card_id,
-                Match_Card.match_id,
-                Match_Card.player_id,
-                Match_Card.is_discarded,
-                Card.name,
-                Card.type,
-                Card.description,
-                )
-                .join(Card, Match_Card.card_id == Card.id)
-                .filter(
-                Match_Card.match_id == match_id,
-                Match_Card.card_id.in_(ids),
-                )
-                .all()
-            )
+            results = services.MatchService(db).get_extended_cards_by_match(match_id, ids)
 
             payload = [
                 {
@@ -205,7 +188,7 @@ async def take_discard_cards(match_id: UUID, cards: take_discard_Match_Cards_in,
                 "player_id": r[3],
                 "is_discarded": r[4],
                 "name": r[5],
-                "type": r[6],
+                "type": r[6].value if hasattr(r[6], 'value') else r[6],
                 "description": r[7],
                 }
                 for r in results
