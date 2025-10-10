@@ -48,7 +48,6 @@ def client(db_session):
     
     app.dependency_overrides.clear()
 
-@pytest.fixture
 def setup_match_and_players(client, db_session):
     """Configuración común: crea match, players y cartas"""
     # Crear owner
