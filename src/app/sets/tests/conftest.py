@@ -1,3 +1,4 @@
+# conftest.py
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -8,7 +9,6 @@ import uuid
 from main import app
 from app.cards.models import Card, Card_Type
 from app.models.db import get_db, Base
-from app.secrets.models import Secret, Secret_Type
 # Base de datos en memoria para tests
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
@@ -48,7 +48,6 @@ def client(db_session):
     
     app.dependency_overrides.clear()
 
-@pytest.fixture
 def setup_match_and_players(client, db_session):
     """Configuración común: crea match, players y cartas"""
     # Crear owner
@@ -82,11 +81,6 @@ def setup_match_and_players(client, db_session):
     assert response.status_code == 201
     player2 = response.json()
     player2_id = uuid.UUID(player2['id'])
-    
-    # Unirlo a la partida
-    response = client.post(f"/matches/{match['id']}/join", params={"player_id":player2['id']})
-    assert response.status_code == 200
-
 
     # Agregar cartas base al sistema
     cards = [
@@ -115,16 +109,6 @@ def setup_match_and_players(client, db_session):
     db_session.add_all(cards)
     db_session.commit()
     
-    secrets = [
-        Secret(id=uuid.uuid4(), type=Secret_Type.MURDERER, content="You are the Murderer!"),
-        Secret(id=uuid.uuid4(), type=Secret_Type.ACCOMPLICE, content="You are the Accomplice!"),
-        Secret(id=uuid.uuid4(), type=Secret_Type.INNOCENT, content="You are Innocent!")    
-    ]
-    
-    if not db_session.query(Secret).first():
-        db_session.add_all(secrets)
-        db_session.commit()
-    
     return {
         'match_id': match_id,
         'match_str_id': match['id'],
@@ -132,6 +116,5 @@ def setup_match_and_players(client, db_session):
         'owner_str_id': owner['id'],
         'player2_id': player2_id,
         'player2_str_id': player2['id'],
-        'cards': cards,
-        'secrets': secrets
+        'cards': cards
     }

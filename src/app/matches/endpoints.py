@@ -20,6 +20,8 @@ from app.matches.schemas import (
     Players_by_Match_Schema,
     Match_number_of_Player,
 )
+from app.cards.models import Card, Match_Card
+from app.cards.schemas import (take_discard_Match_Cards_in, Match_Card_Schema)
 
 router = APIRouter(
     tags   = ["matches"],
@@ -173,3 +175,48 @@ async def get_cards(match_id: UUID, db=Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
     
     return cards
+
+
+@router.put("/{match_id}/cards", status_code=status.HTTP_200_OK)
+async def take_discard_cards(match_id: UUID, cards: take_discard_Match_Cards_in, db = Depends(get_db)):
+    try:
+        player_id           = cards.player_id
+        taken_cards_ids     = cards.taken_card_ids
+        discarded_cards_ids = cards.discarded_card_ids
+
+        len_taken_cards_ids     = len(taken_cards_ids)
+        len_discarded_cards_ids = len(discarded_cards_ids)
+        len_match_cards         = len(services.MatchService(db).get_cards_by_match(match_id))
+
+        if (len_match_cards < len_taken_cards_ids):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"error":"No puedes tomar más cartas de las que quedan en el mazo"})
+        elif (len_taken_cards_ids > 6):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"error":"No puedes tomar mas de 6 cartas"})
+        elif (len_taken_cards_ids == len_discarded_cards_ids):
+            services.PileService(db).take_cards(player_id, taken_cards_ids)
+            services.PileService(db).discard_cards(player_id, discarded_cards_ids)
+            
+            ids = list(set(taken_cards_ids + discarded_cards_ids))
+
+            results = services.MatchService(db).get_extended_cards_by_match(match_id, ids)
+
+            payload = [
+                {
+                "id": r[0],
+                "card_id": r[1],
+                "match_id": r[2],
+                "player_id": r[3],
+                "is_discarded": r[4],
+                "discarded_at": r[5],
+                "name": r[6],
+                "type": r[7].value if hasattr(r[7], 'value') else r[7],
+                "description": r[8],
+                }
+                for r in results
+            ]
+
+            await manager.specificBroadcast(make_ws_message(WSEvent.CARDS, payload), match_id)
+        else:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"error":"Error al procesar las cartas"})
+    except HTTPException as exception:
+        raise exception

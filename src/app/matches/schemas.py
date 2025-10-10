@@ -1,5 +1,5 @@
 from uuid import UUID
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 from pydantic import BaseModel, ConfigDict
 
@@ -70,6 +70,7 @@ class Cards_by_Match_Schema(BaseModel):
     match_id:     UUID
     player_id:    Optional[UUID] = None
     is_discarded: bool
+    discarded_at: Optional[datetime] = None
     name:         str
     type:         Card_Type
     description:  str

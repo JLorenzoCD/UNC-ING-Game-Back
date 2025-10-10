@@ -3,10 +3,11 @@ from datetime import date
 from collections import defaultdict
 import random
 from typing import List
+from datetime import datetime
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 
 from app.matches.models import Match, MatchStatus
 from app.matches.schemas import MatchOut
@@ -18,6 +19,8 @@ from app.secrets.services import Secrets_Services
 from app.player.models import Player, Match_Player
 from app.cards.models import Match_Card, Card
 from app.cards.services import Cards_Services
+from app.cards.schemas import Match_Card_Schema
+from app.cards.utils import db_match_card_2_match_card_schema
 
 
 # Excepciones
@@ -207,6 +210,7 @@ class MatchService:
                 Match_Card.match_id,
                 Match_Card.player_id,
                 Match_Card.is_discarded,
+                Match_Card.discarded_at,
                 Card.name,
                 Card.type,
                 Card.description
@@ -222,6 +226,7 @@ class MatchService:
                     "match_id":     r.match_id,
                     "player_id":    r.player_id,
                     "is_discarded": r.is_discarded,
+                    "discarded_at": r.discarded_at,
                     "name":         r.name,
                     "type":         r.type,
                     "description":  r.description  
@@ -230,6 +235,28 @@ class MatchService:
             return combined
         except SQLAlchemyError as e:
             raise Exception(f"Database error: {str(e)}")
+
+    def get_extended_cards_by_match(self, match_id: UUID, ids: List[UUID]) -> List[Match_Card_Schema]:
+        result = (
+                self._db.query(
+                Match_Card.id,
+                Match_Card.card_id,
+                Match_Card.match_id,
+                Match_Card.player_id,
+                Match_Card.is_discarded,
+                Match_Card.discarded_at,
+                Card.name,
+                Card.type,
+                Card.description,
+                )
+                .join(Card, Match_Card.card_id == Card.id)
+                .filter(
+                Match_Card.match_id == match_id,
+                Match_Card.id.in_(ids),
+                )
+                .all()
+            )
+        return result
 
     def get_secrets_by_match(self, match_id: UUID):
         results = (
@@ -437,3 +464,28 @@ class MatchService:
                 raise MatchValidationError("Match is not in a valid state to start")
         else:
                 raise MatchValidationError("Match is not in a valid state to start")
+
+
+class PileService:
+    def __init__(self, db):
+        self._db = db
+
+    def take_cards(self, player_id: UUID, cards: list[UUID]) -> None:
+        try:
+            for card in cards:
+                match_card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
+                if match_card and (match_card.player_id == None):
+                    match_card.player_id = player_id
+            self._db.commit()
+        except SQLAlchemyError as exception:
+            self._db.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Database error", "details": str(exception)})
+    
+    def discard_cards(self, player_id: UUID, cards: list[UUID]) -> None:
+        for card in cards:
+            match_card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
+            if match_card and (match_card.player_id == player_id):
+                match_card.player_id    = None
+                match_card.is_discarded = True
+                match_card.discarded_at = datetime.now()
+        self._db.commit()
