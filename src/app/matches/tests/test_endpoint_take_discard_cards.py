@@ -417,5 +417,5 @@ class TestTakeDiscardCardsEndpoint:
         
         # Verificar el mensaje de error específico
         response_data = response.json()
-        assert "No puedes descartar mas cartas de las que quedan en el mazo" in response_data["detail"]["error"]
+        assert "No puedes tomar más cartas de las que quedan en el mazo" in response_data["detail"]["error"]
 

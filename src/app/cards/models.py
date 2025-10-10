@@ -1,7 +1,8 @@
 from uuid import uuid4
 from enum import Enum as PyEnum
+from datetime import datetime
 
-from sqlalchemy import String, Boolean, ForeignKey, Enum
+from sqlalchemy import String, Boolean, ForeignKey, Enum, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
@@ -27,11 +28,12 @@ class Card(Base):
 class Match_Card(Base):
     __tablename__ = "match_cards"
 
-    id          : Mapped[UUID]      = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    card_id     : Mapped[UUID]      = mapped_column(UUID(as_uuid=True), ForeignKey("cards.id"), index=True, nullable=False)
-    match_id    : Mapped[UUID]      = mapped_column(UUID(as_uuid=True), ForeignKey("matches.id"), index=True, nullable=False)
+    id          : Mapped[UUID]        = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    card_id     : Mapped[UUID]        = mapped_column(UUID(as_uuid=True), ForeignKey("cards.id"), index=True, nullable=False)
+    match_id    : Mapped[UUID]        = mapped_column(UUID(as_uuid=True), ForeignKey("matches.id"), index=True, nullable=False)
     player_id   : Mapped[UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("players.id"), index=True, nullable=True)
-    is_discarded: Mapped[bool]      = mapped_column(Boolean, default=False)
+    is_discarded: Mapped[bool]        = mapped_column(Boolean, default=False)
+    discarded_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
 
     card   = relationship("Card",  backref="match_cards")
     match  = relationship("Match", backref="match_cards")

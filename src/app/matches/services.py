@@ -3,6 +3,7 @@ from datetime import date
 from collections import defaultdict
 import random
 from typing import List
+from datetime import datetime
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -187,6 +188,7 @@ class MatchService:
                 Match_Card.match_id,
                 Match_Card.player_id,
                 Match_Card.is_discarded,
+                Match_Card.discarded_at,
                 Card.name,
                 Card.type,
                 Card.description
@@ -202,6 +204,7 @@ class MatchService:
                     "match_id":     r.match_id,
                     "player_id":    r.player_id,
                     "is_discarded": r.is_discarded,
+                    "discarded_at": r.discarded_at,
                     "name":         r.name,
                     "type":         r.type,
                     "description":  r.description  
@@ -219,6 +222,7 @@ class MatchService:
                 Match_Card.match_id,
                 Match_Card.player_id,
                 Match_Card.is_discarded,
+                Match_Card.discarded_at,
                 Card.name,
                 Card.type,
                 Card.description,
@@ -456,13 +460,10 @@ class PileService:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Database error", "details": str(exception)})
     
     def discard_cards(self, player_id: UUID, cards: list[UUID]) -> None:
-        try:
-            for card in cards:
-                match_card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
-                if match_card and (match_card.player_id == player_id):
-                    match_card.player_id    = None
-                    match_card.is_discarded = True
-            self._db.commit()
-        except SQLAlchemyError as exception:
-            self._db.rollback()
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Database error", "details": str(exception)})
+        for card in cards:
+            match_card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
+            if match_card and (match_card.player_id == player_id):
+                match_card.player_id    = None
+                match_card.is_discarded = True
+                match_card.discarded_at = datetime.now()
+        self._db.commit()

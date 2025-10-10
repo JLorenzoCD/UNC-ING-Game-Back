@@ -187,9 +187,10 @@ async def take_discard_cards(match_id: UUID, cards: take_discard_Match_Cards_in,
                 "match_id": r[2],
                 "player_id": r[3],
                 "is_discarded": r[4],
-                "name": r[5],
-                "type": r[6].value if hasattr(r[6], 'value') else r[6],
-                "description": r[7],
+                "discarded_at": r[5],
+                "name": r[6],
+                "type": r[7].value if hasattr(r[7], 'value') else r[7],
+                "description": r[8],
                 }
                 for r in results
             ]
