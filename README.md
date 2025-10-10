@@ -49,3 +49,7 @@ FastAPI genera automáticamente documentación interactiva:
 
 - Swagger UI: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)  
 - ReDoc: [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
+
+## Documentación de la API
+
+- [Link](https://docs.google.com/spreadsheets/d/1LJp2xAyst-Ixmmdeneowb8IcZy14VmEmFJXy1UkVWSs/edit?usp=sharing)

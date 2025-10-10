@@ -127,7 +127,7 @@ class TestTakeDiscardCardsEndpoint:
             json=request_data
         )
         
-        assert response.status_code == 406  # HTTP_406_NOT_ACCEPTABLE
+        assert response.status_code == 400  # HTTP_400_BAD_REQUEST
 
     def test_take_discard_cards_unequal_amounts_fails(self, client, db_session):
         """Test error: intercambio desigual (2 tomadas, 1 descartada) debe fallar"""
@@ -177,7 +177,7 @@ class TestTakeDiscardCardsEndpoint:
             json=request_data
         )
         
-        assert response.status_code == 406  # HTTP_406_NOT_ACCEPTABLE
+        assert response.status_code == 400  # HTTP_400_BAD_REQUEST
 
     def test_take_discard_cards_malformed_request(self, client, db_session):
         """Test con datos malformados en la request"""
@@ -369,4 +369,53 @@ class TestTakeDiscardCardsEndpoint:
             
             # Debería funcionar: 1 tomada = 1 descartada, <= 6
             assert response.status_code == 200
+
+    def test_take_more_cards_than_available_in_deck(self, client, db_session):
+        """Test error: intentar tomar más cartas de las que hay en total en el match"""
+        setup_data = setup_match_and_players(client, db_session)
+        
+        # Crear solo 2 cartas totales en el match
+        cards_available = [
+            Card(id=uuid.uuid4(), name=f"Available Card {i}", type=Card_Type.EVENT,
+                 description=f"Card available in deck {i}") for i in range(2)
+        ]
+        db_session.add_all(cards_available)
+        db_session.commit()
+        
+        # Crear match cards - todas disponibles para tomar (descartadas)
+        match_cards_available = []
+        for card in cards_available:
+            match_card = Match_Card(
+                card_id=card.id,
+                match_id=setup_data['match_id'],
+                player_id=None,
+                is_discarded=True
+            )
+            match_cards_available.append(match_card)
+        
+        db_session.add_all(match_cards_available)
+        db_session.commit()
+        
+        # Intentar tomar 3 cartas cuando solo hay 2 en total en el match
+        fake_card_1 = uuid.uuid4()
+        fake_card_2 = uuid.uuid4()
+        fake_card_3 = uuid.uuid4()
+        
+        request_data = {
+            "player_id": setup_data['owner_str_id'],
+            "taken_card_ids": [str(mc.id) for mc in match_cards_available] + [str(fake_card_1)],  # 3 cartas: 2 reales + 1 fake
+            "discarded_card_ids": [str(fake_card_2), str(fake_card_3), str(fake_card_1)]  # 3 cartas fake para mantener igualdad
+        }
+        
+        response = client.put(
+            f"/matches/{setup_data['match_str_id']}/cards",
+            json=request_data
+        )
+        
+        # Debería fallar porque intentamos tomar 3 cartas cuando solo hay 2 en total en el match
+        assert response.status_code == 400  # HTTP_400_BAD_REQUEST
+        
+        # Verificar el mensaje de error específico
+        response_data = response.json()
+        assert "No puedes descartar mas cartas de las que quedan en el mazo" in response_data["detail"]["error"]
 

@@ -18,6 +18,8 @@ from app.secrets.services import Secrets_Services
 from app.player.models import Player, Match_Player
 from app.cards.models import Match_Card, Card
 from app.cards.services import Cards_Services
+from app.cards.schemas import Match_Card_Schema
+from app.cards.utils import db_match_card_2_match_card_schema
 
 
 # Excepciones
@@ -208,6 +210,27 @@ class MatchService:
             return combined
         except SQLAlchemyError as e:
             raise Exception(f"Database error: {str(e)}")
+
+    def get_extended_cards_by_match(self, match_id: UUID, ids: List[UUID]) -> List[Match_Card_Schema]:
+        result = (
+                self._db.query(
+                Match_Card.id,
+                Match_Card.card_id,
+                Match_Card.match_id,
+                Match_Card.player_id,
+                Match_Card.is_discarded,
+                Card.name,
+                Card.type,
+                Card.description,
+                )
+                .join(Card, Match_Card.card_id == Card.id)
+                .filter(
+                Match_Card.match_id == match_id,
+                Match_Card.id.in_(ids),
+                )
+                .all()
+            )
+        return result
 
     def get_secrets_by_match(self, match_id: UUID):
         results = (
@@ -421,28 +444,25 @@ class PileService:
     def __init__(self, db):
         self._db = db
 
-
-    def take_cards(self, player_id: UUID, cards: list[UUID]) -> list[UUID]:
-        taken_cards = []
+    def take_cards(self, player_id: UUID, cards: list[UUID]) -> None:
         try:
             for card in cards:
                 match_card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
                 if match_card and (match_card.player_id == None):
                     match_card.player_id = player_id
-                    taken_cards.append(match_card)
             self._db.commit()
-            return cards
         except SQLAlchemyError as exception:
             self._db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Database error", "details": str(exception)})
     
-    def discard_cards(self, player_id: UUID, cards: list[UUID]) -> list[UUID]:
-        discarded_cards = []
-        for card in cards:
-            match_card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
-            if match_card and (match_card.player_id == player_id):
-                match_card.player_id    = None
-                match_card.is_discarded = True
-                discarded_cards.append(match_card)
-        self._db.commit()
-        return cards
+    def discard_cards(self, player_id: UUID, cards: list[UUID]) -> None:
+        try:
+            for card in cards:
+                match_card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
+                if match_card and (match_card.player_id == player_id):
+                    match_card.player_id    = None
+                    match_card.is_discarded = True
+            self._db.commit()
+        except SQLAlchemyError as exception:
+            self._db.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Database error", "details": str(exception)})
