@@ -103,7 +103,7 @@ class Secrets_Services:
     def steal_secret(self, match_secret_id: UUID, player_id: UUID):
         match_secret = self._db.query(Match_Secret).filter(Match_Secret.id == match_secret_id).first()
         if not match_secret:
-            raise ValueError("Secret not found")
+            raise SecretNotFound("Secret not found")
             
         owner_player_id = match_secret.player_id
         
