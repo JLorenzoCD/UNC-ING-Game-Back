@@ -7,13 +7,14 @@ from sqlalchemy.dialects.postgresql import UUID
 from app.models.db import Base
 
 class SetType(PyEnum):
-    PARKER_PYNE = "Parker_Pyner"
-    LADY_EILEEN = "Lady_Eileen"
-    ONE_BERESFORD = "One_Beresford"
-    TWO_BERESFORD = "Two_Beresford"
-    HERCULE_POIROT = "Hercule_Poirot"
-    MISS_MARPLE = "Miss_Marple"
-    MR_SATTERTHWAITE = "Mr_Satterthwaite"
+    PARKER_PYNE = "PARKER PYNE"
+    LADY_EILEEN = "LADY EILEEN"
+    TOMMY_BERESFORD = "TOMMY BERESFORD"
+    TUPPENCE_BERESFORD = "TUPPENCE BERESFORD"
+    TWO_BERESFORD = "TWO BERESFORD"
+    HERCULE_POIROT = "HERCULE POIROT"
+    MISS_MARPLE = "MISS MARPLE" 
+    MR_SATTERTHWAITE = "MR SATTERTHWAITE"
 
 class Match_Set (Base):
     """
