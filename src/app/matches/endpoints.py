@@ -212,6 +212,7 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
         match_card_ids: List[UUID] = setIn.card_ids
         set_service = set_services.SetService(db)
         set_service.set_verification(match_card_ids, match_id, setIn.type, setIn.target_player_id, setIn.target_secret_id)
+        
         set_data = {    
             "type" : setIn.type,
             "card_ids": match_card_ids,
@@ -219,18 +220,19 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
             "match_id": match_id           
         }
         match_set: set_schemas.MatchSetOut = set_service.create_set(set_data)
+        
         match_set_dict = match_set.model_dump(mode='json')
         ws_msj = make_ws_message(WSEvent.SET, match_set_dict)
         await manager.specificBroadcast(ws_msj, match_id)
-        
+            
         # Accion del Set (Casos)
         secret_service = secret_services.Secrets_Services(db)
         if setIn.target_secret_id is not None:
-            if match_set.type in (SetType.HERCULE_POIROT or SetType.MISS_MARPLE):
+            if match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE]:
                 target_secret = secret_service.update_secret(secret_services.Secret_action.REVEAL, setIn.target_secret_id, setIn.target_player_id)
                 match_secret_out = db_match_secret_2_match_secret_schema(target_secret)
                 
-            if match_set.type is (SetType.PARKER_PYNE):
+            if match_set.type == (SetType.PARKER_PYNE):
                 target_secret = secret_service.update_secret(secret_services.Secret_action.HIDE, setIn.target_secret_id, setIn.target_player_id)
                 match_secret_out = db_match_secret_2_match_secret_schema(target_secret)
 
@@ -241,9 +243,10 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
         else:
             payload = {"target_player_id" : setIn.target_player_id}
             ws_msj = make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload)
+            
             await manager.specificBroadcast(ws_msj, match_id)
         
-           
+        return match_set
     except (set_services.InvalidCardError, set_services.InvalidMatchIdError, set_services.TargetSecretError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     
@@ -258,3 +261,4 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    

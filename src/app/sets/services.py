@@ -38,7 +38,7 @@ class SetService:
             if card.type != Card_Type.DETECTIVE:
                 raise InvalidCardError("Sólo las cartas de detective pueden formar un Set.")
             
-        if set_type in (SetType.HERCULE_POIROT or SetType.MISS_MARPLE or SetType.PARKER_PYNE) and target_secret is None:
+        if set_type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE, SetType.PARKER_PYNE] and target_secret is None:
             raise TargetSecretError("No hay secreto seleccionado")
         
         if target_secret:
@@ -48,7 +48,10 @@ class SetService:
             
             if secret.player_id != target_player:
                 raise TargetSecretError("El secreto y el jugador no coinciden")
-        
+            
+            if set_type in [SetType.LADY_EILEEN, SetType.TUPPENCE_BERESFORD, SetType.TOMMY_BERESFORD, SetType.TWO_BERESFORD, SetType.MR_SATTERTHWAITE]:
+                raise TargetSecretError("No se deberia seleccionar secreto en este momento")
+                
         return True
     
     def _get_card_names(self, card_ids: list[UUID]) -> list[str]:

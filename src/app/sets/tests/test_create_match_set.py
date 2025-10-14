@@ -1,6 +1,7 @@
 import pytest
 from uuid import UUID
 from app.sets.models import Match_Set, SetType
+from app.sets.schemas import MatchSetOut
 from app.player.models import Player
 from app.matches.models import Match
 from app.cards.models import Card, Match_Card, Card_Type
@@ -71,7 +72,7 @@ def test_create_set_valid_combinations(db_session, client, set_type, card_names,
     set_service = SetService(db_session)
     new_set = set_service.create_set(set_data)
 
-    assert isinstance(new_set, Match_Set)
+    assert isinstance(new_set, MatchSetOut)
     assert new_set.type == set_type
     assert new_set.player_id == owner_id
     assert new_set.match_id == match_id
