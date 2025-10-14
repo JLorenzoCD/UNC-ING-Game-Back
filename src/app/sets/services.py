@@ -1,39 +1,53 @@
 from uuid import UUID
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from collections import Counter
+from typing import List, Optional
 
 from app.sets.models import Match_Set, SetType
+from app.sets.schemas import MatchSetOut
+from app.sets.utils import db_match_set_2_match_set_schema
 from app.cards.models import Card, Card_Type, Match_Card
-from app.player.models import Player, Match_Player
+from app.secrets.models import Secret, Match_Secret
 
 
 # --- Excepciones ---
-class InvalidCardTypeError(Exception):
+class InvalidCardError(Exception):
     pass
-
 class InvalidMatchIdError(Exception):
     pass
-
 class InvalidSetError(Exception):
     pass
-
+class TargetSecretError(Exception):
+    pass
 
 class SetService:
     def __init__(self, db: Session):
         self._db = db
 
-    def set_verification(self, card_ids: list[UUID], match_id: UUID) -> bool:
+    def set_verification(self, card_ids: List[UUID], match_id: UUID, set_type:SetType,  target_player: UUID, target_secret: Optional[UUID] = None) -> bool:
         for card_id in card_ids:
             match_card = self._db.query(Match_Card).filter(Match_Card.id == card_id).first()
             if not match_card:
-                raise InvalidSetError(f"Card with id {card_id} not found")
+                raise InvalidCardError(f"No se encontró la carta con id {card_id}")
 
             if match_card.match_id != match_id:
-                raise InvalidMatchIdError("Card does not belong to this match")
+                raise InvalidMatchIdError("La carta no pertenece a este Partida.")
 
             card = self._db.query(Card).filter(Card.id == match_card.card_id).first()
             if card.type != Card_Type.DETECTIVE:
-                raise InvalidCardTypeError("Only detective cards can form a set")
+                raise InvalidCardError("Sólo las cartas de detective pueden formar un Set.")
+            
+        if set_type in (SetType.HERCULE_POIROT or SetType.MISS_MARPLE or SetType.PARKER_PYNE) and target_secret is None:
+            raise TargetSecretError("No hay secreto seleccionado")
+        
+        if target_secret:
+            secret = self._db.query(Match_Secret).filter(Match_Secret.id == target_secret).first()
+            if secret is None:
+                raise TargetSecretError("No existe el secreto seleccionado")
+            
+            if secret.player_id != target_player:
+                raise TargetSecretError("El secreto y el jugador no coinciden")
         
         return True
     
@@ -80,7 +94,7 @@ class SetService:
         return True
 
 
-    def create_set(self, set_data: dict) -> Match_Set:
+    def create_set(self, set_data: dict) -> MatchSetOut:
         # Obtener nombres de cartas
         card_names = self._get_card_names(set_data["card_ids"])
         card_counts = Counter(card_names)
@@ -96,7 +110,12 @@ class SetService:
             quin_play="HARLEY QUIN WILDCARD" in card_names
         )
 
-        self._db.add(new_set)
-        self._db.commit()
-        self._db.refresh(new_set)
-        return new_set
+        try:
+            self._db.add(new_set)
+            self._db.commit()
+            self._db.refresh(new_set)
+        except SQLAlchemyError:
+            raise SQLAlchemyError._sql_message
+        
+        match_set_out: MatchSetOut = db_match_set_2_match_set_schema(new_set)
+        return match_set_out

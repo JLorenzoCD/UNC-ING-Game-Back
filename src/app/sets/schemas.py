@@ -1,3 +1,4 @@
+from typing import List, Optional
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
@@ -17,3 +18,11 @@ class MatchSetOut (BaseModel):
     player_id: UUID
     match_id: UUID
     quin_play: bool
+    
+class SetIn (BaseModel):
+
+    type: SetType
+    card_ids: List[UUID]
+    player_id: UUID
+    target_player_id: UUID
+    target_secret_id: Optional[UUID] = None
