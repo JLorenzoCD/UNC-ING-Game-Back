@@ -489,3 +489,14 @@ class PileService:
                 match_card.is_discarded = True
                 match_card.discarded_at = datetime.now()
         self._db.commit()
+    
+    def get_count_cards_pile(self,match_id:UUID)->int:
+        return (
+            self._db.query(Match_Card)
+            .filter(
+                Match_Card.match_id == match_id,
+                Match_Card.player_id.is_(None),
+                Match_Card.is_discarded.is_(False),
+        )
+        .count()
+        )
