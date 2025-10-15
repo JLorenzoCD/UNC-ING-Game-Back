@@ -24,6 +24,9 @@ class TargetSecretError(Exception):
 class SetService:
     def __init__(self, db: Session):
         self._db = db
+        
+                
+
 
     def set_verification(self, card_ids: List[UUID], match_id: UUID, set_type:SetType,  target_player: UUID, target_secret: Optional[UUID] = None) -> bool:
         for card_id in card_ids:
@@ -120,5 +123,20 @@ class SetService:
         except SQLAlchemyError:
             raise SQLAlchemyError._sql_message
         
-        match_set_out: MatchSetOut = db_match_set_2_match_set_schema(new_set)
+        quin_count = card_counts.get("HARLEY QUIN WILDCARD", 0)
+        match_set_out = MatchSetOut(
+            id=new_set.id,
+            type=new_set.type,
+            player_id=new_set.player_id,
+            match_id=new_set.match_id,
+            quin_play=new_set.quin_play,
+            quin_count=quin_count
+        )
         return match_set_out
+    
+    def quin_count(self, match_set:Match_Set, card_ids: List[UUID]) -> int:
+        card_names:list[str] = self._get_card_names(card_ids)
+        card_counts = Counter(card_names)
+        return card_counts.get("HARLEY QUIN WILDCARD", 0)
+                    
+        

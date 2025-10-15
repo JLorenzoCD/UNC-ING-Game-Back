@@ -221,8 +221,8 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
         }
         match_set: set_schemas.MatchSetOut = set_service.create_set(set_data)
         
-        match_set_dict = match_set.model_dump(mode='json')
-        ws_msj = make_ws_message(WSEvent.SET, match_set_dict)
+        match_set_dict                = match_set.model_dump(mode='json')
+        ws_msj                        = make_ws_message(WSEvent.SET, match_set_dict)
         await manager.specificBroadcast(ws_msj, match_id)
             
         # Accion del Set (Casos)
@@ -237,6 +237,7 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
                 match_secret_out = db_match_secret_2_match_secret_schema(target_secret)
 
             payload = match_secret_out.model_dump(mode='json')
+            
             ws_msj = make_ws_message(WSEvent.SECRET, payload)
             await manager.specificBroadcast(ws_msj, match_id)
             

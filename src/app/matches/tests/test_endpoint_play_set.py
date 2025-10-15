@@ -45,17 +45,17 @@ def create_match_secrets(db_session, secret: Secret, match_id: UUID, player_ids:
         secret_ids.append(match_secret.id)
     return secret_ids
 
-@pytest.mark.parametrize("set_type, card_names", [
+@pytest.mark.parametrize("set_type, card_names, quins", [
     # HERCULE_POIROT
-    (SetType.HERCULE_POIROT, ["HERCULE POIROT", "HERCULE POIROT", "HERCULE POIROT"]),
-    (SetType.HERCULE_POIROT, ["HERCULE POIROT", "HERCULE POIROT", "HARLEY QUIN WILDCARD"]),
-    (SetType.HERCULE_POIROT, ["HERCULE POIROT", "HARLEY QUIN WILDCARD", "HARLEY QUIN WILDCARD"]),
+    (SetType.HERCULE_POIROT, ["HERCULE POIROT", "HERCULE POIROT", "HERCULE POIROT"], 0),
+    (SetType.HERCULE_POIROT, ["HERCULE POIROT", "HERCULE POIROT", "HARLEY QUIN WILDCARD"], 1),
+    (SetType.HERCULE_POIROT, ["HERCULE POIROT", "HARLEY QUIN WILDCARD", "HARLEY QUIN WILDCARD"], 2),
     # MISS_MARPLE
-    (SetType.MISS_MARPLE, ["MISS MARPLE", "MISS MARPLE", "MISS MARPLE"]),
-    (SetType.MISS_MARPLE, ["MISS MARPLE", "MISS MARPLE", "HARLEY QUIN WILDCARD"]),
-    (SetType.MISS_MARPLE, ["MISS MARPLE", "HARLEY QUIN WILDCARD", "HARLEY QUIN WILDCARD"]),
+    (SetType.MISS_MARPLE, ["MISS MARPLE", "MISS MARPLE", "MISS MARPLE"], 0),
+    (SetType.MISS_MARPLE, ["MISS MARPLE", "MISS MARPLE", "HARLEY QUIN WILDCARD"], 1),
+    (SetType.MISS_MARPLE, ["MISS MARPLE", "HARLEY QUIN WILDCARD", "HARLEY QUIN WILDCARD"], 2),
 ])
-def test_endpoint_play_set_Poirot_Marple(db_session, client, set_type, card_names):
+def test_endpoint_play_set_Poirot_Marple(db_session, client, set_type, card_names, quins):
     """Verifica que los sets de Poirot y Marple revelen un secreto correctamente."""
     with patch('app.matches.endpoints.manager') as mock_manager:
         mock_manager.specificBroadcast = AsyncMock()
@@ -88,6 +88,7 @@ def test_endpoint_play_set_Poirot_Marple(db_session, client, set_type, card_name
         set_response = response.json()
         assert set_response['type'] == set_type.value
         assert set_response['player_id'] == str(owner_id)
+        assert set_response['quin_count'] == quins
         
         db_session.expire_all() # Forzar la recarga desde la BD
         match_secret_db = db_session.query(Match_Secret).filter(Match_Secret.id == target_secret_id).first()
