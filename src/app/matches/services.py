@@ -484,6 +484,46 @@ class MatchService:
         else:
                 raise MatchValidationError("Match is not in a valid state to start")
 
+    def get_murderer_id(self,match_id: UUID) -> UUID:
+        """
+        Devuelve el player_id del Murderer del match.
+        """
+        murderer_player_id=(
+            self._db.query(Match_Secret.player_id)
+            .join(Secret, Match_Secret.secret_id == Secret.id)
+            .join(Match, Match.id == Match_Secret.match_id)
+            .filter(
+                Match.id == match_id,
+                Match.status == MatchStatus.IN_PROGRESS,
+                Secret.type == Secret_Type.MURDERER,
+                Match_Secret.player_id.isnot(None)
+            )
+            .scalar_one_or_none()
+        )
+        if murderer_player_id is None:
+            raise ValueError("Murderer not assigned or match not started")
+        return murderer_player_id
+    
+    def get_accomplice_id(self,match_id: UUID) -> Optional[UUID]:
+        """
+        Devuelve el player_id del complice del match.
+        None en caso de que no haya complice asignado
+        """
+        accomplice_player_id=(
+            self._db.query(Match_Secret.player_id)
+            .join(Secret, Match_Secret.secret_id == Secret.id)
+            .join(Match, Match.id == Match_Secret.match_id)
+            .filter(
+                Match.id == match_id,
+                Match.status == MatchStatus.IN_PROGRESS,
+                Secret.type == Secret_Type.ACCOMPLICE,
+                Match_Secret.player_id.isnot(None)
+            )
+            .scalar_one_or_none()
+        )
+        return accomplice_player_id
+
+
 
 class PileService:
     def __init__(self, db):
