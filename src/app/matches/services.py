@@ -2,7 +2,8 @@ from uuid import UUID
 from datetime import date
 from collections import defaultdict
 import random
-from typing import List
+from typing import List,Optional
+from enum import Enum
 from datetime import datetime
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -34,6 +35,24 @@ class MatchNotFound(Exception):
 
 class MatchValidationError(Exception):
     pass
+
+
+class Match_Ended_Reason(Enum):
+        DECK_FINISHED = "deck_finished"
+        MURDERER_REVEALED = "murderer_revealed"
+
+class MatchEnded(Exception):
+    def __init__(
+            self,
+            match_id: UUID,
+            reason: Match_Ended_Reason,
+            murderer_id: UUID,
+            accomplice_id: Optional[UUID] = None
+        ):
+        self.match_id = match_id
+        self.reason = reason
+        self.murderer_id = murderer_id
+        self.accomplice_id = accomplice_id
 
 
 class MatchService:
