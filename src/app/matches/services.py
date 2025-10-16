@@ -474,17 +474,17 @@ class PileService:
         try:
             for card in cards:
                 match_card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
-                if match_card and (match_card.player_id == None):
+                if match_card and (match_card.player_id == None and match_card.match_id == match_card.match_id):
                     match_card.player_id = player_id
             self._db.commit()
         except SQLAlchemyError as exception:
             self._db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Database error", "details": str(exception)})
     
-    def discard_cards(self, player_id: UUID, cards: list[UUID]) -> None:
+    def discard_cards(self, player_id: UUID, match_id: UUID, cards: list[UUID]) -> None:
         for card in cards:
             match_card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
-            if match_card and (match_card.player_id == player_id):
+            if match_card and (match_card.player_id == player_id and match_card.match_id == match_id):
                 match_card.player_id    = None
                 match_card.is_discarded = True
                 match_card.discarded_at = datetime.now()
