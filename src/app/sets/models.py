@@ -1,6 +1,6 @@
 import uuid
 from enum import Enum as PyEnum
-from sqlalchemy import ForeignKey, Enum, Boolean
+from sqlalchemy import ForeignKey, Enum, Boolean, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -52,6 +52,11 @@ class Match_Set (Base):
     quin_play: Mapped[bool]      = mapped_column(
         Boolean,
         default = False
+    )
+    
+    quin_count: Mapped[int]      = mapped_column(
+        Integer,
+        default = 0
     )
     
     match  = relationship("Match", backref="match_sets")

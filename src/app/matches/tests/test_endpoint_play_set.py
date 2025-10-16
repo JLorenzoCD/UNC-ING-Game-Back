@@ -181,17 +181,17 @@ def test_endpoint_play_Pyne(db_session, client, set_type, card_names):
         match_secret_db = db_session.query(Match_Secret).filter(Match_Secret.id == target_secret_id).first()
         assert match_secret_db.is_revealed is False
 
-@pytest.mark.parametrize("set_type, card_names", [
+@pytest.mark.parametrize("set_type, card_names, quins_count_expected", [
     # LADY_EILEEN
-    (SetType.LADY_EILEEN, ["LADY EILEEN", "LADY EILEEN"]),
-    (SetType.LADY_EILEEN, ["LADY EILEEN", "HARLEY QUIN WILDCARD"]),
+    (SetType.LADY_EILEEN, ["LADY EILEEN", "LADY EILEEN"], 0),
+    (SetType.LADY_EILEEN, ["LADY EILEEN", "HARLEY QUIN WILDCARD"], 1),
     # TWO_BERESFORD
-    (SetType.TWO_BERESFORD, ["TOMMY BERESFORD", "TUPPENCE BERESFORD"]),
+    (SetType.TWO_BERESFORD, ["TOMMY BERESFORD", "TUPPENCE BERESFORD"], 0),
     # MR_SATTERTHWAITE
-    (SetType.MR_SATTERTHWAITE, ["MR SATTERTHWAITE", "MR SATTERTHWAITE"]),
-    (SetType.MR_SATTERTHWAITE, ["MR SATTERTHWAITE", "HARLEY QUIN WILDCARD"]),
+    (SetType.MR_SATTERTHWAITE, ["MR SATTERTHWAITE", "MR SATTERTHWAITE"], 0),
+    (SetType.MR_SATTERTHWAITE, ["MR SATTERTHWAITE", "HARLEY QUIN WILDCARD"], 1),
 ])
-def test_endpoint_play_Eileen_Beresford_Satterthwaitte(db_session, client, set_type, card_names):
+def test_endpoint_play_Eileen_Beresford_Satterthwaitte(db_session, client, set_type, card_names, quins_count_expected):
     """Verifica que los sets de Eileen, hermanos Beresford y Mr. Satterthwaite no realicen accion pero creen el set."""
     with patch('app.matches.endpoints.manager') as mock_manager:
         mock_manager.specificBroadcast = AsyncMock()
@@ -226,6 +226,7 @@ def test_endpoint_play_Eileen_Beresford_Satterthwaitte(db_session, client, set_t
         set_response = response.json()
         assert set_response['type'] == set_type.value
         assert set_response['player_id'] == str(owner_id)
+        assert set_response['quin_count'] == quins_count_expected
 
 @pytest.mark.parametrize("set_type, card_names", [
     # LADY_EILEEN
