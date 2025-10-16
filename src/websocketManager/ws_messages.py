@@ -9,6 +9,7 @@ class WSEvent(str, Enum):
     PLAYER_JOIN = "player_join"
     TURN        = "turn"
     CARDS       = "cards"
+    MATCH_COMPLETED = "match_completed"
 
 def custom_encoder(o):
     if isinstance(o, UUID):
