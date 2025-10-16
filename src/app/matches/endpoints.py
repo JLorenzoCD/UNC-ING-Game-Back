@@ -182,7 +182,7 @@ async def get_cards(match_id: UUID, db=Depends(get_db)):
 
 
 @router.put("/{match_id}/cards/take", status_code=status.HTTP_200_OK)
-async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_db)) -> Match_Card_Schema:
+async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_db)):
     try:
         player_id = cards.player_id
         player = db.query(Match_Player).filter(Match_Player.match_id == match_id, Match_Player.player_id == player_id).first()
@@ -191,10 +191,10 @@ async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_d
         
         taken_cards_ids       = cards.card_ids
         len_taken_cards_ids   = len(taken_cards_ids)
-        remaining_match_cards = len(db.query(Match_Card).filter(Match_Card.match_id == match_id, Match_Card.is_discarded == False, Match_Card.player_id == None))
-        player_cards_count    = len(db.query(Match_Card).filter(Match_Card.match_id == match_id, Match_Card.player_id == player_id).all())
+        remaining_match_cards = db.query(Match_Card).filter(Match_Card.match_id == match_id, Match_Card.is_discarded == False, Match_Card.player_id == None).count()
+        player_cards_count    = db.query(Match_Card).filter(Match_Card.match_id == match_id, Match_Card.player_id == player_id).count()
 
-        if (remaining_match_cards > len_taken_cards_ids):
+        if (remaining_match_cards < len_taken_cards_ids):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"error":"No puedes tomar más cartas de las que quedan en el mazo"})
         if (len_taken_cards_ids > 6):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"error":"No puedes tomar mas de 6 cartas"})
@@ -223,12 +223,13 @@ async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_d
             ]
 
             await manager.specificBroadcast(make_ws_message(WSEvent.CARDS, payload), match_id)
+            return {"status": "success", "cards_taken": len(taken_cards_ids)}
     except HTTPException as exception:
         raise exception
 
 
 @router.put("/{match_id}/cards/discard", status_code=status.HTTP_200_OK)
-async def discard_card(match_id: UUID, cards: discard_Match_Cards_in, db=Depends(get_db)) -> Match_Card_Schema:
+async def discard_card(match_id: UUID, cards: discard_Match_Cards_in, db=Depends(get_db)):
     try:
         player_id = cards.player_id
         player = db.query(Match_Player).filter(Match_Player.match_id == match_id, Match_Player.player_id == player_id).first()
@@ -237,7 +238,7 @@ async def discard_card(match_id: UUID, cards: discard_Match_Cards_in, db=Depends
 
         discarded_cards_ids     = cards.card_ids
         len_discarded_cards_ids = len(discarded_cards_ids)
-        player_cards_count      = len(db.query(Match_Card).filter(Match_Card.match_id == match_id, Match_Card.player_id == player_id, Match_Card.is_discarded == False).all())
+        player_cards_count      = db.query(Match_Card).filter(Match_Card.match_id == match_id, Match_Card.player_id == player_id, Match_Card.is_discarded == False).count()
         
 
         if (len_discarded_cards_ids > player_cards_count):
@@ -265,6 +266,7 @@ async def discard_card(match_id: UUID, cards: discard_Match_Cards_in, db=Depends
             ]
 
             await manager.specificBroadcast(make_ws_message(WSEvent.CARDS, payload), match_id)
+            return {"status": "success", "cards_discarded": len(discarded_cards_ids)}
     except HTTPException as exception:
         raise exception
 
