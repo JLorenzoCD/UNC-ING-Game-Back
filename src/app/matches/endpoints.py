@@ -7,7 +7,7 @@ from websocketManager.ws_routes import manager
 from websocketManager.ws_messages import WSEvent, make_ws_message
 from app.matches.utils import db_match_2_match_schema
 from app.models.db import get_db
-from app.player.models import Player
+from app.player.models import Player, Match_Player
 from app.matches import services
 from app.matches.schemas import (
     Cards_by_Match_Schema,
@@ -19,7 +19,7 @@ from app.matches.schemas import (
     Match_number_of_Player,
 )
 from app.cards.models import Card, Match_Card
-from app.cards.schemas import (take_discard_Match_Cards_in, Match_Card_Schema)
+from app.cards.schemas import (take_Match_Cards_in, discard_Match_Cards_in, Match_Card_Schema)
 from app.sets import schemas as set_schemas
 from app.sets import services as set_services
 from app.sets.models import Match_Set, SetType
@@ -181,49 +181,95 @@ async def get_cards(match_id: UUID, db=Depends(get_db)):
     return cards
 
 
-@router.put("/{match_id}/cards", status_code=status.HTTP_200_OK)
-async def take_discard_cards(match_id: UUID, cards: take_discard_Match_Cards_in, db = Depends(get_db)):
+@router.put("/{match_id}/cards/take", status_code=status.HTTP_200_OK)
+async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_db)):
     try:
-        player_id           = cards.player_id
-        taken_cards_ids     = cards.taken_card_ids
-        discarded_cards_ids = cards.discarded_card_ids
+        player_id = cards.player_id
+        player = db.query(Match_Player).filter(Match_Player.match_id == match_id, Match_Player.player_id == player_id).first()
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found in this match")
+        
+        taken_cards_ids       = cards.card_ids
+        len_taken_cards_ids   = len(taken_cards_ids)
+        remaining_match_cards = db.query(Match_Card).filter(Match_Card.match_id == match_id, Match_Card.is_discarded == False, Match_Card.player_id == None).count()
+        player_cards_count    = db.query(Match_Card).filter(Match_Card.match_id == match_id, Match_Card.player_id == player_id).count()
 
-        len_taken_cards_ids     = len(taken_cards_ids)
-        len_discarded_cards_ids = len(discarded_cards_ids)
-        len_match_cards         = len(services.MatchService(db).get_cards_by_match(match_id))
-
-        if (len_match_cards < len_taken_cards_ids):
+        if (remaining_match_cards < len_taken_cards_ids):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"error":"No puedes tomar más cartas de las que quedan en el mazo"})
-        elif (len_taken_cards_ids > 6):
+        if (len_taken_cards_ids > 6):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"error":"No puedes tomar mas de 6 cartas"})
-        elif (len_taken_cards_ids == len_discarded_cards_ids):
-            services.PileService(db).take_cards(player_id, taken_cards_ids)
-            services.PileService(db).discard_cards(player_id, discarded_cards_ids)
-            
-            ids = list(set(taken_cards_ids + discarded_cards_ids))
+        elif(player_cards_count + len_taken_cards_ids > 6):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"error":"No puedes tener mas de 6 cartas"})
+        else:
+            services.PileService(db).take_cards(player_id, match_id, taken_cards_ids)
+
+            ids = list(set(taken_cards_ids))
 
             results = services.MatchService(db).get_extended_cards_by_match(match_id, ids)
 
             payload = [
                 {
-                "id": r[0],
-                "card_id": r[1],
-                "match_id": r[2],
-                "player_id": r[3],
-                "is_discarded": r[4],
-                "discarded_at": r[5],
-                "name": r[6],
-                "type": r[7].value if hasattr(r[7], 'value') else r[7],
-                "description": r[8],
+                "id": card[0],
+                "card_id": card[1],
+                "match_id": card[2],
+                "player_id": card[3],
+                "is_discarded": card[4],
+                "discarded_at": card[5],
+                "name": card[6],
+                "type": card[7].value if hasattr(card[7], 'value') else card[7],
+                "description": card[8],
                 }
-                for r in results
+                for card in results
             ]
 
             await manager.specificBroadcast(make_ws_message(WSEvent.CARDS, payload), match_id)
-        else:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"error":"Error al procesar las cartas"})
+            return {"status": "success", "cards_taken": len(taken_cards_ids)}
     except HTTPException as exception:
         raise exception
+
+
+@router.put("/{match_id}/cards/discard", status_code=status.HTTP_200_OK)
+async def discard_card(match_id: UUID, cards: discard_Match_Cards_in, db=Depends(get_db)):
+    try:
+        player_id = cards.player_id
+        player = db.query(Match_Player).filter(Match_Player.match_id == match_id, Match_Player.player_id == player_id).first()
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found in this match")
+
+        discarded_cards_ids     = cards.card_ids
+        len_discarded_cards_ids = len(discarded_cards_ids)
+        player_cards_count      = db.query(Match_Card).filter(Match_Card.match_id == match_id, Match_Card.player_id == player_id, Match_Card.is_discarded == False).count()
+        
+
+        if (len_discarded_cards_ids > player_cards_count):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"error":"No puedes descartar más cartas de las que tienes"})
+        else:
+            services.PileService(db).discard_cards(player_id, match_id, discarded_cards_ids)
+
+            ids = list(set(discarded_cards_ids))
+
+            results = services.MatchService(db).get_extended_cards_by_match(match_id, ids)
+
+            payload = [
+                {
+                "id": card[0],
+                "card_id": card[1],
+                "match_id": card[2],
+                "player_id": card[3],
+                "is_discarded": card[4],
+                "discarded_at": card[5],
+                "name": card[6],
+                "type": card[7].value if hasattr(card[7], 'value') else card[7],
+                "description": card[8],
+                }
+                for card in results
+            ]
+
+            await manager.specificBroadcast(make_ws_message(WSEvent.CARDS, payload), match_id)
+            return {"status": "success", "cards_discarded": len(discarded_cards_ids)}
+    except HTTPException as exception:
+        raise exception
+
     
 @router.post("/{match_id}/sets", status_code=status.HTTP_201_CREATED)
 async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db)) -> set_schemas.MatchSetOut:
