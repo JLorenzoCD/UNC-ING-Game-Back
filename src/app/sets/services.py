@@ -109,11 +109,13 @@ class SetService:
         self._validate_set_rules(set_data["type"], card_counts)
 
         # Crear instancia del Set
+        quins_count = card_counts.get("HARLEY QUIN WILDCARD", 0)
         new_set = Match_Set(
             type=set_data["type"],
             player_id=set_data["player_id"],
             match_id=set_data["match_id"],
-            quin_play="HARLEY QUIN WILDCARD" in card_names
+            quin_play="HARLEY QUIN WILDCARD" in card_names,
+            quin_count=quins_count
         )
 
         try:
@@ -124,14 +126,13 @@ class SetService:
             self._db.rollback()
             raise
         
-        quin_count = card_counts.get("HARLEY QUIN WILDCARD", 0)
         match_set_out = MatchSetOut(
             id=new_set.id,
             type=new_set.type,
             player_id=new_set.player_id,
             match_id=new_set.match_id,
             quin_play=new_set.quin_play,
-            quin_count=quin_count
+            quin_count=quins_count
         )
         return match_set_out
     
