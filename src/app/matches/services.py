@@ -493,6 +493,7 @@ class PileService:
                 match_card.discarded_at = datetime.now()
         self._db.commit()
 
+
 class SetService:
     def __init__(self, db):
         self._db = db
@@ -500,5 +501,4 @@ class SetService:
     def get_sets_by_match(self, match_id: UUID) -> List[MatchSetOut]:
         result = self._db.query(MatchSetOut).filter(MatchSetOut.match_id == match_id).all()
         
-
         return db_match_set_2_match_set_schema(result)
