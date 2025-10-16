@@ -86,7 +86,7 @@ class Secrets_Services:
                 Secret.type == Secret_Type.MURDERER,
                 Match_Secret.player_id.isnot(None)
             )
-            .scalar_one_or_none()
+            .scalar()
         )
         if murderer_player_id is None:
             raise ValueError("Murderer not assigned or match not started")
@@ -107,7 +107,7 @@ class Secrets_Services:
                 Secret.type == Secret_Type.ACCOMPLICE,
                 Match_Secret.player_id.isnot(None)
             )
-            .scalar_one_or_none()
+            .scalar()
         )
         return accomplice_player_id
     
