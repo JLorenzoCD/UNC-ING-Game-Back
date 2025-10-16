@@ -136,12 +136,12 @@ def test_endpoint_play_set_target_secret_required(db_session, client, set_type, 
         assert response.status_code == 400
         assert "No hay secreto seleccionado" in response.json()["detail"]
         
-@pytest.mark.parametrize("set_type, card_names, quin_play", [
+@pytest.mark.parametrize("set_type, card_names", [
     # PARKER_PYNE
-    (SetType.PARKER_PYNE, ["PARKER PYNE", "PARKER PYNE"], False),
-    (SetType.PARKER_PYNE, ["PARKER PYNE", "HARLEY QUIN WILDCARD"], True),
+    (SetType.PARKER_PYNE, ["PARKER PYNE", "PARKER PYNE"]),
+    (SetType.PARKER_PYNE, ["PARKER PYNE", "HARLEY QUIN WILDCARD"]),
 ])       
-def test_endpoint_play_Pyne(db_session, client, set_type, card_names, quin_play):
+def test_endpoint_play_Pyne(db_session, client, set_type, card_names):
     """Verifica que el set de Payne oculte un secreto correctamente."""
     with patch('app.matches.endpoints.manager') as mock_manager:
         mock_manager.specificBroadcast = AsyncMock()
@@ -180,8 +180,6 @@ def test_endpoint_play_Pyne(db_session, client, set_type, card_names, quin_play)
         db_session.expire_all() # Forzar la recarga desde la BD
         match_secret_db = db_session.query(Match_Secret).filter(Match_Secret.id == target_secret_id).first()
         assert match_secret_db.is_revealed is False
-        if quin_play:
-            assert match_secret_db.player_id == owner_id 
 
 @pytest.mark.parametrize("set_type, card_names", [
     # LADY_EILEEN

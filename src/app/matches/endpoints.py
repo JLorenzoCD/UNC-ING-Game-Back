@@ -234,11 +234,7 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
                 
             if match_set.type == (SetType.PARKER_PYNE):
                 target_secret = secret_service.update_secret(secret_services.Secret_action.HIDE, setIn.target_secret_id, setIn.target_player_id)
-                match_secret_out = db_match_secret_2_match_secret_schema(target_secret)
-                if match_set.quin_play == True:
-                    target_secret = secret_service.update_secret(secret_services.Secret_action.STEAL, setIn.target_secret_id, setIn.player_id)
-                    match_secret_out = db_match_secret_2_match_secret_schema(target_secret)
-                        
+                match_secret_out = db_match_secret_2_match_secret_schema(target_secret)              
 
             payload = match_secret_out.model_dump(mode='json')
             
