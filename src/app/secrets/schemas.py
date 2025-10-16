@@ -1,6 +1,7 @@
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 from app.secrets.models import Secret_Type
+from app.secrets.services import Secret_action
 
 class Secret_Schema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -18,3 +19,7 @@ class Match_Secret_Schema(BaseModel):
     match_id:UUID
     player_id:UUID
     is_revealed:bool
+    
+class SecretUpdate(BaseModel):
+    target_player_id: UUID
+    action: Secret_action
