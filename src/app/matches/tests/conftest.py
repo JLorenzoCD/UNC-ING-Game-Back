@@ -64,7 +64,7 @@ def setup_match_and_players(client, db_session):
     match_post = {
         "name":        "Test Match",
         "min_players": 2,
-        "max_players": 4,
+        "max_players": 6,
         "owner_id":    owner["id"],
     }
     response = client.post("/matches", json=match_post)
