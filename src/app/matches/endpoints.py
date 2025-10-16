@@ -25,6 +25,7 @@ from app.sets import services as set_services
 from app.sets.models import Match_Set, SetType
 from app.secrets import services as secret_services
 from app.secrets import schemas as secret_schemas
+from app.secrets.models import Match_Secret
 from app.secrets.utils import db_match_secret_2_match_secret_schema
 
 router = APIRouter(
@@ -285,4 +286,22 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
     
 @router.put("/{match_id}/secrets/{secret_id}", status_code=200)
 async def update_secret_in_match(match_id: UUID, secret_id:UUID, secretIn:secret_schemas.SecretUpdate, db=Depends(get_db)) -> secret_schemas.Match_Secret_Schema:
-    pass
+    try: 
+        secret_service = secret_services.Secrets_Services(db)
+        secret_service.secret_update_verification(match_id, secret_id ,secretIn)
+        
+        match_secret: Match_Secret = secret_service.update_secret(secretIn.action, secret_id, secretIn.target_player_id)
+        match_secret_out: secret_schemas.Match_Secret_Schema = db_match_secret_2_match_secret_schema(match_secret)
+        
+        #Mensaje de WebScokets 
+        payload = match_secret_out.model_dump(mode='json')
+        msj_ws = make_ws_message(WSEvent.SECRET, payload)
+        await manager.specificBroadcast(msj_ws, match_id)
+        
+        return match_secret_out
+    except secret_services.SecretNotFound as e:
+        HTTPException(status_code=400, detail=str(e))
+    except ValueError as e:
+        HTTPException(status_code=404, detail=str(e))
+    except SQLAlchemyError as e:
+        HTTPException(status_code=500, detail=str(e))
