@@ -37,7 +37,7 @@ class MatchValidationError(Exception):
     pass
 
 
-class Match_Ended_Reason(Enum):
+class MatchEndedReason(Enum):
         DECK_FINISHED = "deck_finished"
         MURDERER_REVEALED = "murderer_revealed"
 
@@ -45,7 +45,7 @@ class MatchEnded(Exception):
     def __init__(
             self,
             match_id: UUID,
-            reason: Match_Ended_Reason,
+            reason: MatchEndedReason,
             murderer_id: UUID,
             accomplice_id: Optional[UUID] = None
         ):
@@ -522,7 +522,18 @@ class MatchService:
             .scalar_one_or_none()
         )
         return accomplice_player_id
+    
+    def get_player_name(self, player_id: UUID) -> str:
+        p = self._db.query(Player.name).filter(Player.id == player_id).scalar_one()
+        return p
 
+    def get_murderer_name(self, match_id: UUID) -> str:
+        pid = self.get_murderer_id(match_id)
+        return self.get_player_name(pid)
+
+    def get_accomplice_name(self, match_id: UUID) -> Optional[str]:
+        pid = self.get_accomplice_id(match_id)
+        return self.get_player_name(pid) if pid else None
 
 
 class PileService:
