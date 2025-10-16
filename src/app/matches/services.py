@@ -470,11 +470,11 @@ class PileService:
     def __init__(self, db):
         self._db = db
 
-    def take_cards(self, player_id: UUID, cards: list[UUID]) -> None:
+    def take_cards(self, player_id: UUID, match_id: UUID, cards: list[UUID]) -> None:
         try:
             for card in cards:
                 match_card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
-                if match_card and (match_card.player_id == None and match_card.match_id == match_card.match_id):
+                if match_card and (match_card.player_id == None and match_card.match_id == match_id):
                     match_card.player_id = player_id
             self._db.commit()
         except SQLAlchemyError as exception:
