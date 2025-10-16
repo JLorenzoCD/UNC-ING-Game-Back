@@ -2,7 +2,6 @@ from uuid import UUID
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
 
 from websocketManager.ws_routes import manager
 from websocketManager.ws_messages import WSEvent, make_ws_message
@@ -10,7 +9,6 @@ from app.matches.utils import db_match_2_match_schema
 from app.models.db import get_db
 from app.player.models import Player
 from app.matches import services
-from app.matches.models import MatchStatus
 from app.matches.schemas import (
     Cards_by_Match_Schema,
     MatchIn,
@@ -22,6 +20,12 @@ from app.matches.schemas import (
 )
 from app.cards.models import Card, Match_Card
 from app.cards.schemas import (take_discard_Match_Cards_in, Match_Card_Schema)
+from app.sets import schemas as set_schemas
+from app.sets import services as set_services
+from app.sets.models import Match_Set, SetType
+from app.secrets import services as secret_services
+from app.secrets import schemas as secret_schemas
+from app.secrets.utils import db_match_secret_2_match_secret_schema
 
 router = APIRouter(
     tags   = ["matches"],
@@ -220,3 +224,62 @@ async def take_discard_cards(match_id: UUID, cards: take_discard_Match_Cards_in,
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"error":"Error al procesar las cartas"})
     except HTTPException as exception:
         raise exception
+    
+@router.post("/{match_id}/sets", status_code=status.HTTP_201_CREATED)
+async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db)) -> set_schemas.MatchSetOut:
+    try:
+        # Create Set
+        match_card_ids: List[UUID] = setIn.card_ids
+        set_service = set_services.SetService(db)
+        set_service.set_verification(match_card_ids, match_id, setIn.type, setIn.target_player_id, setIn.target_secret_id)
+        
+        set_data = {    
+            "type" : setIn.type,
+            "card_ids": match_card_ids,
+            "player_id": setIn.player_id,
+            "match_id": match_id           
+        }
+        match_set: set_schemas.MatchSetOut = set_service.create_set(set_data)
+        
+        match_set_dict                = match_set.model_dump(mode='json')
+        ws_msj                        = make_ws_message(WSEvent.SET, match_set_dict)
+        await manager.specificBroadcast(ws_msj, match_id)
+            
+        # Accion del Set (Casos)
+        secret_service = secret_services.Secrets_Services(db)
+        if setIn.target_secret_id is not None:
+            if match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE]:
+                target_secret = secret_service.update_secret(secret_services.Secret_action.REVEAL, setIn.target_secret_id, setIn.target_player_id)
+                match_secret_out = db_match_secret_2_match_secret_schema(target_secret)
+                
+            if match_set.type == (SetType.PARKER_PYNE):
+                target_secret = secret_service.update_secret(secret_services.Secret_action.HIDE, setIn.target_secret_id, setIn.target_player_id)
+                match_secret_out = db_match_secret_2_match_secret_schema(target_secret)              
+
+            payload = match_secret_out.model_dump(mode='json')
+            
+            ws_msj = make_ws_message(WSEvent.SECRET, payload)
+            await manager.specificBroadcast(ws_msj, match_id)
+            
+        else:
+            payload = {"target_player_id" : setIn.target_player_id}
+            ws_msj = make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload)
+            
+            await manager.specificBroadcast(ws_msj, match_id)
+        
+        return match_set
+    except (set_services.InvalidCardError, set_services.InvalidMatchIdError, set_services.TargetSecretError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+    except set_services.InvalidSetError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    except (ValueError, secret_services.SecretNotFound) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
