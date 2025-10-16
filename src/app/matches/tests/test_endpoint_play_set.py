@@ -136,12 +136,12 @@ def test_endpoint_play_set_target_secret_required(db_session, client, set_type, 
         assert response.status_code == 400
         assert "No hay secreto seleccionado" in response.json()["detail"]
         
-@pytest.mark.parametrize("set_type, card_names", [
+@pytest.mark.parametrize("set_type, card_names, quin_play", [
     # PARKER_PYNE
-    (SetType.PARKER_PYNE, ["PARKER PYNE", "PARKER PYNE"]),
-    (SetType.PARKER_PYNE, ["PARKER PYNE", "HARLEY QUIN WILDCARD"]),
+    (SetType.PARKER_PYNE, ["PARKER PYNE", "PARKER PYNE"], False),
+    (SetType.PARKER_PYNE, ["PARKER PYNE", "HARLEY QUIN WILDCARD"], True),
 ])       
-def test_endpoint_play_Pyne(db_session, client, set_type, card_names):
+def test_endpoint_play_Pyne(db_session, client, set_type, card_names, quin_play):
     """Verifica que el set de Payne oculte un secreto correctamente."""
     with patch('app.matches.endpoints.manager') as mock_manager:
         mock_manager.specificBroadcast = AsyncMock()
@@ -158,14 +158,14 @@ def test_endpoint_play_Pyne(db_session, client, set_type, card_names):
         match_card_ids = create_match_cards_for_set(db_session, card_names, match_id, owner_id)
         match_secret_ids = create_match_secrets(db_session, secret_base, match_id, [owner_id, player2_id])
         
-        target_secret_id = match_secret_ids[0] # El secreto del jugador 1
+        target_secret_id = match_secret_ids[1] # El secreto del jugador 2
         secret_services.Secrets_Services(db_session).reveal_secret(target_secret_id)
 
         set_in = {
             "type": set_type,
             "card_ids": match_card_ids,
             "player_id": owner_id,
-            "target_player_id": owner_id,
+            "target_player_id": player2_id,
             "target_secret_id": target_secret_id
         }
         
@@ -180,6 +180,8 @@ def test_endpoint_play_Pyne(db_session, client, set_type, card_names):
         db_session.expire_all() # Forzar la recarga desde la BD
         match_secret_db = db_session.query(Match_Secret).filter(Match_Secret.id == target_secret_id).first()
         assert match_secret_db.is_revealed is False
+        if quin_play:
+            assert match_secret_db.player_id == owner_id 
 
 @pytest.mark.parametrize("set_type, card_names", [
     # LADY_EILEEN
