@@ -142,7 +142,7 @@ def test_endpoint_play_set_target_secret_required(db_session, client, set_type, 
     (SetType.PARKER_PYNE, ["PARKER PYNE", "HARLEY QUIN WILDCARD"]),
 ])       
 def test_endpoint_play_Pyne(db_session, client, set_type, card_names):
-    """Verifica que el set de Payne oculte un secreto correctamente."""
+    """Verifica que el set de Pyne oculte un secreto correctamente."""
     with patch('app.matches.endpoints.manager') as mock_manager:
         mock_manager.specificBroadcast = AsyncMock()
         mock_manager.waiting_room_broadcast = AsyncMock()
@@ -268,5 +268,5 @@ def test_endpoint_play_Eileen_Beresford_Satterthwaitte_invalid_combination(db_se
         response = client.post(f"/matches/{match_str_id}/sets", json=jsonable_encoder(set_in))
         
         assert response.status_code == 400, f"Error {response.status_code}: {response.text}"
-        assert "No se deberia seleccionar secreto en este momento" in response.json()["detail"]
+        assert "No se debería seleccionar secreto en este momento" in response.json()["detail"]
         
