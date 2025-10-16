@@ -21,6 +21,9 @@ from app.cards.models import Match_Card, Card
 from app.cards.services import Cards_Services
 from app.cards.schemas import Match_Card_Schema
 from app.cards.utils import db_match_card_2_match_card_schema
+from app.sets.models import Match_Set
+from app.sets.schemas import MatchSetOut
+from app.sets.utils import db_match_set_2_match_set_schema
 
 
 # Excepciones
@@ -489,3 +492,13 @@ class PileService:
                 match_card.is_discarded = True
                 match_card.discarded_at = datetime.now()
         self._db.commit()
+
+class SetService:
+    def __init__(self, db):
+        self._db = db
+
+    def get_sets_by_match(self, match_id: UUID) -> List[MatchSetOut]:
+        result = self._db.query(MatchSetOut).filter(MatchSetOut.match_id == match_id).all()
+        
+
+        return db_match_set_2_match_set_schema(result)

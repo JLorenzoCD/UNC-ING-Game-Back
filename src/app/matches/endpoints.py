@@ -22,6 +22,7 @@ from app.matches.schemas import (
 )
 from app.cards.models import Card, Match_Card
 from app.cards.schemas import (take_discard_Match_Cards_in, Match_Card_Schema)
+from app.sets.schemas import MatchSetOut
 
 router = APIRouter(
     tags   = ["matches"],
@@ -220,3 +221,14 @@ async def take_discard_cards(match_id: UUID, cards: take_discard_Match_Cards_in,
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"error":"Error al procesar las cartas"})
     except HTTPException as exception:
         raise exception
+    
+@router.get("/{match_id}/sets", status_code=status.HTTP_200_OK, response_model=List[MatchSetOut])
+async def get_sets(match_id: UUID, db=Depends(get_db)):
+    try:
+        sets = services.SetService(db).get_sets_by_match(match_id)
+    except services.SQLAlchemyError:
+        raise HTTPException(status_code=500)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    return sets
