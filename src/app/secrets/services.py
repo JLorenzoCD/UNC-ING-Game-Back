@@ -1,10 +1,13 @@
 from uuid import UUID
 from enum import Enum as PyEnum
 from sqlalchemy.exc import SQLAlchemyError
+from typing import Optional
 
-from app.secrets.models import Match_Secret, Secret
+from app.secrets.models import Match_Secret, Secret, Secret_Type
 from app.secrets import schemas as Secret_schemas
 from app.player.models import Player, Match_Player
+from app.matches.models import Match, MatchStatus
+from app.matches.ending import MatchEnded,MatchEndedReason
 
 class Secret_action(PyEnum):
         STEAL = "steal_secret"
@@ -68,10 +71,70 @@ class Secrets_Services:
             .filter(Match_Secret.match_id == match_id)
             .all()
         )
+    
+    def get_murderer_id(self,match_id: UUID) -> UUID:
+        """
+        Devuelve el player_id del Murderer del match.
+        """
+        murderer_player_id=(
+            self._db.query(Match_Secret.player_id)
+            .join(Secret, Match_Secret.secret_id == Secret.id)
+            .join(Match, Match.id == Match_Secret.match_id)
+            .filter(
+                Match.id == match_id,
+                Match.status == MatchStatus.IN_PROGRESS,
+                Secret.type == Secret_Type.MURDERER,
+                Match_Secret.player_id.isnot(None)
+            )
+            .scalar_one_or_none()
+        )
+        if murderer_player_id is None:
+            raise ValueError("Murderer not assigned or match not started")
+        return murderer_player_id
+    
+    def get_accomplice_id(self,match_id: UUID) -> Optional[UUID]:
+        """
+        Devuelve el player_id del complice del match.
+        None en caso de que no haya complice asignado
+        """
+        accomplice_player_id=(
+            self._db.query(Match_Secret.player_id)
+            .join(Secret, Match_Secret.secret_id == Secret.id)
+            .join(Match, Match.id == Match_Secret.match_id)
+            .filter(
+                Match.id == match_id,
+                Match.status == MatchStatus.IN_PROGRESS,
+                Secret.type == Secret_Type.ACCOMPLICE,
+                Match_Secret.player_id.isnot(None)
+            )
+            .scalar_one_or_none()
+        )
+        return accomplice_player_id
+    
+    def get_player_name(self, player_id: UUID) -> str:
+        p = self._db.query(Player.name).filter(Player.id == player_id).scalar_one()
+        return p
+
+    def get_murderer_name(self, match_id: UUID) -> str:
+        pid = self.get_murderer_id(match_id)
+        return self.get_player_name(pid)
+
+    def get_accomplice_name(self, match_id: UUID) -> Optional[str]:
+        pid = self.get_accomplice_id(match_id)
+        return self.get_player_name(pid) if pid else None
+
+
     def reveal_secret(self, match_secret_id: UUID):
-        match_secret = self._db.query(Match_Secret).filter(Match_Secret.id == match_secret_id).first()
-        if not match_secret:
+        #traemos el match secret + el tipo de secreto
+        row = (
+            self._db.query(Match_Secret, Secret.type.label("secret_type"))
+            .join(Secret, Match_Secret.secret_id == Secret.id)
+            .filter(Match_Secret.id == match_secret_id)
+            .first()
+        )
+        if not row:
             raise SecretNotFound("Secret not found")
+        match_secret, secret_type = row[0],row[1]
 
         if match_secret.is_revealed:
             raise ValueError("Secret is already revealed")
@@ -83,6 +146,23 @@ class Secrets_Services:
         except SQLAlchemyError as e:
             self._db.rollback()
             raise e
+        
+        #Si el secreto es murderer terminamos la partida
+        if secret_type == Secret_Type.MURDERER:
+            #nombre del murderer - No uso servicios porque se me explota todo con unas dependencias circulares imposibles de solucionar
+            murderer_name = self.get_murderer_name(match_secret.match_id)
+            if not murderer_name:
+                raise ValueError("Murderer not assigned")
+            
+            # nombre del accomplice - No uso servicios porque se me explota todo con unas dependencias circulares imposibles de solucionar
+            accomplice_name = self.get_accomplice_name(match_secret.match_id)
+
+            raise MatchEnded(
+                reason=MatchEndedReason.MURDERER_REVEALED,
+                murderer_name=murderer_name,
+                accomplice_name=accomplice_name,
+            )
+
 
     def hide_secret(self, match_secret_id: UUID):
         match_secret = self._db.query(Match_Secret).filter(Match_Secret.id == match_secret_id).first()
