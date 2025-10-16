@@ -201,7 +201,7 @@ async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_d
         elif(player_cards_count + len_taken_cards_ids > 6):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"error":"No puedes tener mas de 6 cartas"})
         else:
-            services.PileService(db).take_cards(player_id, taken_cards_ids)
+            services.PileService(db).take_cards(player_id, match_id, taken_cards_ids)
 
             ids = list(set(taken_cards_ids))
 
