@@ -2,14 +2,9 @@ from uuid import UUID
 from enum import Enum as PyEnum
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.secrets.models import Match_Secret, Secret
-from app.secrets import schemas as Secret_schemas
+from app.secrets.models import Match_Secret, Secret, Secret_action
+from app.secrets.schemas import SecretUpdate
 from app.player.models import Player, Match_Player
-
-class Secret_action(PyEnum):
-        STEAL = "steal_secret"
-        HIDE = "hide_secret"
-        REVEAL = "reveal_secret"
 
 class SecretNotFound(Exception):
     pass
@@ -136,7 +131,7 @@ class Secrets_Services:
         match_secret = self._db.query(Match_Secret).filter(Match_Secret.id == match_secret_id).first()
         return match_secret
     
-    def secret_update_verification(self, match_id: UUID, match_secret_id:UUID, secretIn:Secret_schemas.SecretUpdate):
+    def secret_update_verification(self, match_id: UUID, match_secret_id:UUID, secretIn: SecretUpdate):
         if not match_secret_id:
             raise SecretNotFound("Match_Secret ID es Null")
         

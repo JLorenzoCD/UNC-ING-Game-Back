@@ -25,7 +25,7 @@ from app.sets import services as set_services
 from app.sets.models import Match_Set, SetType
 from app.secrets import services as secret_services
 from app.secrets import schemas as secret_schemas
-from app.secrets.models import Match_Secret
+from app.secrets.models import Match_Secret, Secret_action
 from app.secrets.utils import db_match_secret_2_match_secret_schema
 
 router = APIRouter(
@@ -250,11 +250,11 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
         secret_service = secret_services.Secrets_Services(db)
         if setIn.target_secret_id is not None:
             if match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE]:
-                target_secret = secret_service.update_secret(secret_services.Secret_action.REVEAL, setIn.target_secret_id, setIn.target_player_id)
+                target_secret = secret_service.update_secret(Secret_action.REVEAL, setIn.target_secret_id, setIn.target_player_id)
                 match_secret_out = db_match_secret_2_match_secret_schema(target_secret)
                 
             if match_set.type == (SetType.PARKER_PYNE):
-                target_secret = secret_service.update_secret(secret_services.Secret_action.HIDE, setIn.target_secret_id, setIn.target_player_id)
+                target_secret = secret_service.update_secret(Secret_action.HIDE, setIn.target_secret_id, setIn.target_player_id)
                 match_secret_out = db_match_secret_2_match_secret_schema(target_secret)              
 
             payload = match_secret_out.model_dump(mode='json')

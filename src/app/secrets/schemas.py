@@ -1,7 +1,6 @@
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict
-from app.secrets.models import Secret_Type
-from app.secrets.services import Secret_action
+from app.secrets.models import Secret_Type, Secret_action
 
 class Secret_Schema(BaseModel):
     model_config = ConfigDict(from_attributes=True)

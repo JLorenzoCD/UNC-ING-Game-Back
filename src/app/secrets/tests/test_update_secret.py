@@ -1,9 +1,9 @@
 import pytest
 from uuid import UUID, uuid4
 
-from app.secrets.models import Secret, Match_Secret, Secret_Type
+from app.secrets.models import Secret, Match_Secret, Secret_Type, Secret_action
 from app.secrets.schemas import Secret_Schema
-from app.secrets.services import Secrets_Services, Secret_action, SecretNotFound
+from app.secrets.services import Secrets_Services, SecretNotFound
 from app.secrets.tests.conftest import setup_match_and_players
 from app.matches.services import MatchService
 from app.matches.schemas import MatchOut
