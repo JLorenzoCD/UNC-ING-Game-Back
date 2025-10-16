@@ -3,25 +3,21 @@ from datetime import date
 from collections import defaultdict
 import random
 from typing import List,Optional
-from enum import Enum
 from datetime import datetime
 
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
 from app.matches.models import Match, MatchStatus
 from app.matches.schemas import MatchOut
 from app.matches import schemas as match_schemas
 from app.matches.utils import db_match_2_match_schema
-from app.secrets import schemas as secret_schemas
 from app.secrets.models import Secret, Match_Secret, Secret_Type
 from app.secrets.services import Secrets_Services
 from app.player.models import Player, Match_Player
 from app.cards.models import Match_Card, Card
 from app.cards.services import Cards_Services
 from app.cards.schemas import Match_Card_Schema
-from app.cards.utils import db_match_card_2_match_card_schema
 
 
 # Excepciones
@@ -35,25 +31,6 @@ class MatchNotFound(Exception):
 
 class MatchValidationError(Exception):
     pass
-
-
-class MatchEndedReason(Enum):
-        DECK_FINISHED = "deck_finished"
-        MURDERER_REVEALED = "murderer_revealed"
-
-class MatchEnded(Exception):
-    def __init__(
-            self,
-            match_id: UUID,
-            reason: MatchEndedReason,
-            murderer_id: UUID,
-            accomplice_id: Optional[UUID] = None
-        ):
-        self.match_id = match_id
-        self.reason = reason
-        self.murderer_id = murderer_id
-        self.accomplice_id = accomplice_id
-
 
 class MatchService:
     def __init__(self, db):
