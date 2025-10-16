@@ -18,6 +18,7 @@ class MatchSetOut (BaseModel):
     player_id: UUID
     match_id: UUID
     quin_play: bool
+    quin_count: int
     
 class SetIn (BaseModel):
 

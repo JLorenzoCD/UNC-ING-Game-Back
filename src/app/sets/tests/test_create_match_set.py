@@ -13,14 +13,6 @@ def create_match_cards_for_set(db_session, card_names: list[str], match_id: UUID
     card_ids = []
     for name in card_names:
         card = db_session.query(Card).filter(Card.name == name, Card.type == Card_Type.DETECTIVE).first()
-        # if not card:
-        #     # Si la carta es HARLEY QUIN WILDCARD, puede que no se haya añadido con el tipo DETECTIVE en el conftest, la creamos
-        #     if name == "HARLEY QUIN WILDCARD":
-        #          card = Card(id=UUID("7531f174-7099-42dc-86f2-dd5aaccaa9af"), name="HARLEY QUIN WILDCARD", type=Card_Type.DETECTIVE, description="Detective card")
-        #          db_session.merge(card) # Usamos merge para evitar errores si ya existe
-        #     else:
-        #         pytest.fail(f"Card with name '{name}' not found in the database.")
-
         match_card = Match_Card(
             card_id=card.id,
             match_id=match_id,

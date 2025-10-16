@@ -103,11 +103,31 @@ class MatchService:
     def get_match_by_id(self, match_id: UUID) -> Match | None:
         try:
             match: Match = self._db.query(Match).filter(Match.id == match_id).first()
-            if not Match:
-                raise Exception("Partida no encontrada")
+            if not match:
+                raise Exception("Match not Found")
         except Exception:
             raise
         return match
+
+    def pass_turn_by_id(self,match_id:UUID):
+        try:
+            match=self.get_match_by_id(match_id)
+        except Exception:
+            raise MatchNotFound
+
+        count_players=self.count_players_by_match(match_id)
+        if match.status!=MatchStatus.IN_PROGRESS:
+            raise ValueError("The match is not in progress")
+        if match.current_player_order is None:
+            raise ValueError("current_player_order Invalid")
+        if match.current_player_order>=count_players:
+            match.current_player_order=1
+        else:
+            match.current_player_order=match.current_player_order+1
+        self._db.commit()
+        self._db.refresh(match)
+        return match
+
     
     def extended_match(self, match: Match) -> match_schemas.Match_number_of_Player | None:
         # Convertir a schema base
@@ -122,6 +142,8 @@ class MatchService:
             current_player_count=player_count
         )
         return extended_match
+    
+    
         
     def get_players_by_match(self, match_id: UUID) -> List[match_schemas.Players_by_Match_Schema]:
         try:    
@@ -180,7 +202,7 @@ class MatchService:
         try:
             match = self._db.query(Match).filter(Match.id == match_id).first()
             if not match:
-                raise Exception("Partida no encontrada")
+                raise Exception("Match not found")
             
             results = self._db.query(
                 Match_Card.id,

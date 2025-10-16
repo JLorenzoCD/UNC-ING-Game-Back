@@ -45,17 +45,17 @@ def create_match_secrets(db_session, secret: Secret, match_id: UUID, player_ids:
         secret_ids.append(match_secret.id)
     return secret_ids
 
-@pytest.mark.parametrize("set_type, card_names", [
+@pytest.mark.parametrize("set_type, card_names, quins", [
     # HERCULE_POIROT
-    (SetType.HERCULE_POIROT, ["HERCULE POIROT", "HERCULE POIROT", "HERCULE POIROT"]),
-    (SetType.HERCULE_POIROT, ["HERCULE POIROT", "HERCULE POIROT", "HARLEY QUIN WILDCARD"]),
-    (SetType.HERCULE_POIROT, ["HERCULE POIROT", "HARLEY QUIN WILDCARD", "HARLEY QUIN WILDCARD"]),
+    (SetType.HERCULE_POIROT, ["HERCULE POIROT", "HERCULE POIROT", "HERCULE POIROT"], 0),
+    (SetType.HERCULE_POIROT, ["HERCULE POIROT", "HERCULE POIROT", "HARLEY QUIN WILDCARD"], 1),
+    (SetType.HERCULE_POIROT, ["HERCULE POIROT", "HARLEY QUIN WILDCARD", "HARLEY QUIN WILDCARD"], 2),
     # MISS_MARPLE
-    (SetType.MISS_MARPLE, ["MISS MARPLE", "MISS MARPLE", "MISS MARPLE"]),
-    (SetType.MISS_MARPLE, ["MISS MARPLE", "MISS MARPLE", "HARLEY QUIN WILDCARD"]),
-    (SetType.MISS_MARPLE, ["MISS MARPLE", "HARLEY QUIN WILDCARD", "HARLEY QUIN WILDCARD"]),
+    (SetType.MISS_MARPLE, ["MISS MARPLE", "MISS MARPLE", "MISS MARPLE"], 0),
+    (SetType.MISS_MARPLE, ["MISS MARPLE", "MISS MARPLE", "HARLEY QUIN WILDCARD"], 1),
+    (SetType.MISS_MARPLE, ["MISS MARPLE", "HARLEY QUIN WILDCARD", "HARLEY QUIN WILDCARD"], 2),
 ])
-def test_endpoint_play_set_Poirot_Marple(db_session, client, set_type, card_names):
+def test_endpoint_play_set_Poirot_Marple(db_session, client, set_type, card_names, quins):
     """Verifica que los sets de Poirot y Marple revelen un secreto correctamente."""
     with patch('app.matches.endpoints.manager') as mock_manager:
         mock_manager.specificBroadcast = AsyncMock()
@@ -88,6 +88,7 @@ def test_endpoint_play_set_Poirot_Marple(db_session, client, set_type, card_name
         set_response = response.json()
         assert set_response['type'] == set_type.value
         assert set_response['player_id'] == str(owner_id)
+        assert set_response['quin_count'] == quins
         
         db_session.expire_all() # Forzar la recarga desde la BD
         match_secret_db = db_session.query(Match_Secret).filter(Match_Secret.id == target_secret_id).first()
@@ -141,7 +142,7 @@ def test_endpoint_play_set_target_secret_required(db_session, client, set_type, 
     (SetType.PARKER_PYNE, ["PARKER PYNE", "HARLEY QUIN WILDCARD"]),
 ])       
 def test_endpoint_play_Pyne(db_session, client, set_type, card_names):
-    """Verifica que el set de Payne oculte un secreto correctamente."""
+    """Verifica que el set de Pyne oculte un secreto correctamente."""
     with patch('app.matches.endpoints.manager') as mock_manager:
         mock_manager.specificBroadcast = AsyncMock()
         mock_manager.waiting_room_broadcast = AsyncMock()
@@ -157,14 +158,14 @@ def test_endpoint_play_Pyne(db_session, client, set_type, card_names):
         match_card_ids = create_match_cards_for_set(db_session, card_names, match_id, owner_id)
         match_secret_ids = create_match_secrets(db_session, secret_base, match_id, [owner_id, player2_id])
         
-        target_secret_id = match_secret_ids[0] # El secreto del jugador 1
+        target_secret_id = match_secret_ids[1] # El secreto del jugador 2
         secret_services.Secrets_Services(db_session).reveal_secret(target_secret_id)
 
         set_in = {
             "type": set_type,
             "card_ids": match_card_ids,
             "player_id": owner_id,
-            "target_player_id": owner_id,
+            "target_player_id": player2_id,
             "target_secret_id": target_secret_id
         }
         
@@ -267,5 +268,5 @@ def test_endpoint_play_Eileen_Beresford_Satterthwaitte_invalid_combination(db_se
         response = client.post(f"/matches/{match_str_id}/sets", json=jsonable_encoder(set_in))
         
         assert response.status_code == 400, f"Error {response.status_code}: {response.text}"
-        assert "No se deberia seleccionar secreto en este momento" in response.json()["detail"]
+        assert "No se debería seleccionar secreto en este momento" in response.json()["detail"]
         

@@ -13,7 +13,6 @@ from main import app
 from app.cards.models import Card, Card_Type
 from app.models.db import get_db, Base
 from app.secrets.models import Secret, Secret_Type
-
 # Base de datos en memoria para tests
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
@@ -107,6 +106,7 @@ def setup_match_and_players(client, db_session):
     # Unirlo a la partida
     response = client.post(f"/matches/{match['id']}/join", params={"player_id":player2['id']})
     assert response.status_code == 200
+
 
     # Agregar cartas base al sistema
     cards = [

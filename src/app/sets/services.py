@@ -24,6 +24,9 @@ class TargetSecretError(Exception):
 class SetService:
     def __init__(self, db: Session):
         self._db = db
+        
+                
+
 
     def set_verification(self, card_ids: List[UUID], match_id: UUID, set_type:SetType,  target_player: UUID, target_secret: Optional[UUID] = None) -> bool:
         for card_id in card_ids:
@@ -32,7 +35,7 @@ class SetService:
                 raise InvalidCardError(f"No se encontró la carta con id {card_id}")
 
             if match_card.match_id != match_id:
-                raise InvalidMatchIdError("La carta no pertenece a este Partida.")
+                raise InvalidMatchIdError("La carta no pertenece a esta Partida.")
 
             card = self._db.query(Card).filter(Card.id == match_card.card_id).first()
             if card.type != Card_Type.DETECTIVE:
@@ -50,7 +53,7 @@ class SetService:
                 raise TargetSecretError("El secreto y el jugador no coinciden")
             
             if set_type in [SetType.LADY_EILEEN, SetType.TUPPENCE_BERESFORD, SetType.TOMMY_BERESFORD, SetType.TWO_BERESFORD, SetType.MR_SATTERTHWAITE]:
-                raise TargetSecretError("No se deberia seleccionar secreto en este momento")
+                raise TargetSecretError("No se debería seleccionar secreto en este momento")
                 
         return True
     
@@ -77,7 +80,7 @@ class SetService:
         set_rules = {
             SetType.PARKER_PYNE:        (lambda c: c["PARKER PYNE"] == 2 or (c["PARKER PYNE"] == 1 and c["HARLEY QUIN WILDCARD"] == 1)),
             SetType.LADY_EILEEN:        (lambda c: c["LADY EILEEN"] == 2 or (c["LADY EILEEN"] == 1 and c["HARLEY QUIN WILDCARD"] == 1)),
-            SetType.TOMMY_BERESFORD:    (lambda c: c["TOMMY BERESFORD"] == 2 or (c["TUPPENCE BERESFORD"] == 1 and c["HARLEY QUIN WILDCARD"] == 1)),
+            SetType.TOMMY_BERESFORD:    (lambda c: c["TOMMY BERESFORD"] == 2 or (c["TOMMY BERESFORD"] == 1 and c["HARLEY QUIN WILDCARD"] == 1)),
             SetType.TUPPENCE_BERESFORD: (lambda c: c["TUPPENCE BERESFORD"] == 2 or (c["TUPPENCE BERESFORD"] == 1 and c["HARLEY QUIN WILDCARD"] == 1)),
             SetType.TWO_BERESFORD:      (lambda c: c["TUPPENCE BERESFORD"] == 1 and c["TOMMY BERESFORD"] == 1),
             SetType.HERCULE_POIROT:     (lambda c: c["HERCULE POIROT"] == 3 or (c["HERCULE POIROT"] == 2 and c["HARLEY QUIN WILDCARD"] == 1) or (c["HERCULE POIROT"] == 1 and c["HARLEY QUIN WILDCARD"] == 2)),
@@ -118,7 +121,23 @@ class SetService:
             self._db.commit()
             self._db.refresh(new_set)
         except SQLAlchemyError:
-            raise SQLAlchemyError._sql_message
+            self._db.rollback()
+            raise
         
-        match_set_out: MatchSetOut = db_match_set_2_match_set_schema(new_set)
+        quin_count = card_counts.get("HARLEY QUIN WILDCARD", 0)
+        match_set_out = MatchSetOut(
+            id=new_set.id,
+            type=new_set.type,
+            player_id=new_set.player_id,
+            match_id=new_set.match_id,
+            quin_play=new_set.quin_play,
+            quin_count=quin_count
+        )
         return match_set_out
+    
+    def quin_count(self, card_ids: List[UUID]) -> int:
+        card_names:list[str] = self._get_card_names(card_ids)
+        card_counts = Counter(card_names)
+        return card_counts.get("HARLEY QUIN WILDCARD", 0)
+                    
+        
