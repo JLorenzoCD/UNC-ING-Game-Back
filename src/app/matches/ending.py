@@ -19,9 +19,8 @@ async def handle_match_ended(db, manager, match_id: UUID,
     #traemos la fila del match (objeto) para leer status de forma robusta
     try:
         match_row = db.query(Match).filter(Match.id == match_id).first()
-    except Exception:
-        #si ocurre algun error igual queremos terminar la partida
-        match_row = None
+    except SQLAlchemyError as e:
+        raise e
 
     if match_row is None:
         #no existe el match
@@ -34,8 +33,8 @@ async def handle_match_ended(db, manager, match_id: UUID,
 
     try:
         MatchService(db).update_status_match(match_id, MatchStatus.COMPLETED)
-    except SQLAlchemyError:
-        pass
+    except SQLAlchemyError as e:
+        raise e
     
 
     info=Secrets_Services(db).get_full_info(match_id)

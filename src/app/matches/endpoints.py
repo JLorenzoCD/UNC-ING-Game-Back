@@ -320,16 +320,16 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
             payload = {"target_player_id" : setIn.target_player_id}
             ws_msj = make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload)
 
-            #await manager.specificBroadcast(ws_msj, match_id)
+            await manager.specificBroadcast(ws_msj, match_id)
             #comento esta linea porque ya no deberia ser necesario ya se termino el juego
 
         try:
-            res=secret_service.is_murderer_revealed(match_id)
-            if res:
-                await handle_match_ended(db, manager, match_id, MatchEndedReason.MURDERER_REVEALED)
+            if match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE]:
+                res=secret_service.is_murderer_revealed(match_id)
+                if res:
+                    await handle_match_ended(db, manager, match_id, MatchEndedReason.MURDERER_REVEALED)
         except Exception as e:
-            #no rompo nada
-            print(f"Error en handle_match_ended (murderer): {e}")
+            raise HTTPException(status_code=400, detail=str(e))
 
         return match_set
     except (set_services.InvalidCardError, set_services.InvalidMatchIdError, set_services.TargetSecretError) as e:
