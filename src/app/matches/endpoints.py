@@ -334,7 +334,7 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
 async def get_sets(match_id: UUID, db=Depends(get_db)):
     try:
         sets = services.SetService(db).get_sets_by_match(match_id)
-    except services.SQLAlchemyError:
+    except SQLAlchemyError:
         raise HTTPException(status_code=500)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
