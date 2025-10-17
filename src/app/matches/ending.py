@@ -31,13 +31,13 @@ async def handle_match_ended(db, manager, match_id: UUID,
         #ya fue llamado en otro request
         return None
 
+    info=Secrets_Services(db).get_full_info(match_id)
     try:
         MatchService(db).update_status_match(match_id, MatchStatus.COMPLETED)
     except SQLAlchemyError as e:
         raise e
     
 
-    info=Secrets_Services(db).get_full_info(match_id)
     if not info:
         #evitamos keyerror(intentar acceder a claves de un dict que no existe o es None)
         return None
