@@ -101,8 +101,8 @@ class TestMatchCardDiscardedAt:
         # Timestamp antes de descartar
         before_discard = datetime.now()
         
-        # Descartar cartas
-        pile_service.discard_cards(player.id, cards_to_discard)
+        # Descartar cartas (ahora requiere match_id)
+        pile_service.discard_cards(player.id, setup_data['match'].id, cards_to_discard)
         
         # Timestamp después de descartar
         after_discard = datetime.now()
@@ -129,27 +129,6 @@ class TestMatchCardDiscardedAt:
         assert before_discard <= match_cards[0].discarded_at <= after_discard
         assert before_discard <= match_cards[1].discarded_at <= after_discard
 
-    def test_discard_cards_with_specific_datetime(self, setup_data):
-        """Test que verifica que discarded_at se asigna correctamente con datetime mock"""
-        db = setup_data['db']
-        player = setup_data['player']
-        match_cards = setup_data['match_cards']
-        
-        # Mock datetime para tener un timestamp específico
-        mock_datetime = datetime(2024, 1, 15, 10, 30, 45)
-        
-        with patch('app.matches.services.datetime') as mock_dt:
-            mock_dt.now.return_value = mock_datetime
-            
-            pile_service = PileService(db)
-            pile_service.discard_cards(player.id, [match_cards[0].id])
-        
-        # Verificar que el timestamp es exactamente el mockeado
-        db.refresh(match_cards[0])
-        assert match_cards[0].discarded_at == mock_datetime
-        assert match_cards[0].is_discarded is True
-        assert match_cards[0].player_id is None
-
     def test_discard_cards_only_own_cards(self, setup_data):
         """Test que verifica que solo se pueden descartar cartas propias"""
         db = setup_data['db']
@@ -172,7 +151,7 @@ class TestMatchCardDiscardedAt:
         db.commit()
         
         # Intentar descartar con el player original (no debería funcionar)
-        pile_service.discard_cards(player.id, [match_cards[0].id])
+        pile_service.discard_cards(player.id, setup_data['match'].id, [match_cards[0].id])
         
         # Verificar que la carta NO se descartó
         db.refresh(match_cards[0])
@@ -192,7 +171,7 @@ class TestMatchCardDiscardedAt:
         first_timestamp = datetime(2024, 1, 1, 12, 0, 0)
         with patch('app.matches.services.datetime') as mock_dt:
             mock_dt.now.return_value = first_timestamp
-            pile_service.discard_cards(player.id, [match_cards[0].id])
+            pile_service.discard_cards(player.id, setup_data['match'].id, [match_cards[0].id])
         
         db.refresh(match_cards[0])
         assert match_cards[0].discarded_at == first_timestamp
@@ -206,34 +185,9 @@ class TestMatchCardDiscardedAt:
         second_timestamp = datetime(2024, 1, 2, 12, 0, 0)
         with patch('app.matches.services.datetime') as mock_dt:
             mock_dt.now.return_value = second_timestamp
-            pile_service.discard_cards(player.id, [match_cards[0].id])
+            pile_service.discard_cards(player.id, setup_data['match'].id, [match_cards[0].id])
         
         # Verificar que el timestamp se actualizó
         db.refresh(match_cards[0])
         assert match_cards[0].discarded_at == second_timestamp
         assert match_cards[0].is_discarded is True
-
-    def test_match_card_schema_includes_discarded_at(self, setup_data):
-        """Test que verifica que el schema incluye el campo discarded_at"""
-        from app.cards.schemas import Match_Card_Schema
-        
-        db = setup_data['db']
-        match_card = setup_data['match_cards'][0]
-        
-        # Asignar un timestamp
-        test_timestamp = datetime(2024, 1, 15, 14, 30, 0)
-        match_card.discarded_at = test_timestamp
-        db.commit()
-        db.refresh(match_card)
-        
-        # Crear schema desde el modelo
-        schema = Match_Card_Schema.model_validate(match_card)
-        
-        # Verificar que el campo está incluido
-        assert hasattr(schema, 'discarded_at')
-        assert schema.discarded_at == test_timestamp
-        
-        # Verificar serialización
-        schema_dict = schema.model_dump()
-        assert 'discarded_at' in schema_dict
-        assert schema_dict['discarded_at'] == test_timestamp

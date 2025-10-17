@@ -1,4 +1,8 @@
+# conftest.py
+from enum import Enum
 import pytest
+from uuid import UUID
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -47,6 +51,23 @@ def client(db_session):
         yield c
     
     app.dependency_overrides.clear()
+    
+def jsonable_encoder(obj):
+    """Convierte un objeto (Pydantic model, etc.) a un dict serializable a JSON."""
+    if hasattr(obj, 'model_dump'):
+        return obj.model_dump()
+    if isinstance(obj, dict):
+        return {k: jsonable_encoder(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [jsonable_encoder(v) for v in obj]
+    if isinstance(obj, (str, int, float, type(None))):
+        return obj
+    if isinstance(obj, UUID):
+        return str(obj)
+    if isinstance(obj, Enum):
+        return obj.value
+    # Añade más tipos si es necesario
+    return str(obj)
 
 def setup_match_and_players(client, db_session):
     """Configuración común: crea match, players y cartas"""

@@ -10,6 +10,9 @@ class WSEvent(str, Enum):
     TURN        = "turn"
     CARDS       = "cards"
     MATCH_COMPLETED = "match_completed"
+    SET         = "set"
+    SECRET      = "secret"
+    PLAYER_SECRET_REVEAL = "player_secret_reveal"
 
 def custom_encoder(o):
     if isinstance(o, UUID):
