@@ -7,7 +7,6 @@ from app.secrets.models import Match_Secret, Secret, Secret_Type
 from app.secrets import schemas as Secret_schemas
 from app.player.models import Player, Match_Player
 from app.matches.models import Match, MatchStatus
-from app.matches.ending import MatchEnded,MatchEndedReason
 
 class Secret_action(PyEnum):
         STEAL = "steal_secret"
@@ -112,7 +111,7 @@ class Secrets_Services:
         return accomplice_player_id
     
     def get_player_name(self, player_id: UUID) -> str:
-        p = self._db.query(Player.name).filter(Player.id == player_id).scalar_one()
+        p = self._db.query(Player.name).filter(Player.id == player_id).scalar()
         return p
 
     def get_murderer_name(self, match_id: UUID) -> str:
@@ -122,19 +121,11 @@ class Secrets_Services:
     def get_accomplice_name(self, match_id: UUID) -> Optional[str]:
         pid = self.get_accomplice_id(match_id)
         return self.get_player_name(pid) if pid else None
-
-
+        
     def reveal_secret(self, match_secret_id: UUID):
-        #traemos el match secret + el tipo de secreto
-        row = (
-            self._db.query(Match_Secret, Secret.type.label("secret_type"))
-            .join(Secret, Match_Secret.secret_id == Secret.id)
-            .filter(Match_Secret.id == match_secret_id)
-            .first()
-        )
-        if not row:
+        match_secret = self._db.query(Match_Secret).filter(Match_Secret.id == match_secret_id).first()
+        if not match_secret:
             raise SecretNotFound("Secret not found")
-        match_secret, secret_type = row[0],row[1]
 
         if match_secret.is_revealed:
             raise ValueError("Secret is already revealed")
@@ -146,22 +137,6 @@ class Secrets_Services:
         except SQLAlchemyError as e:
             self._db.rollback()
             raise e
-        
-        #Si el secreto es murderer terminamos la partida
-        if secret_type == Secret_Type.MURDERER:
-            #nombre del murderer - No uso servicios porque se me explota todo con unas dependencias circulares imposibles de solucionar
-            murderer_name = self.get_murderer_name(match_secret.match_id)
-            if not murderer_name:
-                raise ValueError("Murderer not assigned")
-            
-            # nombre del accomplice - No uso servicios porque se me explota todo con unas dependencias circulares imposibles de solucionar
-            accomplice_name = self.get_accomplice_name(match_secret.match_id)
-
-            raise MatchEnded(
-                reason=MatchEndedReason.MURDERER_REVEALED,
-                murderer_name=murderer_name,
-                accomplice_name=accomplice_name,
-            )
 
 
     def hide_secret(self, match_secret_id: UUID):
@@ -215,3 +190,38 @@ class Secrets_Services:
         
         match_secret = self._db.query(Match_Secret).filter(Match_Secret.id == match_secret_id).first()
         return match_secret
+    
+    def is_murderer_revealed(self, match_id: UUID) -> dict | None:
+        """
+        Devuelve info si el murderer ya fue revelado.
+        Retorna:
+          {
+              "secret_id": UUID del murderer,
+              "murderer_name": str,
+              "accomplice_name": str | None
+          }
+        o None si todavía no fue revelado.
+        """
+        row = (
+            self._db.query(Match_Secret, Secret.type)
+            .join(Secret, Match_Secret.secret_id == Secret.id)
+            .filter(Match_Secret.match_id == match_id)
+            .filter(Secret.type == Secret_Type.MURDERER)
+            .first()
+        )
+
+        if not row:
+            return None
+
+        match_secret, secret_type = row
+        if not match_secret.is_revealed:
+            return None
+
+        murderer_name = self.get_murderer_name(match_id)
+        accomplice_name = self.get_accomplice_name(match_id)
+        return {
+            "secret_id": match_secret.id,
+            "murderer_name": murderer_name,
+            "accomplice_name": accomplice_name,
+        }
+    
