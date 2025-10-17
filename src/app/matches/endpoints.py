@@ -26,6 +26,7 @@ from app.sets import services as set_services
 from app.sets.models import Match_Set, SetType
 from app.secrets import services as secret_services
 from app.secrets import schemas as secret_schemas
+from app.secrets.models import Match_Secret, Secret_action
 from app.secrets.utils import db_match_secret_2_match_secret_schema
 from app.matches.ending import handle_match_ended,MatchEndedReason
 
@@ -305,11 +306,11 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
         secret_service = secret_services.Secrets_Services(db)
         if setIn.target_secret_id is not None:
             if match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE]:
-                target_secret = secret_service.update_secret(secret_services.Secret_action.REVEAL, setIn.target_secret_id, setIn.target_player_id)
+                target_secret = secret_service.update_secret(Secret_action.REVEAL, setIn.target_secret_id, setIn.target_player_id)
                 match_secret_out = db_match_secret_2_match_secret_schema(target_secret)
                 
             if match_set.type == (SetType.PARKER_PYNE):
-                target_secret = secret_service.update_secret(secret_services.Secret_action.HIDE, setIn.target_secret_id, setIn.target_player_id)
+                target_secret = secret_service.update_secret(Secret_action.HIDE, setIn.target_secret_id, setIn.target_player_id)
                 match_secret_out = db_match_secret_2_match_secret_schema(target_secret)              
 
             payload = match_secret_out.model_dump(mode='json')
@@ -348,6 +349,27 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
+@router.put("/{match_id}/secrets/{secret_id}", status_code=200)
+async def update_secret_in_match(match_id: UUID, secret_id:UUID, secretIn:secret_schemas.SecretUpdate, db=Depends(get_db)) -> secret_schemas.Match_Secret_Schema:
+    try: 
+        secret_service = secret_services.Secrets_Services(db)
+        secret_service.secret_update_verification(match_id, secret_id ,secretIn)
+        
+        match_secret: Match_Secret = secret_service.update_secret(secretIn.action, secret_id, secretIn.target_player_id)
+        match_secret_out: secret_schemas.Match_Secret_Schema = db_match_secret_2_match_secret_schema(match_secret)
+        
+        #Mensaje de WebScokets 
+        payload = match_secret_out.model_dump(mode='json')
+        msj_ws = make_ws_message(WSEvent.SECRET, payload)
+        await manager.specificBroadcast(msj_ws, match_id)
+        
+        return match_secret_out
+    except secret_services.SecretNotFound as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail=str(e))
     
 @router.get("/{match_id}/sets", status_code=status.HTTP_200_OK, response_model=List[MatchSetOut])
 async def get_sets(match_id: UUID, db=Depends(get_db)):

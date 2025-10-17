@@ -13,6 +13,10 @@ class Secret_Type(PyEnum):
     MURDERER = "MURDERER"
     ACCOMPLICE = "ACCOMPLICE"
 
+class Secret_action(PyEnum):
+        STEAL = "steal_secret"
+        HIDE = "hide_secret"
+        REVEAL = "reveal_secret"
 
 class Secret(Base):
     __tablename__ = "secrets"

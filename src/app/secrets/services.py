@@ -3,15 +3,10 @@ from enum import Enum as PyEnum
 from sqlalchemy.exc import SQLAlchemyError
 from typing import Optional
 
-from app.secrets.models import Match_Secret, Secret, Secret_Type
-from app.secrets import schemas as Secret_schemas
+from app.secrets.models import Match_Secret, Secret, Secret_action, Secret_Type
+from app.secrets.schemas import SecretUpdate
 from app.player.models import Player, Match_Player
 from app.matches.models import Match, MatchStatus
-
-class Secret_action(PyEnum):
-        STEAL = "steal_secret"
-        HIDE = "hide_secret"
-        REVEAL = "reveal_secret"
 
 class SecretNotFound(Exception):
     pass
@@ -128,7 +123,7 @@ class Secrets_Services:
             raise SecretNotFound("Secret not found")
 
         if match_secret.is_revealed:
-            raise ValueError("Secret is already revealed")
+            raise ValueError(f"Secret is already {Secret_action.REVEAL}")
 
         match_secret.is_revealed = True
         try:
@@ -145,7 +140,7 @@ class Secrets_Services:
             raise SecretNotFound("Secret not found")
 
         if not match_secret.is_revealed:
-            raise ValueError("Secret is already hidden")
+            raise ValueError(f"Secret is already {Secret_action.HIDE}")
 
         match_secret.is_revealed = False
         try:
@@ -191,6 +186,30 @@ class Secrets_Services:
         match_secret = self._db.query(Match_Secret).filter(Match_Secret.id == match_secret_id).first()
         return match_secret
     
+    def secret_update_verification(self, match_id: UUID, match_secret_id:UUID, secretIn: SecretUpdate):
+        if not match_secret_id:
+            raise SecretNotFound("Match_Secret ID es Null")
+        
+        match_secret:Match_Secret = self._db.query(Match_Secret).filter(Match_Secret.id == match_secret_id).first()
+        if not match_secret:
+            raise SecretNotFound("Secreto no encontrado")
+        if match_secret.match_id != match_id:
+            raise SecretNotFound("El secreto no coicide con la Partida")
+        if not (secretIn.action in [Secret_action.HIDE, Secret_action.REVEAL, Secret_action.STEAL]):
+            raise SecretNotFound("No es una acción valida")
+        if secretIn.action in [Secret_action.HIDE, Secret_action.REVEAL] and secretIn.target_player_id != match_secret.player_id:
+            raise SecretNotFound("No coiciden el secreto y el jugador seleccionado para la accion de Revelar u Ocultar")
+        
+    def get_match_secret_by_id(self, match_secret_id:UUID) -> Match_Secret:
+        if not match_secret_id:
+            raise SecretNotFound("No es un ID valido o el ID es Null")
+        
+        match_secret = self._db.query(Match_Secret).filter(Match_Secret.id == match_secret_id).first()
+        
+        if not match_secret:
+            raise SecretNotFound("Secreto no encontrado por ID")
+        
+        return match_secret
     def is_murderer_revealed(self, match_id: UUID) -> dict | None:
         """
         Devuelve info si el murderer ya fue revelado.
