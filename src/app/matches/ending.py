@@ -2,7 +2,7 @@ from uuid import UUID
 from enum import Enum
 from typing import Optional
 from sqlalchemy.exc import SQLAlchemyError
-from app.matches.models import MatchStatus
+from app.matches.models import Match,MatchStatus
 
 class MatchEndedReason(Enum):
     DECK_FINISHED = "deck_finished"
@@ -15,6 +15,22 @@ async def handle_match_ended(db, manager, match_id: UUID,
     from app.matches.services import MatchService
     from app.secrets.services import Secrets_Services
     from websocketManager.ws_messages import WSEvent, make_ws_message
+    
+    #traemos la fila del match (objeto) para leer status de forma robusta
+    try:
+        match_row = db.query(Match).filter(Match.id == match_id).first()
+    except Exception:
+        #si ocurre algun error igual queremos terminar la partida
+        match_row = None
+
+    if match_row is None:
+        #no existe el match
+        return None
+    
+    #evita 2 veces la llamada a esta funcion
+    if match_row.status == MatchStatus.COMPLETED:
+        #ya fue llamado en otro request
+        return None
 
     try:
         MatchService(db).update_status_match(match_id, MatchStatus.COMPLETED)
@@ -23,6 +39,9 @@ async def handle_match_ended(db, manager, match_id: UUID,
     
 
     info=Secrets_Services(db).get_full_info(match_id)
+    if not info:
+        #evitamos keyerror(intentar acceder a claves de un dict que no existe o es None)
+        return None
     detailstmp=""
     if reason==MatchEndedReason.MURDERER_REVEALED:
         if info['accomplice_name']:
@@ -50,7 +69,7 @@ async def handle_match_ended(db, manager, match_id: UUID,
         print(f"Error al enviar WS: {e}")
 
     try:
-         manager.close_match(match_id)
+        manager.close_match(match_id)
     except Exception as e:
         print(f"Error al cerrar la partida: {e}")
     
