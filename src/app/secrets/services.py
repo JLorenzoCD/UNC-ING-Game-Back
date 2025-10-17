@@ -1,10 +1,12 @@
 from uuid import UUID
 from enum import Enum as PyEnum
 from sqlalchemy.exc import SQLAlchemyError
+from typing import Optional
 
-from app.secrets.models import Match_Secret, Secret, Secret_action
+from app.secrets.models import Match_Secret, Secret, Secret_action, Secret_Type
 from app.secrets.schemas import SecretUpdate
 from app.player.models import Player, Match_Player
+from app.matches.models import Match, MatchStatus
 
 class SecretNotFound(Exception):
     pass
@@ -63,6 +65,58 @@ class Secrets_Services:
             .filter(Match_Secret.match_id == match_id)
             .all()
         )
+    
+    def get_murderer_id(self,match_id: UUID) -> UUID:
+        """
+        Devuelve el player_id del Murderer del match.
+        """
+        murderer_player_id=(
+            self._db.query(Match_Secret.player_id)
+            .join(Secret, Match_Secret.secret_id == Secret.id)
+            .join(Match, Match.id == Match_Secret.match_id)
+            .filter(
+                Match.id == match_id,
+                Match.status == MatchStatus.IN_PROGRESS,
+                Secret.type == Secret_Type.MURDERER,
+                Match_Secret.player_id.isnot(None)
+            )
+            .scalar()
+        )
+        if murderer_player_id is None:
+            raise ValueError("Murderer not assigned or match not started")
+        return murderer_player_id
+    
+    def get_accomplice_id(self,match_id: UUID) -> Optional[UUID]:
+        """
+        Devuelve el player_id del complice del match.
+        None en caso de que no haya complice asignado
+        """
+        accomplice_player_id=(
+            self._db.query(Match_Secret.player_id)
+            .join(Secret, Match_Secret.secret_id == Secret.id)
+            .join(Match, Match.id == Match_Secret.match_id)
+            .filter(
+                Match.id == match_id,
+                Match.status == MatchStatus.IN_PROGRESS,
+                Secret.type == Secret_Type.ACCOMPLICE,
+                Match_Secret.player_id.isnot(None)
+            )
+            .scalar()
+        )
+        return accomplice_player_id
+    
+    def get_player_name(self, player_id: UUID) -> str:
+        p = self._db.query(Player.name).filter(Player.id == player_id).scalar()
+        return p
+
+    def get_murderer_name(self, match_id: UUID) -> str:
+        pid = self.get_murderer_id(match_id)
+        return self.get_player_name(pid)
+
+    def get_accomplice_name(self, match_id: UUID) -> Optional[str]:
+        pid = self.get_accomplice_id(match_id)
+        return self.get_player_name(pid) if pid else None
+        
     def reveal_secret(self, match_secret_id: UUID):
         match_secret = self._db.query(Match_Secret).filter(Match_Secret.id == match_secret_id).first()
         if not match_secret:
@@ -78,6 +132,7 @@ class Secrets_Services:
         except SQLAlchemyError as e:
             self._db.rollback()
             raise e
+
 
     def hide_secret(self, match_secret_id: UUID):
         match_secret = self._db.query(Match_Secret).filter(Match_Secret.id == match_secret_id).first()
@@ -155,3 +210,69 @@ class Secrets_Services:
             raise SecretNotFound("Secreto no encontrado por ID")
         
         return match_secret
+    def is_murderer_revealed(self, match_id: UUID) -> dict | None:
+        """
+        Devuelve info si el murderer ya fue revelado.
+        Retorna:
+          {
+              "secret_id": UUID del murderer,
+              "murderer_name": str,
+              "accomplice_name": str | None
+          }
+        o None si todavía no fue revelado.
+        """
+        row = (
+            self._db.query(Match_Secret, Secret.type)
+            .join(Secret, Match_Secret.secret_id == Secret.id)
+            .filter(Match_Secret.match_id == match_id)
+            .filter(Secret.type == Secret_Type.MURDERER)
+            .first()
+        )
+
+        if not row:
+            return None
+
+        match_secret, secret_type = row
+        if not match_secret.is_revealed:
+            return None
+
+        murderer_name = self.get_murderer_name(match_id)
+        accomplice_name = self.get_accomplice_name(match_id)
+        return {
+            "secret_id": match_secret.id,
+            "murderer_name": murderer_name,
+            "accomplice_name": accomplice_name,
+        }
+    
+    def get_full_info(self, match_id: UUID) -> dict | None:
+        """
+        Devuelve toda la info necesaria para el ending.
+        Retorna None si no hay murderer asignado.
+        """
+        match_secret = (
+            self._db.query(Match_Secret)
+            .join(Secret, Match_Secret.secret_id == Secret.id)
+            .filter(Match_Secret.match_id == match_id)
+            .filter(Secret.type == Secret_Type.MURDERER)
+            .first()
+        )
+        if not match_secret:
+            return None
+        murderer_name = self.get_murderer_name(match_id)
+        accomplice_name = self.get_accomplice_name(match_id)
+        accomplice_secret = (
+            self._db.query(Match_Secret)
+            .join(Secret, Match_Secret.secret_id == Secret.id)
+            .filter(Match_Secret.match_id == match_id)
+            .filter(Secret.type == Secret_Type.ACCOMPLICE)
+            .first()
+        )
+
+        return {
+            "murderer_secret_id": match_secret.id,
+            "murderer_name": murderer_name,
+            "accomplice_secret_id": accomplice_secret.id if accomplice_secret else None,
+            "accomplice_name": accomplice_name,
+        }
+    
+    

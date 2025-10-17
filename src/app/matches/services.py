@@ -2,18 +2,16 @@ from uuid import UUID
 from datetime import date
 from collections import defaultdict
 import random
-from typing import List
+from typing import List,Optional
 from datetime import datetime
 
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
 from app.matches.models import Match, MatchStatus
 from app.matches.schemas import MatchOut
 from app.matches import schemas as match_schemas
 from app.matches.utils import db_match_2_match_schema
-from app.secrets import schemas as secret_schemas
 from app.secrets.models import Secret, Match_Secret, Secret_Type
 from app.secrets.services import Secrets_Services
 from app.player.models import Player, Match_Player
@@ -21,6 +19,9 @@ from app.cards.models import Match_Card, Card
 from app.cards.services import Cards_Services
 from app.cards.schemas import Match_Card_Schema
 from app.cards.utils import db_match_card_2_match_card_schema
+from app.sets.models import Match_Set
+from app.sets.schemas import MatchSetOut
+from app.sets.utils import db_match_set_2_match_set_schema
 
 
 # Excepciones
@@ -34,7 +35,6 @@ class MatchNotFound(Exception):
 
 class MatchValidationError(Exception):
     pass
-
 
 class MatchService:
     def __init__(self, db):
@@ -493,3 +493,23 @@ class PileService:
         except SQLAlchemyError as exception:
             self._db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Database error", "details": str(exception)})
+
+
+    def get_count_cards_pile(self,match_id:UUID)->int:
+        return (
+            self._db.query(Match_Card)
+            .filter(
+                Match_Card.match_id == match_id,
+                Match_Card.player_id.is_(None),
+                Match_Card.is_discarded.is_(False),
+        )
+        .count()
+        )
+class SetService:
+    def __init__(self, db):
+        self._db = db
+
+    def get_sets_by_match(self, match_id: UUID) -> List[MatchSetOut]:
+        result = self._db.query(Match_Set).filter(Match_Set.match_id == match_id).all()
+        
+        return [db_match_set_2_match_set_schema(match_set) for match_set in result]
