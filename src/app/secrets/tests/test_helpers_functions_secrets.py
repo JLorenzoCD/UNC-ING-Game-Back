@@ -95,3 +95,33 @@ def test_is_murderer_revealed_after_reveal(db_session, client):
     assert result["secret_id"] == secret.id
     assert isinstance(result["murderer_name"], str)
 
+
+def test_get_full_info_basic(db_session, client):
+    setup = setup_match_and_players(client, db_session)
+    match_id = setup["match_id"]
+    match_str_id = setup["match_str_id"]
+
+    #inicia la partida
+    client.post(f"/matches/{match_str_id}/start")
+
+    svc = Secrets_Services(db_session)
+    info = svc.get_full_info(match_id)
+
+    assert info is not None
+    assert "murderer_secret_id" in info
+    assert "murderer_name" in info
+    assert "accomplice_secret_id" in info
+    assert "accomplice_name" in info
+
+    #no hay accomplice porque no tiene suficientes jugadores
+    assert info['accomplice_name'] is None
+
+def test_get_full_info_without_murderer(db_session, client):
+    setup = setup_match_and_players(client, db_session)
+    match_id = setup["match_id"]
+
+    svc = Secrets_Services(db_session)
+    info = svc.get_full_info(match_id)
+
+    #nunca se inicio la partida, debe devolver None ya que no hay murderer
+    assert info is None

@@ -225,3 +225,35 @@ class Secrets_Services:
             "accomplice_name": accomplice_name,
         }
     
+    def get_full_info(self, match_id: UUID) -> dict | None:
+        """
+        Devuelve toda la info necesaria para el ending.
+        Retorna None si no hay murderer asignado.
+        """
+        match_secret = (
+            self._db.query(Match_Secret)
+            .join(Secret, Match_Secret.secret_id == Secret.id)
+            .filter(Match_Secret.match_id == match_id)
+            .filter(Secret.type == Secret_Type.MURDERER)
+            .first()
+        )
+        if not match_secret:
+            return None
+        murderer_name = self.get_murderer_name(match_id)
+        accomplice_name = self.get_accomplice_name(match_id)
+        accomplice_secret = (
+            self._db.query(Match_Secret)
+            .join(Secret, Match_Secret.secret_id == Secret.id)
+            .filter(Match_Secret.match_id == match_id)
+            .filter(Secret.type == Secret_Type.ACCOMPLICE)
+            .first()
+        )
+
+        return {
+            "murderer_secret_id": match_secret.id,
+            "murderer_name": murderer_name,
+            "accomplice_secret_id": accomplice_secret.id if accomplice_secret else None,
+            "accomplice_name": accomplice_name,
+        }
+    
+    
