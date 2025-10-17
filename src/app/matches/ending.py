@@ -8,14 +8,6 @@ class MatchEndedReason(Enum):
     DECK_FINISHED = "deck_finished"
     MURDERER_REVEALED = "murderer_revealed"
 
-class MatchEnded(Exception):
-    def __init__(self, match_id: UUID, reason: MatchEndedReason,
-                 murderer_name: str, accomplice_name: Optional[str] = None):
-        self.match_id = match_id
-        self.reason = reason
-        self.murderer_name = murderer_name
-        self.accomplice_name = accomplice_name
-
 async def handle_match_ended(db, manager, match_id: UUID,
                              reason: MatchEndedReason,
                              murderer_name: str,
