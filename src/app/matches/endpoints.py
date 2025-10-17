@@ -21,6 +21,7 @@ from app.matches.schemas import (
 from app.cards.models import Card, Match_Card
 from app.cards.schemas import (take_Match_Cards_in, discard_Match_Cards_in, Match_Card_Schema)
 from app.sets import schemas as set_schemas
+from app.sets.schemas import MatchSetOut
 from app.sets import services as set_services
 from app.sets.models import Match_Set, SetType
 from app.secrets import services as secret_services
@@ -347,3 +348,14 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
+    
+@router.get("/{match_id}/sets", status_code=status.HTTP_200_OK, response_model=List[MatchSetOut])
+async def get_sets(match_id: UUID, db=Depends(get_db)):
+    try:
+        sets = services.SetService(db).get_sets_by_match(match_id)
+    except SQLAlchemyError:
+        raise HTTPException(status_code=500)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    return sets
