@@ -321,9 +321,7 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
         else:
             payload = {"target_player_id" : setIn.target_player_id}
             ws_msj = make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload)
-
             await manager.specificBroadcast(ws_msj, match_id)
-            #comento esta linea porque ya no deberia ser necesario ya se termino el juego
 
         try:
             if match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE]:
@@ -363,7 +361,16 @@ async def update_secret_in_match(match_id: UUID, secret_id:UUID, secretIn:secret
         msj_ws = make_ws_message(WSEvent.SECRET, payload)
         await manager.specificBroadcast(msj_ws, match_id)
         
+        if secretIn.action == Secret_action.REVEAL and match_secret_out.is_revealed == True:
+            try:
+                res=secret_service.is_murderer_revealed(match_id)
+                if res:
+                    await handle_match_ended(db, manager, match_id, MatchEndedReason.MURDERER_REVEALED)
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=str(e))
+        
         return match_secret_out
+    
     except secret_services.SecretNotFound as e:
         raise HTTPException(status_code=400, detail=str(e))
     except ValueError as e:
