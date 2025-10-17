@@ -346,8 +346,8 @@ async def update_secret_in_match(match_id: UUID, secret_id:UUID, secretIn:secret
         
         return match_secret_out
     except secret_services.SecretNotFound as e:
-        HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
     except ValueError as e:
-        HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e))
     except SQLAlchemyError as e:
-        HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))

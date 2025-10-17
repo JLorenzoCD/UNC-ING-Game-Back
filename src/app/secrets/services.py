@@ -69,7 +69,7 @@ class Secrets_Services:
             raise SecretNotFound("Secret not found")
 
         if match_secret.is_revealed:
-            raise ValueError("Secret is already revealed")
+            raise ValueError(f"Secret is already {Secret_action.REVEAL}")
 
         match_secret.is_revealed = True
         try:
@@ -85,7 +85,7 @@ class Secrets_Services:
             raise SecretNotFound("Secret not found")
 
         if not match_secret.is_revealed:
-            raise ValueError("Secret is already hidden")
+            raise ValueError(f"Secret is already {Secret_action.HIDE}")
 
         match_secret.is_revealed = False
         try:
