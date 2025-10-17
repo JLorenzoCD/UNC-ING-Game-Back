@@ -42,7 +42,8 @@ def test_match_set_model(db_session):
     new_match_set = Match_Set (
         type      = SetType.HERCULE_POIROT,
         match_id  = match.id,
-        player_id = player.id
+        player_id = player.id,
+        quin_count = 1
     )
     
     db_session.add(new_match_set)
@@ -59,3 +60,4 @@ def test_match_set_model(db_session):
     assert test_match_set.match_id  == match.id
     assert test_match_set.player_id == player.id
     assert test_match_set.quin_play == False
+    assert test_match_set.quin_count == 1
