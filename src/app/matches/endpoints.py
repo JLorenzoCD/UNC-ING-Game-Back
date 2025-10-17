@@ -27,6 +27,7 @@ from app.sets.models import Match_Set, SetType
 from app.secrets import services as secret_services
 from app.secrets import schemas as secret_schemas
 from app.secrets.utils import db_match_secret_2_match_secret_schema
+from app.matches.ending import handle_match_ended,MatchEndedReason
 
 router = APIRouter(
     tags   = ["matches"],
@@ -192,10 +193,10 @@ async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_d
         
         taken_cards_ids       = cards.card_ids
         len_taken_cards_ids   = len(taken_cards_ids)
-        remaining_match_cards = db.query(Match_Card).filter(Match_Card.match_id == match_id, Match_Card.is_discarded == False, Match_Card.player_id == None).count()
+        count_cards_pile = services.PileService(db).get_count_cards_pile(match_id)
         player_cards_count    = db.query(Match_Card).filter(Match_Card.match_id == match_id, Match_Card.player_id == player_id).count()
 
-        if (remaining_match_cards < len_taken_cards_ids):
+        if (count_cards_pile < len_taken_cards_ids):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"error":"No puedes tomar más cartas de las que quedan en el mazo"})
         if (len_taken_cards_ids > 6):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"error":"No puedes tomar mas de 6 cartas"})
@@ -224,6 +225,14 @@ async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_d
             ]
 
             await manager.specificBroadcast(make_ws_message(WSEvent.CARDS, payload), match_id)
+
+            #ver si el mazo quedó vacío y terminar la partida si es así
+            remaining_after = services.PileService(db).get_count_cards_pile(match_id)
+            if remaining_after <= 3:
+                try:
+                    await handle_match_ended(db, manager, match_id, MatchEndedReason.DECK_FINISHED)
+                except Exception as e:
+                    print(f"Error al handle_match_ended en take_card: {e}")
             return {"status": "success", "cards_taken": len(taken_cards_ids)}
     except HTTPException as exception:
         raise exception
@@ -311,9 +320,18 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
         else:
             payload = {"target_player_id" : setIn.target_player_id}
             ws_msj = make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload)
-            
+
             await manager.specificBroadcast(ws_msj, match_id)
-        
+            #comento esta linea porque ya no deberia ser necesario ya se termino el juego
+
+        try:
+            if match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE]:
+                res=secret_service.is_murderer_revealed(match_id)
+                if res:
+                    await handle_match_ended(db, manager, match_id, MatchEndedReason.MURDERER_REVEALED)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
         return match_set
     except (set_services.InvalidCardError, set_services.InvalidMatchIdError, set_services.TargetSecretError) as e:
         raise HTTPException(status_code=400, detail=str(e))

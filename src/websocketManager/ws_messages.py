@@ -9,6 +9,7 @@ class WSEvent(str, Enum):
     PLAYER_JOIN = "player_join"
     TURN        = "turn"
     CARDS       = "cards"
+    MATCH_COMPLETED = "match_completed"
     SET         = "set"
     SECRET      = "secret"
     PLAYER_SECRET_REVEAL = "player_secret_reveal"
