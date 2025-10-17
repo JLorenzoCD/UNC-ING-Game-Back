@@ -21,6 +21,7 @@ from app.matches.schemas import (
 from app.cards.models import Card, Match_Card
 from app.cards.schemas import (take_Match_Cards_in, discard_Match_Cards_in, Match_Card_Schema)
 from app.sets import schemas as set_schemas
+from app.sets.schemas import MatchSetOut
 from app.sets import services as set_services
 from app.sets.models import Match_Set, SetType
 from app.secrets import services as secret_services

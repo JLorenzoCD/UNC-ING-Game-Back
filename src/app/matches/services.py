@@ -503,6 +503,6 @@ class SetService:
         self._db = db
 
     def get_sets_by_match(self, match_id: UUID) -> List[MatchSetOut]:
-        result = self._db.query(MatchSetOut).filter(MatchSetOut.match_id == match_id).all()
+        result = self._db.query(Match_Set).filter(Match_Set.match_id == match_id).all()
         
-        return db_match_set_2_match_set_schema(result)
+        return [db_match_set_2_match_set_schema(match_set) for match_set in result]
