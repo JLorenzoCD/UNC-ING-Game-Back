@@ -417,6 +417,13 @@ async def play_event(match_id:UUID, player_id: UUID, match_card_id:UUID, event_p
             #hace algo
             return 0
         case Card_event.DELAY_THE_MURDERER_ESCAPE:
+            if len(event_payload.card_ids)>5:
+                raise ValueError("Se pasaron mas de 5 cartas para retrasar")
+            if len(event_payload.card_ids) == 0:
+                #se pasaron 0 cartas podria pasar si es la primera carta que se juega y no hay nada en la pila de descarte
+                print("a")
+            services_cards.Cards_Services(db).look_into_the_ashes_event(event_payload.cards_uds)
+
             #hace algo
             return 0
         case Card_event.EARLY_TRAIN_TO_PADDINGTON:
