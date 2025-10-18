@@ -224,8 +224,6 @@ async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_d
                 for card in results
             ]
 
-            await manager.specificBroadcast(make_ws_message(WSEvent.CARDS, payload), match_id)
-
             #ver si el mazo quedó vacío y terminar la partida si es así
             remaining_after = services.PileService(db).get_count_cards_pile(match_id)
             if remaining_after <= 3:
@@ -233,6 +231,9 @@ async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_d
                     await handle_match_ended(db, manager, match_id, MatchEndedReason.DECK_FINISHED)
                 except Exception as e:
                     print(f"Error al handle_match_ended en take_card: {e}")
+
+            await manager.specificBroadcast(make_ws_message(WSEvent.CARDS, payload), match_id)
+
             return {"status": "success", "cards_taken": len(taken_cards_ids)}
     except HTTPException as exception:
         raise exception
