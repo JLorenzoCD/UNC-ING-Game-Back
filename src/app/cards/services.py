@@ -77,7 +77,9 @@ class Cards_Services:
                 shuffle_cards.append(match_card)
         
         #Agregamos las cartas a la base de datos
-        random.shuffle(shuffle_cards)  
+        random.shuffle(shuffle_cards)
+        random.shuffle(shuffle_cards)
+        random.shuffle(shuffle_cards)
         for cards in shuffle_cards:
             self._db.add(cards)
             
