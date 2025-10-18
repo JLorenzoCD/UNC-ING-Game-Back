@@ -9,6 +9,10 @@ from app.matches.utils import db_match_2_match_schema
 from app.models.db import get_db
 from app.player.models import Player, Match_Player
 from app.matches import services
+
+from app.cards import services as services_cards #si no le pones alias a este services se destruye todo porque pisa al services de matches
+from app.cards.services import Card_event
+
 from app.matches.schemas import (
     Cards_by_Match_Schema,
     MatchIn,
@@ -389,3 +393,39 @@ async def get_sets(match_id: UUID, db=Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
     
     return sets
+
+@router.get("/{match_id}/events", status_code=status.HTTP_200_OK)
+async def play_event(match_id:UUID, player_id: UUID, match_card_id:UUID, event_payload, db=Depends(get_db)):
+    typeEvent=services_cards.Cards_Services(db).get_name_event(player_id,match_id,match_card_id)
+    match typeEvent:
+        case Card_event.CARDS_OFF_THE_TABLE:
+            #hace algo
+            return 0
+        case Card_event.ANOTHER_VICTIM:
+            #hace algo
+            return 0
+        case Card_event.DEAD_CARD_FOLLY:
+            #hace algo
+            return 0
+        case Card_event.LOOK_INTO_THE_ASHES:
+            #hace algo
+            return 0
+        case Card_event.CARD_TRADE:
+            #hace algo
+            return 0
+        case Card_event.AND_THEN_THERE_WAS_ONE_MORE:
+            #hace algo
+            return 0
+        case Card_event.DELAY_THE_MURDERER_ESCAPE:
+            #hace algo
+            return 0
+        case Card_event.EARLY_TRAIN_TO_PADDINGTON:
+            #hace algo
+            return 0
+        case Card_event.POINT_YOUR_SUSPICIONS:
+            #hace algo
+            return 0
+        case _:
+            #como un default
+            return 0
+    return 0
