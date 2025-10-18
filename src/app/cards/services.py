@@ -1,4 +1,5 @@
 from uuid import UUID
+import random
 
 from app.cards.models import Card, Match_Card
 
@@ -57,6 +58,7 @@ class Cards_Services:
             ]
 
         # Crear Match_Card según la cantidad
+        shuffle_cards = []
         for card_info in all_cards:
             # Buscar la carta base en la tabla cards
             card_base = (
@@ -72,10 +74,17 @@ class Cards_Services:
                     match_id=match_id,
                     card_id=card_base.id,
                 )
-                self._db.add(match_card)
-
+                shuffle_cards.append(match_card)
+        
+        #Agregamos las cartas a la base de datos
+        random.shuffle(shuffle_cards)
+        random.shuffle(shuffle_cards)
+        random.shuffle(shuffle_cards)
+        for cards in shuffle_cards:
+            self._db.add(cards)
+            
         self._db.commit()
-
+        
     def get_cards_by_match(self, match_id: UUID) -> list[Match_Card]:
         return (
             self._db.query(Match_Card)
