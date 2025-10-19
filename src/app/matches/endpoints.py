@@ -408,11 +408,10 @@ async def play_event(match_id:UUID, player_id: UUID, match_card_id:UUID, event_p
             #hace algo
             return 0
         case Card_event.LOOK_INTO_THE_ASHES:
-            #elimino primero la carta de evento del mazo asi no se pasa de 6 cartas y funciona correctamente el take
-            #updated_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
-
-            #crea una lista con sola la carta seleccionada y la añade a las cartas del player
-            #services.PileService.take_cards(player_id,match_id,[event_payload.target_card_id])
+            #efecto de carta look_into_the_ashes y devuelve la carta tomada actualizada para el payload del ws
+            taken_card=services_cards.Cards_Services(db).look_into_the_ashes_event(player_id,match_id,event_payload.target_card_id)
+            
+            updated_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
 
             #hace el payload para la devolucion por ws
             return 0
@@ -420,15 +419,13 @@ async def play_event(match_id:UUID, player_id: UUID, match_card_id:UUID, event_p
             #hace algo
             return 0
         case Card_event.AND_THEN_THERE_WAS_ONE_MORE:
-            #efecto de carta and_then_there_was_one_more_event y devuelve secreto actualizado para el payload del ws
+            #efecto de carta and_then_there_was_one_more y devuelve secreto actualizado para el payload del ws
             updated_secret=services_cards.Cards_Services(db).and_then_there_was_one_more_event(event_payload)
             
             #descartamos la carta de evento jugada
             updated_card_event=updated_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
             
             #hacer el payload para la devolucion por ws
-
-            #hace algo
             return 0
         case Card_event.DELAY_THE_MURDERER_ESCAPE:
             if len(event_payload.card_ids)>5:

@@ -6,6 +6,7 @@ import datetime
 from app.cards.models import Card, Match_Card
 from app.secrets import services as secret_services
 from app.secrets.services import Secret_action
+from app.matches import services as matches_services
 
 
 class Card_event(Enum):
@@ -116,33 +117,6 @@ class Cards_Services:
             raise ValueError("Carta, player o partida incorrecto")
         return Card_event(row.name)
 
-    def delay_the_murderer_escape_event(self,cards_ids: list[int]):
-        try:
-
-            self._db.query(Match_Card).filter(Match_Card.id.in_(cards_ids)).update(
-                {
-                    Match_Card.is_discarded: False,
-                    Match_Card.discarded_at: None
-                },
-                synchronize_session="fetch"
-                #usamos esto porque en los update y delete es importante como sincronizar los cambios
-            )
-            self._db.commit()
-
-            #traemos todo el match card de todas las cartas que tengan la id en nuestros cards_ids
-            updated_cards = self._db.query(Match_Card).filter(Match_Card.id.in_(cards_ids)).all()
-            return updated_cards
-
-        except SQLAlchemyError as e:
-            self._db.rollback()
-            raise RuntimeError(f"No se actualizaron las cartas correctamente, details {e}")
-        
-    def and_then_there_was_one_more_event(self, target_player_id:UUID, target_secret_id:UUID):
-        #ocultamos el secreto
-        secret_services.Secrets_Services(self._db).update_secret(Secret_action.REVEAL, target_secret_id)
-        #robamos el secreto y lo guardamos para devolverlo
-        match_secret=secret_services.Secrets_Services(self._db).update_secret(Secret_action.STEAL, target_secret_id, target_player_id)
-        return match_secret
     
     def discard_card(self,match_card_id,delete=False):
         """
@@ -177,3 +151,53 @@ class Cards_Services:
         except SQLAlchemyError as e:
             self._db.rollback()
             raise RuntimeError(f"No se pudo descartar la carta: {e}")
+
+    def delay_the_murderer_escape_event(self,cards_ids: list[int]):
+        try:
+
+            self._db.query(Match_Card).filter(Match_Card.id.in_(cards_ids)).update(
+                {
+                    Match_Card.is_discarded: False,
+                    Match_Card.discarded_at: None
+                },
+                synchronize_session="fetch"
+                #usamos esto porque en los update y delete es importante como sincronizar los cambios
+            )
+            self._db.commit()
+
+            #traemos todo el match card de todas las cartas que tengan la id en nuestros cards_ids
+            updated_cards = self._db.query(Match_Card).filter(Match_Card.id.in_(cards_ids)).all()
+            return updated_cards
+
+        except SQLAlchemyError as e:
+            self._db.rollback()
+            raise RuntimeError(f"No se actualizaron las cartas correctamente, details {e}")
+        
+    def and_then_there_was_one_more_event(self, target_player_id:UUID, target_secret_id:UUID):
+        #ocultamos el secreto
+        secret_services.Secrets_Services(self._db).update_secret(Secret_action.REVEAL, target_secret_id)
+        #robamos el secreto y lo guardamos para devolverlo
+        match_secret=secret_services.Secrets_Services(self._db).update_secret(Secret_action.STEAL, target_secret_id, target_player_id)
+        return match_secret
+    
+    def look_into_the_ashes_event(self,player_id,match_id,target_card_id):
+        #toma la carta targeteada, y hace un lista de un elemento como el take_cards lo requiere
+        matches_services.PileService.take_cards(player_id,match_id,[target_card_id])
+        try:
+            taken_card=self._db.query(Match_Card).filter(Match_Card.id==target_card_id)
+        except SQLAlchemyError as e:
+            raise e
+        return taken_card
+    
+    def another_victim_event(self):
+        #falta implementacion(necesito que este ready steal_set)
+        return 0
+    
+    def early_train_to_paddington_event(self):
+        #falta implementacion
+        return 0
+    
+    def cards_off_the_table(self):
+        #falta implementacion
+        return 0
+    
