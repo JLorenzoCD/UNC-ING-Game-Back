@@ -151,16 +151,24 @@ class Secrets_Services:
             raise e
             
     def steal_secret(self, match_secret_id: UUID, player_id: UUID):
-        match_secret = self._db.query(Match_Secret).filter(Match_Secret.id == match_secret_id).first()
+        """
+        Oculta un secreto revelado y lo roba. 
+        """
+        match_secret:Match_Secret = self._db.query(Match_Secret).filter(Match_Secret.id == match_secret_id).first()
+        match_id = match_secret.match_id
         if not match_secret:
             raise SecretNotFound("Secret not found")
+
+        # Ocultar el secreto
+        self.hide_secret(match_secret_id)
             
+        # Robar el secreto
         owner_player_id = match_secret.player_id
         
-        owner_player = self._db.query(Match_Player).filter(Match_Player.player_id == owner_player_id).first()
-        stealing_player = self._db.query(Match_Player).filter(Match_Player.player_id == player_id).first()
+        owner_player = self._db.query(Match_Player).filter(Match_Player.player_id == owner_player_id and Match_Player.match_id == match_id).first()
+        stealing_player = self._db.query(Match_Player).filter(Match_Player.player_id == player_id and Match_Player.match_id == match_id).first()
 
-        if not owner_player or not stealing_player or owner_player.match_id != stealing_player.match_id:
+        if not owner_player or not stealing_player:
             raise ValueError("Players are not in the same match")
             
         match_secret.player_id = player_id
