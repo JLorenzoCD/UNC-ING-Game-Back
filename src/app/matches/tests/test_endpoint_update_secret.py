@@ -119,7 +119,7 @@ def test_steal_secret(db_session, client):
         player2_id = setup_data['player2_id']
 
         secret_base = db_session.query(Secret).filter(Secret.type == Secret_Type.INNOCENT).first()
-        match_secret_ids = create_match_secrets(db_session, secret_base, False, match_id, [owner_id, player2_id])
+        match_secret_ids = create_match_secrets(db_session, secret_base, True, match_id, [owner_id, player2_id])
         target_secret_id: UUID = match_secret_ids[1] # Jugador 2
         str_secret_id = str(target_secret_id)
         
@@ -132,6 +132,7 @@ def test_steal_secret(db_session, client):
         assert response.status_code == 200, f"Error {response.status_code}: {response.text}"
         set_response = response.json()
         assert set_response['player_id'] == str(owner_id)
+        assert set_response['is_revealed'] == False
         
 def test_steal_secret_invalid_players(db_session, client):
     with patch('app.matches.endpoints.manager') as mock_manager:
@@ -146,7 +147,7 @@ def test_steal_secret_invalid_players(db_session, client):
         fake_player = uuid4()
 
         secret_base = db_session.query(Secret).filter(Secret.type == Secret_Type.INNOCENT).first()
-        match_secret_ids = create_match_secrets(db_session, secret_base, False, match_id, [owner_id, player2_id])
+        match_secret_ids = create_match_secrets(db_session, secret_base, True, match_id, [owner_id, player2_id])
         target_secret_id: UUID = match_secret_ids[1] # Jugador 2
         str_secret_id = str(target_secret_id)
         
@@ -161,12 +162,11 @@ def test_steal_secret_invalid_players(db_session, client):
         assert f"Players are not in the same match" in response.json()["detail"]
         
 
-@pytest.mark.parametrize("action1, expected_state, action2, action3", [
+@pytest.mark.parametrize("action1, expected_state, action2", [
     #Reveal
-    (Secret_action.REVEAL, True, Secret_action.HIDE, Secret_action.STEAL),
-    (Secret_action.HIDE, False, Secret_action.REVEAL, Secret_action.STEAL),
+    (Secret_action.REVEAL, True, Secret_action.STEAL),
 ])
-def test__multi_action_secret(db_session, client, action1, expected_state, action2, action3):
+def test__multi_action_secret(db_session, client, action1, expected_state, action2):
     with patch('app.matches.endpoints.manager') as mock_manager:
         mock_manager.specificBroadcast = AsyncMock()
         mock_manager.waiting_room_broadcast = AsyncMock()
@@ -196,15 +196,6 @@ def test__multi_action_secret(db_session, client, action1, expected_state, actio
         set_data = {
             "target_player_id" : player2_id,
             "action" : action2
-        }
-        response = client.put(f"/matches/{match_str_id}/secrets/{str_secret_id}", json=jsonable_encoder(set_data))
-        assert response.status_code == 200, f"Error {response.status_code}: {response.text}"
-        set_response = response.json()
-        assert set_response['is_revealed'] == (not expected_state)
-        
-        set_data = {
-            "target_player_id" : player2_id,
-            "action" : action3
         }
         response = client.put(f"/matches/{match_str_id}/secrets/{str_secret_id}", json=jsonable_encoder(set_data))
         assert response.status_code == 200, f"Error {response.status_code}: {response.text}"
