@@ -20,6 +20,7 @@ from app.matches.schemas import (
 )
 from app.cards.models import Card, Match_Card
 from app.cards.schemas import (take_Match_Cards_in, discard_Match_Cards_in, Match_Card_Schema)
+from app.cards import services as card_services
 from app.sets import schemas as set_schemas
 from app.sets.schemas import MatchSetOut
 from app.sets import services as set_services
@@ -298,13 +299,22 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
             "match_id": match_id           
         }
         match_set: set_schemas.MatchSetOut = set_service.create_set(set_data)
+        payload = {}
+        payload = match_set.model_dump(mode='json')
+
+        # Eliminar las Match_Cards     
+        card_service = card_services.Cards_Services(db)
+        for card in match_card_ids:
+            to_eliminate = True
+            eliminate = card_service.discard_card(card, to_eliminate)
         
-        match_set_dict                = match_set.model_dump(mode='json')
-        ws_msj                        = make_ws_message(WSEvent.SET, match_set_dict)
+        payload.update({"deleted_cards": [str(uuid) for uuid in match_card_ids]})
+        ws_msj  = make_ws_message(WSEvent.SET, payload)
         await manager.specificBroadcast(ws_msj, match_id)
-            
+        
         # Accion del Set (Casos)
         secret_service = secret_services.Secrets_Services(db)
+        payload = {}
         if setIn.target_secret_id is not None:
             if match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE]:
                 target_secret = secret_service.update_secret(Secret_action.REVEAL, setIn.target_secret_id, setIn.target_player_id)
@@ -315,15 +325,15 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
                 match_secret_out = db_match_secret_2_match_secret_schema(target_secret)              
 
             payload = match_secret_out.model_dump(mode='json')
-            
-            ws_msj = make_ws_message(WSEvent.SECRET, payload)
+            ws_msj  = make_ws_message(WSEvent.SECRET, payload)
             await manager.specificBroadcast(ws_msj, match_id)
             
         else:
             payload = {"target_player_id" : setIn.target_player_id}
-            ws_msj = make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload)
+            ws_msj  = make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload)
             await manager.specificBroadcast(ws_msj, match_id)
-
+        
+        # Verificacion de la condición de victoria    
         try:
             if match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE]:
                 res=secret_service.is_murderer_revealed(match_id)
