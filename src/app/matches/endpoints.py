@@ -408,12 +408,26 @@ async def play_event(match_id:UUID, player_id: UUID, match_card_id:UUID, event_p
             #hace algo
             return 0
         case Card_event.LOOK_INTO_THE_ASHES:
-            #hace algo
+            #elimino primero la carta de evento del mazo asi no se pasa de 6 cartas y funciona correctamente el take
+            updated_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
+
+            #crea una lista con sola la carta seleccionada y la añade a las cartas del player
+            services.PileService.take_cards(player_id,match_id,[event_payload.target_card_id])
+
+            #hace el payload para la devolucion por ws
             return 0
         case Card_event.CARD_TRADE:
             #hace algo
             return 0
         case Card_event.AND_THEN_THERE_WAS_ONE_MORE:
+            #efecto de carta and_then_there_was_one_more_event y devuelve secreto actualizado para el payload del ws
+            updated_secret=services_cards.Cards_Services(db).and_then_there_was_one_more_event(event_payload)
+            
+            #descartamos la carta de evento jugada
+            updated_card_event=updated_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
+            
+            #hacer el payload para la devolucion por ws
+
             #hace algo
             return 0
         case Card_event.DELAY_THE_MURDERER_ESCAPE:
@@ -429,17 +443,7 @@ async def play_event(match_id:UUID, player_id: UUID, match_card_id:UUID, event_p
             
             return 0
         case Card_event.EARLY_TRAIN_TO_PADDINGTON:
-            #ocultamos el secreto
-            secret_services.Secrets_Services(db).update_secret(Secret_action.REVEAL, event_payload.target_secret_id)
-
-            #robamos el secreto
-            secret_services.Secrets_Services(db).update_secret(Secret_action.STEAL, event_payload.target_secret_id, event_payload.target_player_id)
-            
-            #descartamos la carta de evento
-            updated_card_event=updated_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
-            
-            #hacer el payload para la devolucion por ws
-
+            #hacer algo
             return 0
         case Card_event.POINT_YOUR_SUSPICIONS:
             #hace algo

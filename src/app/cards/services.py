@@ -4,6 +4,8 @@ from enum import Enum
 from sqlalchemy.exc import SQLAlchemyError
 import datetime
 from app.cards.models import Card, Match_Card
+from app.secrets import services as secret_services
+from app.secrets.services import Secret_action
 
 
 class Card_event(Enum):
@@ -135,6 +137,13 @@ class Cards_Services:
             self._db.rollback()
             raise RuntimeError(f"No se actualizaron las cartas correctamente, details {e}")
         
+    def and_then_there_was_one_more_event(self, target_player_id:UUID, target_secret_id:UUID):
+        #ocultamos el secreto
+        secret_services.Secrets_Services(self._db).update_secret(Secret_action.REVEAL, target_secret_id)
+        #robamos el secreto y lo guardamos para devolverlo
+        match_secret=secret_services.Secrets_Services(self._db).update_secret(Secret_action.STEAL, target_secret_id, target_player_id)
+        return match_secret
+    
     def discard_card(self,match_card_id,delete=False):
         """
         Recibe una match_card_id y actualiza en la base de datos que es descartada, el discarded_at y que ya no tiene un player_id asociado
