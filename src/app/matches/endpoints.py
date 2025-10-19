@@ -62,7 +62,6 @@ async def create_match(
     
     return MatchResponse(id=new_match.id)
 
-
 @router.get("/", status_code=status.HTTP_200_OK, response_model=List[Match_number_of_Player])
 async def get_all_matches(db=Depends(get_db)) -> List[Match_number_of_Player]:
     try:
@@ -71,7 +70,6 @@ async def get_all_matches(db=Depends(get_db)) -> List[Match_number_of_Player]:
         raise HTTPException(status_code=404, detail="Matches not found")
     
     return matches
-
 
 @router.get("/{match_id}", status_code=status.HTTP_200_OK, response_model=Match_number_of_Player)
 async def get_match_by_match_ID(match_id: UUID, db=Depends(get_db)):
@@ -83,7 +81,6 @@ async def get_match_by_match_ID(match_id: UUID, db=Depends(get_db)):
     
     return match_extended
 
-
 @router.get("/{match_id}/players", status_code=status.HTTP_200_OK, response_model=List[Players_by_Match_Schema])
 async def get_player_by_ID_match(match_id: UUID, db=Depends(get_db)) -> List[Players_by_Match_Schema]:
     try:
@@ -92,7 +89,6 @@ async def get_player_by_ID_match(match_id: UUID, db=Depends(get_db)) -> List[Pla
         raise HTTPException(status_code=404, detail="Not found")
     
     return players_match
-
 
 @router.post("/{match_id}/join", status_code=status.HTTP_200_OK)
 async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
@@ -127,7 +123,6 @@ async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
     
     return {"match_id": match_id}
 
-
 @router.post("/{match_id}/start", status_code=status.HTTP_200_OK)
 async def start_match(match_id: UUID, db=Depends(get_db)):
     try:
@@ -146,7 +141,6 @@ async def start_match(match_id: UUID, db=Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Could not start match: {str(e)}")
     
-
 @router.put("/{match_id}/pass_turn", status_code=status.HTTP_200_OK)
 async def pass_turn(match_id: UUID, db=Depends(get_db)):
     try:
@@ -172,7 +166,6 @@ async def get_secrets(match_id: UUID, db=Depends(get_db)):
     secrets = services.MatchService(db).get_secrets_by_match(match_id)
     return secrets
 
-
 @router.get("/{match_id}/cards", status_code=status.HTTP_200_OK, response_model=List[Cards_by_Match_Schema])
 async def get_cards(match_id: UUID, db=Depends(get_db)):
     try:
@@ -183,7 +176,6 @@ async def get_cards(match_id: UUID, db=Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
     
     return cards
-
 
 @router.put("/{match_id}/cards/take", status_code=status.HTTP_200_OK)
 async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_db)):
@@ -240,7 +232,6 @@ async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_d
     except HTTPException as exception:
         raise exception
 
-
 @router.put("/{match_id}/cards/discard", status_code=status.HTTP_200_OK)
 async def discard_card(match_id: UUID, cards: discard_Match_Cards_in, db=Depends(get_db)):
     try:
@@ -282,7 +273,6 @@ async def discard_card(match_id: UUID, cards: discard_Match_Cards_in, db=Depends
             return {"status": "success", "cards_discarded": len(discarded_cards_ids)}
     except HTTPException as exception:
         raise exception
-
     
 @router.post("/{match_id}/sets", status_code=status.HTTP_201_CREATED)
 async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db)) -> set_schemas.MatchSetOut:
