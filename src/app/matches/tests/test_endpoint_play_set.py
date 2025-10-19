@@ -93,6 +93,9 @@ def test_endpoint_play_set_Poirot_Marple(db_session, client, set_type, card_name
         db_session.expire_all() # Forzar la recarga desde la BD
         match_secret_db = db_session.query(Match_Secret).filter(Match_Secret.id == target_secret_id).first()
         assert match_secret_db.is_revealed is True
+        
+        is_cards_delete = db_session.query(Match_Card).filter(Match_Card.id.in_(match_card_ids)).all()
+        assert is_cards_delete == []
 
      
 @pytest.mark.parametrize("set_type, card_names", [

@@ -1,5 +1,8 @@
 from uuid import UUID
 import random
+from sqlalchemy.exc import SQLAlchemyError
+from datetime import datetime
+
 
 from app.cards.models import Card, Match_Card
 
@@ -91,3 +94,38 @@ class Cards_Services:
             .filter(Match_Card.match_id == match_id)
             .all()
         )
+        
+    def discard_card(self,match_card_id,delete=False):
+        """
+        Recibe una match_card_id y actualiza en la base de datos que es descartada, el discarded_at y que ya no tiene un player_id asociado
+        Tiene un parametro opcional para cuando se debe eliminar del juego y no enviar a la pia de descarte
+        """
+        try:
+            if not delete:
+                self._db.query(Match_Card).filter(Match_Card.id == match_card_id).update(
+                    {
+                        Match_Card.is_discarded: True,
+                        Match_Card.player_id: None,
+                        Match_Card.discarded_at: datetime.now()
+                    },
+                    synchronize_session="fetch"
+                )
+                self._db.commit()
+
+                #traemos el match_card actualizado para devolver
+                updated_card = self._db.query(Match_Card).filter(Match_Card.id == match_card_id).first()
+                return updated_card
+            else:
+                #eliminamos la carta de la base de datos
+                card_to_delete = self._db.query(Match_Card).filter(Match_Card.id == match_card_id).first()
+                if not card_to_delete:
+                    raise ValueError("La carta no existe o ya fue eliminada")
+
+                self._db.delete(card_to_delete)
+                self._db.commit()
+                return card_to_delete
+
+        except SQLAlchemyError as e:
+            self._db.rollback()
+            raise RuntimeError(f"No se pudo descartar la carta: {e}")
+        
