@@ -44,14 +44,14 @@ async def handle_match_ended(db, manager, match_id: UUID,
     detailstmp=""
     if reason==MatchEndedReason.MURDERER_REVEALED:
         if info['accomplice_name']:
-            detailstmp=f"El asesino fue revelado. {info['murderer_name']} era el asesino y {info['accomplice_name']} era su cómplice"
+            detailstmp=f"The murderer was revealed. {info['murderer_name']} was the murderer and {info['accomplice_name']} was his accomplice"
         else:
-            detailstmp=f"El asesino fue revelado. {info['murderer_name']} era el asesino"
+            detailstmp=f"The murderer was revealed. {info['murderer_name']} was the murderer"
     else:
         if info['accomplice_name']:
-            detailstmp=f"El asesino {info['murderer_name']} se escapo!. Fue ayudado por su cómplice {info['accomplice_name']}"
+            detailstmp=f"The murderer {info['murderer_name']} escaped!. He was helped by his accomplice {info['accomplice_name']}"
         else:
-            detailstmp=f"El asesino {info['murderer_name']} se escapo!."
+            detailstmp=f"The murderer {info['murderer_name']} escaped!."
             
             
     payload = {
