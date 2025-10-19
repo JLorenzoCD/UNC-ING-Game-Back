@@ -429,7 +429,17 @@ async def play_event(match_id:UUID, player_id: UUID, match_card_id:UUID, event_p
             
             return 0
         case Card_event.EARLY_TRAIN_TO_PADDINGTON:
-            #hace algo
+            #ocultamos el secreto
+            secret_services.Secrets_Services(db).update_secret(Secret_action.REVEAL, event_payload.target_secret_id)
+
+            #robamos el secreto
+            secret_services.Secrets_Services(db).update_secret(Secret_action.STEAL, event_payload.target_secret_id, event_payload.target_player_id)
+            
+            #descartamos la carta de evento
+            updated_card_event=updated_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
+            
+            #hacer el payload para la devolucion por ws
+
             return 0
         case Card_event.POINT_YOUR_SUSPICIONS:
             #hace algo
