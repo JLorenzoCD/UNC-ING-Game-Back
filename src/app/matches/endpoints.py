@@ -308,7 +308,7 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
             to_eliminate = True
             eliminate = card_service.discard_card(card, to_eliminate)
         
-        payload.update({"cards_to_delete": [str(uuid) for uuid in match_card_ids]})
+        payload.update({"deleted_cards": [str(uuid) for uuid in match_card_ids]})
         ws_msj  = make_ws_message(WSEvent.SET, payload)
         await manager.specificBroadcast(ws_msj, match_id)
         
