@@ -116,7 +116,7 @@ class Cards_Services:
             raise ValueError("Carta, player o partida incorrecto")
         return Card_event(row.name)
 
-    def look_into_the_ashes_event(self,cards_ids: list[int]):
+    def delay_the_murderer_escape_event(self,cards_ids: list[int]):
         try:
 
             self._db.query(Match_Card).filter(Match_Card.id.in_(cards_ids)).update(
