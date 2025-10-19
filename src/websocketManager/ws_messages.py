@@ -13,6 +13,7 @@ class WSEvent(str, Enum):
     SET         = "set"
     SECRET      = "secret"
     PLAYER_SECRET_REVEAL = "player_secret_reveal"
+    CARD_EVENT = "card_event"
 
 def custom_encoder(o):
     if isinstance(o, UUID):

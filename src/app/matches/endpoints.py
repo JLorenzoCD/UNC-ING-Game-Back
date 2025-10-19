@@ -411,7 +411,17 @@ async def play_event(match_id:UUID, player_id: UUID, match_card_id:UUID, event_p
             #efecto de carta look_into_the_ashes y devuelve la carta tomada actualizada para el payload del ws
             taken_card=services_cards.Cards_Services(db).look_into_the_ashes_event(player_id,match_id,event_payload.target_card_id)
             
-            updated_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
+            discarded_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
+
+            #construccion del payload
+            payload={
+                "type": typeEvent,
+                "updated_match_cards": None,
+                "updated_secret": updated_match_cards,
+                "discarded_card_event": discarded_card_event,
+                "updated_set": None
+            }
+            await manager.specificBroadcast(make_ws_message(WSEvent.CARD_EVENT,payload),match_id)
 
             #hace el payload para la devolucion por ws
             return 0
@@ -423,7 +433,17 @@ async def play_event(match_id:UUID, player_id: UUID, match_card_id:UUID, event_p
             updated_secret=services_cards.Cards_Services(db).and_then_there_was_one_more_event(event_payload)
             
             #descartamos la carta de evento jugada
-            updated_card_event=updated_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
+            discarded_card_event=updated_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
+
+            #construccion del payload
+            payload={
+                "type": typeEvent,
+                "updated_match_cards": None,
+                "updated_secret": updated_match_cards,
+                "discarded_card_event": discarded_card_event,
+                "updated_set": None
+            }
+            await manager.specificBroadcast(make_ws_message(WSEvent.CARD_EVENT,payload),match_id)
             
             #hacer el payload para la devolucion por ws
             return 0
@@ -434,9 +454,17 @@ async def play_event(match_id:UUID, player_id: UUID, match_card_id:UUID, event_p
                 #se pasaron 0 cartas podria pasar si es la primera carta que se juega y no hay nada en la pila de descarte
                 print("Debe poderse jugar")
             updated_match_cards=services_cards.Cards_Services(db).delay_the_murderer_escape_event(event_payload.cards_uds)
-            updated_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
-            
-            #hacer el payload para la devolucion por ws
+            discarded_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
+
+            #construccion del payload
+            payload={
+                "type": typeEvent,
+                "updated_match_cards": updated_match_cards,
+                "updated_secret": None,
+                "discarded_card_event": discarded_card_event,
+                "updated_set": None
+            }
+            await manager.specificBroadcast(make_ws_message(WSEvent.CARD_EVENT,payload),match_id)
             
             return 0
         case Card_event.EARLY_TRAIN_TO_PADDINGTON:
