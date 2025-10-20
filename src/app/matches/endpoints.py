@@ -353,6 +353,7 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
+
 @router.put("/{match_id}/secrets/{secret_id}", status_code=200)
 async def update_secret_in_match(match_id: UUID, secret_id:UUID, secretIn:secret_schemas.SecretUpdate, db=Depends(get_db)) -> secret_schemas.Match_Secret_Schema:
     try: 
@@ -383,7 +384,8 @@ async def update_secret_in_match(match_id: UUID, secret_id:UUID, secretIn:secret
         raise HTTPException(status_code=404, detail=str(e))
     except SQLAlchemyError as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+
 @router.get("/{match_id}/sets", status_code=status.HTTP_200_OK, response_model=List[MatchSetOut])
 async def get_sets(match_id: UUID, db=Depends(get_db)):
     try:
@@ -394,6 +396,7 @@ async def get_sets(match_id: UUID, db=Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
     
     return sets
+
 
 @router.post("/{match_id}/events", status_code=status.HTTP_200_OK)
 async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_payload:dict, db=Depends(get_db)):
@@ -476,7 +479,33 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
             await manager.specificBroadcast(make_ws_message(WSEvent.CARD_EVENT,payload),match_id)
             
         case Card_event.EARLY_TRAIN_TO_PADDINGTON:
-            #hacer algo
+            try:
+                if "cards_ids" not in event_payload or not event_payload["cards_ids"]:
+                    raise ValueError("Se requiere 'cards_ids' con al menos una carta para el evento Early Train to Paddington")
+                
+                discarded_cards = services_cards.Cards_Services(db).early_train_to_paddington_event(match_id, event_payload["cards_ids"])
+                
+                discarded_card_event = services_cards.Cards_Services(db).discard_card(match_card_id, delete=True)
+
+                serialized_discarded_cards = [mc.model_dump(mode="json") for mc in discarded_cards]
+                serialized_discarded_card_event = db_match_card_2_match_card_schema(discarded_card_event).model_dump(mode="json")
+
+                payload = {
+                    "type": typeEvent.value,
+                    "updated_match_cards": serialized_discarded_cards,
+                    "updated_secret": None,
+                    "discarded_card_event": serialized_discarded_card_event,
+                    "updated_set": None
+                }
+                await manager.specificBroadcast(make_ws_message(WSEvent.CARD_EVENT, payload), match_id)
+                
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+            except SQLAlchemyError as e:
+                raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
+            
             return 0
         case Card_event.POINT_YOUR_SUSPICIONS:
             #hace algo
