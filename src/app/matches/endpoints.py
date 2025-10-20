@@ -422,11 +422,21 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
             await manager.specificBroadcast(make_ws_message(WSEvent.CARD_EVENT,payload),match_id)
 
         case Card_event.ANOTHER_VICTIM:
-            #hace algo
-            return 0
-        case Card_event.DEAD_CARD_FOLLY:
-            #hace algo
-            return 0
+            updated_set=set_services.SetService(db).steal_set(payload["target_set_id"],player_id)
+            discarded_card_event=diccionary["discarded_event_card"]
+            
+            #convertir a schema
+            discarded_card_event=db_match_card_2_match_card_schema(discarded_card_event)
+            #construccion del payload
+            payload={
+                "type": typeEvent.value,
+                "updated_match_cards": None,
+                "updated_secret": None,
+                "discarded_card_event": discarded_card_event.model_dump(mode='json'),
+                "updated_set": updated_set.model_dump(mode='json')
+            }
+
+            await manager.specificBroadcast(make_ws_message(WSEvent.CARD_EVENT,payload),match_id)
         case Card_event.LOOK_INTO_THE_ASHES:
 
             #efecto de carta look_into_the_ashes y devuelve la carta tomada actualizada para el payload del ws
@@ -446,10 +456,6 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
                 "updated_set": None
             }
             await manager.specificBroadcast(make_ws_message(WSEvent.CARD_EVENT,payload),match_id)
-
-        case Card_event.CARD_TRADE:
-            #hace algo
-            return 0
         case Card_event.AND_THEN_THERE_WAS_ONE_MORE:
 
             #efecto de carta and_then_there_was_one_more y devuelve secreto actualizado para el payload del ws
@@ -524,6 +530,12 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
             
             return 0
         case Card_event.POINT_YOUR_SUSPICIONS:
+            #hace algo
+            return 0
+        case Card_event.DEAD_CARD_FOLLY:
+            #hace algo
+            return 0
+        case Card_event.CARD_TRADE:
             #hace algo
             return 0
         case _:
