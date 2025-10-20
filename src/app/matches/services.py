@@ -36,6 +36,7 @@ class MatchNotFound(Exception):
 class MatchValidationError(Exception):
     pass
 
+
 class MatchService:
     def __init__(self, db):
         self._db = db
@@ -128,7 +129,6 @@ class MatchService:
         self._db.refresh(match)
         return match
 
-    
     def extended_match(self, match: Match) -> match_schemas.Match_number_of_Player | None:
         # Convertir a schema base
         match_out = db_match_2_match_schema(match)
@@ -142,8 +142,6 @@ class MatchService:
             current_player_count=player_count
         )
         return extended_match
-    
-    
         
     def get_players_by_match(self, match_id: UUID) -> List[match_schemas.Players_by_Match_Schema]:
         try:    
@@ -496,7 +494,6 @@ class PileService:
             self._db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Database error", "details": str(exception)})
 
-
     def get_count_cards_pile(self,match_id:UUID)->int:
         return (
             self._db.query(Match_Card)
@@ -507,6 +504,8 @@ class PileService:
         )
         .count()
         )
+
+
 class SetService:
     def __init__(self, db):
         self._db = db

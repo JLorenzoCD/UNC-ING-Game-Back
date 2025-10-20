@@ -4,6 +4,8 @@ from enum import Enum
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 from app.cards.models import Card, Match_Card
+from app.cards.schemas import Match_Card_Schema
+from app.cards.utils import db_match_card_2_match_card_schema
 from app.secrets import services as secret_services
 from app.secrets.services import Secret_action
 from app.matches import services as matches_services
@@ -100,7 +102,6 @@ class Cards_Services:
             .all()
         )
     
-
     def get_name_event(self, player_id:UUID, match_id:UUID,match_card_id:UUID):
         """
         Devuelve el tipo de evento que es, verifica que la carta sea del jugador y pertenezca a la partida.       Si no encuentra la carta en la partida o no es del jugador levanta una excepcion
@@ -116,7 +117,6 @@ class Cards_Services:
         if not row:
             raise ValueError("Carta, player o partida incorrecto")
         return Card_event(row.name)
-
     
     def discard_card(self,match_card_id,delete=False):
         """
@@ -196,11 +196,15 @@ class Cards_Services:
     def another_victim_event(self):
         #falta implementacion(necesito que este ready steal_set)
         return 0
-    
-    def early_train_to_paddington_event(self):
-        #falta implementacion
-        return 0
-    
+
+    def early_train_to_paddington_event(self, match_id, card_ids) -> list[Match_Card_Schema]:
+        matches_services.PileService(self._db).discard_cards(match_id, card_ids)
+        
+        discarded_cards = self._db.query(Match_Card).filter(Match_Card.id.in_(card_ids)).all()
+        result = [db_match_card_2_match_card_schema(card) for card in discarded_cards]
+        
+        return result
+
     def cards_off_the_table(self):
         #falta implementacion
         return 0
