@@ -204,8 +204,7 @@ class Cards_Services:
         try:
             existing_cards = self._db.query(Match_Card).filter(
                 Match_Card.id.in_(card_ids),
-                Match_Card.match_id == match_id,
-                Match_Card.is_visible == True
+                Match_Card.match_id == match_id
             ).all()
             
             if len(existing_cards) != len(card_ids):
