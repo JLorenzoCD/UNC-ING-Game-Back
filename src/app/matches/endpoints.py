@@ -397,10 +397,7 @@ async def get_sets(match_id: UUID, db=Depends(get_db)):
 
 @router.post("/{match_id}/events", status_code=status.HTTP_200_OK)
 async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_payload:dict, db=Depends(get_db)):
-    print("entro")
     typeEvent=services_cards.Cards_Services(db).get_name_event(player_id,match_id,match_card_id)
-    print(event_payload)
-    print(f"tipo de evento{typeEvent}")
     match typeEvent:
         case Card_event.CARDS_OFF_THE_TABLE:
             #hace algo
@@ -465,7 +462,7 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
             discarded_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
 
             #convertimos a schema para que sean serializables
-            updated_match_cards=db_match_card_2_match_card_schema(updated_secret)
+            updated_match_cards=db_match_card_2_match_card_schema(updated_match_cards)
             discarded_card_event=db_match_card_2_match_card_schema(discarded_card_event)
 
             #construccion del payload
