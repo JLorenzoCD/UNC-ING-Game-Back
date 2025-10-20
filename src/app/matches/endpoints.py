@@ -421,7 +421,7 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
             #construccion del payload
             payload={
                 "type": typeEvent.value,
-                "updated_match_cards": taken_card.model_dump(mode='json'),
+                "updated_match_cards": [taken_card.model_dump(mode='json')],
                 "updated_secret": None,
                 "discarded_card_event": discarded_card_event.model_dump(mode='json'),
                 "updated_set": None
@@ -455,10 +455,10 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
 
         case Card_event.DELAY_THE_MURDERER_ESCAPE:
 
-            if len(event_payload["card_ids"])>5:
+            if len(event_payload["cards_ids"])>5:
                 raise ValueError("Se pasaron mas de 5 cartas para retrasar")
 
-            updated_match_cards=services_cards.Cards_Services(db).delay_the_murderer_escape_event(event_payload["cards_uds"])
+            updated_match_cards=services_cards.Cards_Services(db).delay_the_murderer_escape_event(event_payload["cards_ids"])
             discarded_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
 
             #convertimos a schema para que sean serializables
