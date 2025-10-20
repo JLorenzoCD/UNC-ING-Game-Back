@@ -186,11 +186,12 @@ class Cards_Services:
             raise RuntimeError(f"No se actualizaron las cartas correctamente, details {e}")
         
     def and_then_there_was_one_more_event(self, target_player_id:UUID, target_secret_id:UUID):
-        #ocultamos el secreto
-        secret_services.Secrets_Services(self._db).update_secret(Secret_action.REVEAL, target_secret_id)
         #robamos el secreto y lo guardamos para devolverlo
-        match_secret=secret_services.Secrets_Services(self._db).update_secret(Secret_action.STEAL, target_secret_id, target_player_id)
-        return match_secret
+        try:
+            match_secret=secret_services.Secrets_Services(self._db).update_secret(Secret_action.STEAL, target_secret_id, target_player_id)
+            return match_secret
+        except Exception as e:
+            raise e
     
     def look_into_the_ashes_event(self,player_id,match_id,target_card_id):
         #toma la carta targeteada, y hace un lista de un elemento como el take_cards lo requiere
