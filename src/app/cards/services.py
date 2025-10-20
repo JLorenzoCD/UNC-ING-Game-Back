@@ -130,7 +130,7 @@ class Cards_Services:
             raise RuntimeError(f"No se pudo descartar la carta: {e}")
         
     
-    def cards_off_the_table(self, target_player_id: UUID, event_card_owner_id: UUID, event_card_id: UUID):
+    def cards_off_the_table(self, match_id:UUID, target_player_id: UUID, event_card_owner_id: UUID, event_card_id: UUID):
         """
         Descarta las Not so Fast de tipo INSTANT del target_player, descarta la Cards Off the Table 
         del jugador que jugó la carta (event_card_owner_id).
@@ -154,7 +154,8 @@ class Cards_Services:
             .filter(
                 Match_Card.player_id == target_player_id,
                 Match_Card.is_discarded == False,
-                Card.type == Card_Type.INSTANT
+                Card.type == Card_Type.INSTANT,
+                Match_Card.match_id == match_id
             ).all())
         
         if not target_cards:
