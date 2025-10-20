@@ -78,7 +78,8 @@ class TestEarlyTrainToPaddingtonEvent:
         assert all(isinstance(card, Match_Card_Schema) for card in result)
         
         # Verificar que se llamó al discard_cards con los parámetros correctos
-        mock_pile_instance.discard_cards.assert_called_once_with(match.id, card_ids)
+        # None como player_id porque las cartas se toman del mazo, no de un jugador
+        mock_pile_instance.discard_cards.assert_called_once_with(None, match.id, card_ids)
         
         # Verificar que las cartas fueron procesadas
         for card_result in result:
@@ -362,4 +363,5 @@ class TestEarlyTrainToPaddingtonEvent:
             # Verificar que se procesaron las 6 cartas como dice la descripción
             assert len(result) == 6
             # Verificar que se llamó al método para descartar las cartas
-            mock_pile_instance.discard_cards.assert_called_once_with(match.id, card_ids)
+            # None como player_id porque las cartas se toman del mazo, no de un jugador
+            mock_pile_instance.discard_cards.assert_called_once_with(None, match.id, card_ids)

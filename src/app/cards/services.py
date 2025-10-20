@@ -210,7 +210,7 @@ class Cards_Services:
             if len(existing_cards) != len(card_ids):
                 raise ValueError("Una o más cartas no son válidas o no pertenecen a esta partida")
             
-            matches_services.PileService(self._db).discard_cards(match_id, card_ids)
+            matches_services.PileService(self._db).discard_cards(None, match_id, card_ids)
             
             discarded_cards = self._db.query(Match_Card).filter(Match_Card.id.in_(card_ids)).all()
             result = [db_match_card_2_match_card_schema(card) for card in discarded_cards]

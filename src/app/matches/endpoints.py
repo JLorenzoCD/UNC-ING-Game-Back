@@ -487,9 +487,7 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
                 
                 discarded_card_event = services_cards.Cards_Services(db).discard_card(match_card_id, delete=True)
 
-                # Serialize discarded_cards (list of Pydantic models)
                 serialized_discarded_cards = [mc.model_dump(mode="json") for mc in discarded_cards]
-                # Serialize discarded_card_event (DB model)
                 serialized_discarded_card_event = db_match_card_2_match_card_schema(discarded_card_event).model_dump(mode="json")
 
                 payload = {
