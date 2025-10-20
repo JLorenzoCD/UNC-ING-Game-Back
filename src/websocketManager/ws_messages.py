@@ -13,6 +13,7 @@ class WSEvent(str, Enum):
     SET         = "set"
     SECRET      = "secret"
     PLAYER_SECRET_REVEAL = "player_secret_reveal"
+    CARDS_DELETE = "cards_delete"
     CARD_EVENT = "card_event"
 
 def custom_encoder(o):

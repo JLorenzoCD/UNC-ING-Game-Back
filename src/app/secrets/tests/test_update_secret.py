@@ -37,12 +37,17 @@ def test_update_secret(db_session, client):
     secret_service.update_secret(Secret_action.REVEAL, secret_to_test.id)
     db_session.refresh(secret_to_test)
     assert secret_to_test.is_revealed is True
-
+    
     # 2. Probar HIDE
     secret_service.update_secret(Secret_action.HIDE, secret_to_test.id)
     db_session.refresh(secret_to_test)
     assert secret_to_test.is_revealed is False
 
+    # 3. REVEAL for STEAL
+    secret_service.update_secret(Secret_action.REVEAL, secret_to_test.id)
+    db_session.refresh(secret_to_test)
+    assert secret_to_test.is_revealed is True
+    
     # 3. Probar STEAL
     secret_service.update_secret(Secret_action.STEAL, secret_to_test.id, player2_id)
     db_session.refresh(secret_to_test)

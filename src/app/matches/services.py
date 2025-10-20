@@ -37,6 +37,7 @@ class MatchValidationError(Exception):
     pass
 
 
+
 class MatchService:
     def __init__(self, db):
         self._db = db
@@ -142,7 +143,7 @@ class MatchService:
             current_player_count=player_count
         )
         return extended_match
-        
+      
     def get_players_by_match(self, match_id: UUID) -> List[match_schemas.Players_by_Match_Schema]:
         try:    
             match = self._db.query(Match).filter(Match.id == match_id).first()
@@ -504,6 +505,8 @@ class PileService:
         )
         .count()
         )
+
+
 
 
 class SetService:

@@ -24,10 +24,7 @@ class TargetSecretError(Exception):
 class SetService:
     def __init__(self, db: Session):
         self._db = db
-        
-                
-
-
+                      
     def set_verification(self, card_ids: List[UUID], match_id: UUID, set_type:SetType,  target_player: UUID, target_secret: Optional[UUID] = None) -> bool:
         for card_id in card_ids:
             match_card = self._db.query(Match_Card).filter(Match_Card.id == card_id).first()
@@ -99,7 +96,6 @@ class SetService:
 
         return True
 
-
     def create_set(self, set_data: dict) -> MatchSetOut:
         # Obtener nombres de cartas
         card_names = self._get_card_names(set_data["card_ids"])
@@ -141,4 +137,18 @@ class SetService:
         card_counts = Counter(card_names)
         return card_counts.get("HARLEY QUIN WILDCARD", 0)
                     
-        
+    def steal_set(self, set_id: UUID, new_player_id: UUID) -> MatchSetOut:
+        match_set = self._db.query(Match_Set).filter(Match_Set.id == set_id).first()
+        if not match_set:
+            raise InvalidSetError(f"No se encontró el set con id {set_id}")
+
+        match_set.player_id = new_player_id
+
+        try:
+            self._db.commit()
+            self._db.refresh(match_set)
+        except SQLAlchemyError:
+            self._db.rollback()
+            raise
+
+        return db_match_set_2_match_set_schema(match_set)
