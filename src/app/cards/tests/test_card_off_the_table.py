@@ -69,7 +69,7 @@ def test_cards_off_the_table(db):
 
     # Extraer los objetos y IDs para las aserciones
     discarded_nsf_objects = result["discarded_instant_cards"]
-    discarded_event_id = result["discarded_event_card"]
+    discarded_event = result["discarded_event_card"]
 
     # Convertir la lista de objetos devueltos a un set de IDs para una búsqueda eficiente
     discarded_nsf_ids = {card.id for card in discarded_nsf_objects}
@@ -86,7 +86,7 @@ def test_cards_off_the_table(db):
     assert expected_nsf_id_2 in discarded_nsf_ids
 
     # Verificar que se devolvió el ID correcto de la carta de evento
-    assert discarded_event_id == event_card_id
+    assert discarded_event.id == event_card_id
     
     
     # Verificar que la carta de evento "Cards Off The Table" fue descartada

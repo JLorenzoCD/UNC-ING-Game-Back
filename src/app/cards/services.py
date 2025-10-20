@@ -132,21 +132,12 @@ class Cards_Services:
     
     def cards_off_the_table(self, match_id:UUID, target_player_id: UUID, event_card_owner_id: UUID, event_card_id: UUID):
         """
-        Descarta las Not so Fast de tipo INSTANT del target_player, descarta la Cards Off the Table 
+        Descarta las Not so Fast de tipo INSTANT del target_player, descarta la Cards Off the Table.
         del jugador que jugó la carta (event_card_owner_id).
-        Devuelve un diccionario de UUIDs de las cartas descartadas
+        Devuelve un diccionario de Match_cards de las cartas descartadas.
         """
         event_card: Match_Card =  self._db.query(Match_Card).filter(Match_Card.id == event_card_id).first()
         result = []
-        
-        if not event_card:
-            raise ValueError("La carta no existe o ya fue eliminada")
-
-        if event_card.player_id != event_card_owner_id:
-            raise ValueError("La carta de evento no pertenece al jugador")
-        
-        if target_player_id == event_card_owner_id:
-            raise ValueError("El jugador no puede usar el evento sobre el mismo")
         
         target_cards: list[Match_Card] = (
             self._db.query(Match_Card)
@@ -178,4 +169,4 @@ class Cards_Services:
             if not card.is_discarded:
                 raise ValueError(f"La carta {card.id} no se descartó correctamente")            
                     
-        return {"discarded_instant_cards": target_cards, "discarded_event_card": event_card.id}
+        return {"discarded_instant_cards": target_cards, "discarded_event_card": event_card}
