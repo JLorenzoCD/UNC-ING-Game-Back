@@ -4,7 +4,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 
 
-from app.cards.models import Card, Match_Card
+from app.cards.models import Card, Match_Card, Card_Type
 
 
 class Cards_Services:
@@ -129,3 +129,50 @@ class Cards_Services:
             self._db.rollback()
             raise RuntimeError(f"No se pudo descartar la carta: {e}")
         
+    
+    def cards_off_the_table(self, target_player_id: UUID, event_card_owner_id: UUID, event_card_id: UUID):
+        """
+        Descarta las Not so Fast de tipo INSTANT del target_player, descarta la Cards Off the Table 
+        del jugador que jugó la carta (event_card_owner_id).
+        Devuelve un diccionario de UUIDs de las cartas descartadas
+        """
+        event_card: Match_Card =  self._db.query(Match_Card).filter(Match_Card.id == event_card_id).first()
+        result = []
+        
+        if not event_card:
+            raise ValueError("La carta no existe o ya fue eliminada")
+
+        if event_card.player_id != event_card_owner_id:
+            raise ValueError("La carta de evento no pertenece al jugador")
+        
+        if target_player_id == event_card_owner_id:
+            raise ValueError("El jugador no puede usar el evento sobre el mismo")
+        
+        target_cards: list[Match_Card] = (
+            self._db.query(Match_Card)
+            .join(Match_Card.card)
+            .filter(
+                Match_Card.player_id == target_player_id,
+                Match_Card.is_discarded == False,
+                Card.type == Card_Type.INSTANT
+            ).all())
+        
+        if not target_cards:
+            result = []
+        else:
+            for nt in target_cards:
+                nt.is_discarded = True
+                result.append(nt.id)
+        event_card.is_discarded = True
+        
+        self._db.commit()
+        
+        self._db.refresh(event_card)
+        if event_card.is_discarded == False:
+            raise ValueError("Cards Off the Table no se descartó correctamente")
+        
+        for card in target_cards:
+            if not card.is_discarded:
+                raise ValueError(f"La carta {card.id} no se descartó correctamente")            
+                    
+        return {"discarded_instant_cards": target_cards, "discarded_event_card": event_card.id}
