@@ -25,6 +25,7 @@ from app.matches.schemas import (
 from app.cards.models import Card, Match_Card
 from app.cards.utils import db_match_card_2_match_card_schema
 from app.cards.schemas import (take_Match_Cards_in, discard_Match_Cards_in, Match_Card_Schema)
+from app.cards import services as card_services
 from app.sets import schemas as set_schemas
 from app.sets.schemas import MatchSetOut
 from app.sets import services as set_services
@@ -66,7 +67,6 @@ async def create_match(
     
     return MatchResponse(id=new_match.id)
 
-
 @router.get("/", status_code=status.HTTP_200_OK, response_model=List[Match_number_of_Player])
 async def get_all_matches(db=Depends(get_db)) -> List[Match_number_of_Player]:
     try:
@@ -75,7 +75,6 @@ async def get_all_matches(db=Depends(get_db)) -> List[Match_number_of_Player]:
         raise HTTPException(status_code=404, detail="Matches not found")
     
     return matches
-
 
 @router.get("/{match_id}", status_code=status.HTTP_200_OK, response_model=Match_number_of_Player)
 async def get_match_by_match_ID(match_id: UUID, db=Depends(get_db)):
@@ -87,7 +86,6 @@ async def get_match_by_match_ID(match_id: UUID, db=Depends(get_db)):
     
     return match_extended
 
-
 @router.get("/{match_id}/players", status_code=status.HTTP_200_OK, response_model=List[Players_by_Match_Schema])
 async def get_player_by_ID_match(match_id: UUID, db=Depends(get_db)) -> List[Players_by_Match_Schema]:
     try:
@@ -96,7 +94,6 @@ async def get_player_by_ID_match(match_id: UUID, db=Depends(get_db)) -> List[Pla
         raise HTTPException(status_code=404, detail="Not found")
     
     return players_match
-
 
 @router.post("/{match_id}/join", status_code=status.HTTP_200_OK)
 async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
@@ -131,7 +128,6 @@ async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
     
     return {"match_id": match_id}
 
-
 @router.post("/{match_id}/start", status_code=status.HTTP_200_OK)
 async def start_match(match_id: UUID, db=Depends(get_db)):
     try:
@@ -150,7 +146,6 @@ async def start_match(match_id: UUID, db=Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Could not start match: {str(e)}")
     
-
 @router.put("/{match_id}/pass_turn", status_code=status.HTTP_200_OK)
 async def pass_turn(match_id: UUID, db=Depends(get_db)):
     try:
@@ -176,7 +171,6 @@ async def get_secrets(match_id: UUID, db=Depends(get_db)):
     secrets = services.MatchService(db).get_secrets_by_match(match_id)
     return secrets
 
-
 @router.get("/{match_id}/cards", status_code=status.HTTP_200_OK, response_model=List[Cards_by_Match_Schema])
 async def get_cards(match_id: UUID, db=Depends(get_db)):
     try:
@@ -187,7 +181,6 @@ async def get_cards(match_id: UUID, db=Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
     
     return cards
-
 
 @router.put("/{match_id}/cards/take", status_code=status.HTTP_200_OK)
 async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_db)):
@@ -244,7 +237,6 @@ async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_d
     except HTTPException as exception:
         raise exception
 
-
 @router.put("/{match_id}/cards/discard", status_code=status.HTTP_200_OK)
 async def discard_card(match_id: UUID, cards: discard_Match_Cards_in, db=Depends(get_db)):
     try:
@@ -286,7 +278,6 @@ async def discard_card(match_id: UUID, cards: discard_Match_Cards_in, db=Depends
             return {"status": "success", "cards_discarded": len(discarded_cards_ids)}
     except HTTPException as exception:
         raise exception
-
     
 @router.post("/{match_id}/sets", status_code=status.HTTP_201_CREATED)
 async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db)) -> set_schemas.MatchSetOut:
@@ -303,13 +294,22 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
             "match_id": match_id           
         }
         match_set: set_schemas.MatchSetOut = set_service.create_set(set_data)
+        payload = {}
+        payload = match_set.model_dump(mode='json')
+
+        # Eliminar las Match_Cards     
+        card_service = card_services.Cards_Services(db)
+        for card in match_card_ids:
+            to_eliminate = True
+            eliminate = card_service.discard_card(card, to_eliminate)
         
-        match_set_dict                = match_set.model_dump(mode='json')
-        ws_msj                        = make_ws_message(WSEvent.SET, match_set_dict)
+        payload.update({"deleted_cards": [str(uuid) for uuid in match_card_ids]})
+        ws_msj  = make_ws_message(WSEvent.SET, payload)
         await manager.specificBroadcast(ws_msj, match_id)
-            
+        
         # Accion del Set (Casos)
         secret_service = secret_services.Secrets_Services(db)
+        payload = {}
         if setIn.target_secret_id is not None:
             if match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE]:
                 target_secret = secret_service.update_secret(Secret_action.REVEAL, setIn.target_secret_id, setIn.target_player_id)
@@ -320,15 +320,15 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
                 match_secret_out = db_match_secret_2_match_secret_schema(target_secret)              
 
             payload = match_secret_out.model_dump(mode='json')
-            
-            ws_msj = make_ws_message(WSEvent.SECRET, payload)
+            ws_msj  = make_ws_message(WSEvent.SECRET, payload)
             await manager.specificBroadcast(ws_msj, match_id)
             
         else:
             payload = {"target_player_id" : setIn.target_player_id}
-            ws_msj = make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload)
+            ws_msj  = make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload)
             await manager.specificBroadcast(ws_msj, match_id)
-
+        
+        # Verificacion de la condición de victoria    
         try:
             if match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE]:
                 res=secret_service.is_murderer_revealed(match_id)
