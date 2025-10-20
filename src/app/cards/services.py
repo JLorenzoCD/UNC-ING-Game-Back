@@ -1,12 +1,9 @@
 from uuid import UUID
 from enum import Enum
 import random
-<<<<<<< HEAD
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 
-=======
->>>>>>> develop
 
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
