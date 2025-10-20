@@ -476,6 +476,8 @@ class PileService:
                 match_card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
                 if match_card and (match_card.player_id == None and match_card.match_id == match_id):
                     match_card.player_id = player_id
+                    match_card.is_discarded = False
+                    match_card.discarded_at = None
             self._db.commit()
         except SQLAlchemyError as exception:
             self._db.rollback()
