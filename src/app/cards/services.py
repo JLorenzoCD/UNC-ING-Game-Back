@@ -198,12 +198,32 @@ class Cards_Services:
         return 0
 
     def early_train_to_paddington_event(self, match_id, card_ids) -> list[Match_Card_Schema]:
-        matches_services.PileService(self._db).discard_cards(match_id, card_ids)
+        if not card_ids:
+            raise ValueError("Se requiere al menos una carta para descartar")
         
-        discarded_cards = self._db.query(Match_Card).filter(Match_Card.id.in_(card_ids)).all()
-        result = [db_match_card_2_match_card_schema(card) for card in discarded_cards]
-        
-        return result
+        try:
+            existing_cards = self._db.query(Match_Card).filter(
+                Match_Card.id.in_(card_ids),
+                Match_Card.match_id == match_id,
+                Match_Card.is_visible == True
+            ).all()
+            
+            if len(existing_cards) != len(card_ids):
+                raise ValueError("Una o más cartas no son válidas o no pertenecen a esta partida")
+            
+            matches_services.PileService(self._db).discard_cards(match_id, card_ids)
+            
+            discarded_cards = self._db.query(Match_Card).filter(Match_Card.id.in_(card_ids)).all()
+            result = [db_match_card_2_match_card_schema(card) for card in discarded_cards]
+            
+            return result
+            
+        except SQLAlchemyError as e:
+            self._db.rollback()
+            raise SQLAlchemyError(f"Error al ejecutar evento Early Train to Paddington: {str(e)}")
+        except Exception as e:
+            self._db.rollback()
+            raise
 
     def cards_off_the_table(self):
         #falta implementacion

@@ -479,18 +479,29 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
             
             return 0
         case Card_event.EARLY_TRAIN_TO_PADDINGTON:
-            discarded_cards = services_cards.Cards_Services(db).early_train_to_paddington_event(match_id, event_payload["cards_ids"])
-            
-            discarded_card_event= services_cards.Cards_Services(db).discard_card(match_card_id, delete=True)
+            try:
+                if "cards_ids" not in event_payload or not event_payload["cards_ids"]:
+                    raise ValueError("Se requiere 'cards_ids' con al menos una carta para el evento Early Train to Paddington")
+                
+                discarded_cards = services_cards.Cards_Services(db).early_train_to_paddington_event(match_id, event_payload["cards_ids"])
+                
+                discarded_card_event = services_cards.Cards_Services(db).discard_card(match_card_id, delete=True)
 
-            payload={
-                "type": typeEvent.value,
-                "updated_match_cards": discarded_cards,
-                "updated_secret": None,
-                "discarded_card_event": discarded_card_event,
-                "updated_set": None
-            }
-            await manager.specificBroadcast(make_ws_message(WSEvent.CARD_EVENT,payload),match_id)
+                payload = {
+                    "type": typeEvent.value,
+                    "updated_match_cards": discarded_cards,
+                    "updated_secret": None,
+                    "discarded_card_event": discarded_card_event,
+                    "updated_set": None
+                }
+                await manager.specificBroadcast(make_ws_message(WSEvent.CARD_EVENT, payload), match_id)
+                
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+            except SQLAlchemyError as e:
+                raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
             
             return 0
         case Card_event.POINT_YOUR_SUSPICIONS:
