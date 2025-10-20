@@ -466,7 +466,7 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
             discarded_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
 
             #convertimos a schema para que sean serializables
-            updated_secret=db_match_card_2_match_card_schema(updated_secret)
+            updated_secret=db_match_secret_2_match_secret_schema(updated_secret)
             discarded_card_event=db_match_card_2_match_card_schema(discarded_card_event)
 
             #construccion del payload
