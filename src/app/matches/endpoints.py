@@ -462,13 +462,13 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
             discarded_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
 
             #convertimos a schema para que sean serializables
-            updated_match_cards=db_match_card_2_match_card_schema(updated_match_cards)
+            updated_match_cards_schemas = [db_match_card_2_match_card_schema(card) for card in updated_match_cards]
             discarded_card_event=db_match_card_2_match_card_schema(discarded_card_event)
 
             #construccion del payload
             payload={
                 "type": typeEvent.value,
-                "updated_match_cards": updated_match_cards.model_dump(mode='json'),
+                "updated_match_cards": [card_schema.model_dump(mode='json') for card_schema in updated_match_cards_schemas],
                 "updated_secret": None,
                 "discarded_card_event": discarded_card_event.model_dump(mode='json'),
                 "updated_set": None
