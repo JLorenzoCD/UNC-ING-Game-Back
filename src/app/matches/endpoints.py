@@ -403,8 +403,24 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
     typeEvent=services_cards.Cards_Services(db).get_name_event(player_id,match_id,match_card_id)
     match typeEvent:
         case Card_event.CARDS_OFF_THE_TABLE:
-            #hace algo
-            return 0
+            diccionary=services_cards.Cards_Services(db).cards_off_the_table(match_id,event_payload["target_player_id"],player_id,match_card_id)
+            updated_match_cards=diccionary["discarted_instant_cards"]
+            discarded_card_event=diccionary["discarded_event_card"]
+
+            updated_match_cards_schemas = [db_match_card_2_match_card_schema(card) for card in updated_match_cards]
+            discarded_card_event=db_match_card_2_match_card_schema(discarded_card_event)
+
+            #construccion del payload
+            payload={
+                "type": typeEvent.value,
+                "updated_match_cards": [card_schema.model_dump(mode='json') for card_schema in updated_match_cards_schemas],
+                "updated_secret": None,
+                "discarded_card_event": discarded_card_event.model_dump(mode='json'),
+                "updated_set": None
+            }
+            
+            await manager.specificBroadcast(make_ws_message(WSEvent.CARD_EVENT,payload),match_id)
+
         case Card_event.ANOTHER_VICTIM:
             #hace algo
             return 0

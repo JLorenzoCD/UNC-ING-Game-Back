@@ -190,7 +190,48 @@ class Cards_Services:
             return match_secret
         except Exception as e:
             raise e
-    
+
+    def cards_off_the_table(self, match_id:UUID, target_player_id: UUID, event_card_owner_id: UUID, event_card_id: UUID):
+        """
+        Descarta las Not so Fast de tipo INSTANT del target_player, descarta la Cards Off the Table.
+        del jugador que jugó la carta (event_card_owner_id).
+        Devuelve un diccionario de Match_cards de las cartas descartadas.
+        """
+        event_card: Match_Card =  self._db.query(Match_Card).filter(Match_Card.id == event_card_id).first()
+        result = []
+        
+        target_cards: list[Match_Card] = (
+            self._db.query(Match_Card)
+            .join(Match_Card.card)
+            .filter(
+                Match_Card.player_id == target_player_id,
+                Match_Card.is_discarded == False,
+                Card.type == Card_Type.INSTANT,
+                Match_Card.match_id == match_id
+            ).all())
+        
+        if not target_cards:
+            result = []
+        else:
+            for nt in target_cards:
+                nt.is_discarded = True
+                nt.player_id = None
+                result.append(nt.id)
+        event_card.is_discarded = True
+        event_card.player_id = None
+        
+        self._db.commit()
+        
+        # self._db.refresh(event_card)
+        if event_card.is_discarded == False:
+            raise ValueError("Cards Off the Table no se descartó correctamente")
+        
+        for card in target_cards:
+            if not card.is_discarded:
+                raise ValueError(f"La carta {card.id} no se descartó correctamente")            
+                    
+        return {"discarded_instant_cards": target_cards, "discarded_event_card": event_card}
+
     def look_into_the_ashes_event(self,player_id,match_id,target_card_id):
         from app.matches import services as matches_services
         #toma la carta targeteada, y hace un lista de un elemento como el take_cards lo requiere
