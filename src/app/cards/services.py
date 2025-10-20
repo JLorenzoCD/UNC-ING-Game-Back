@@ -2,7 +2,7 @@ from uuid import UUID
 from enum import Enum
 
 from sqlalchemy.exc import SQLAlchemyError
-import datetime
+from datetime import datetime
 from app.cards.models import Card, Match_Card
 from app.secrets import services as secret_services
 from app.secrets.services import Secret_action
@@ -182,9 +182,13 @@ class Cards_Services:
     
     def look_into_the_ashes_event(self,player_id,match_id,target_card_id):
         #toma la carta targeteada, y hace un lista de un elemento como el take_cards lo requiere
-        matches_services.PileService.take_cards(player_id,match_id,[target_card_id])
+        matches_services.PileService(self._db).take_cards(player_id,match_id,[target_card_id])
         try:
-            taken_card=self._db.query(Match_Card).filter(Match_Card.id==target_card_id)
+            taken_card=self._db.query(Match_Card).filter(Match_Card.id==target_card_id).first()
+            if taken_card:
+                self._db.refresh(taken_card)
+            else:
+                raise ValueError("carta incorrecta")
         except SQLAlchemyError as e:
             raise e
         return taken_card
