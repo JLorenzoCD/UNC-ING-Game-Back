@@ -216,9 +216,11 @@ class Cards_Services:
             for nt in target_cards:
                 nt.is_discarded = True
                 nt.player_id = None
+                nt.discarded_at = datetime.now()
                 result.append(nt.id)
         event_card.is_discarded = True
         event_card.player_id = None
+        event_card.discarded_at = datetime.now()
         
         self._db.commit()
         

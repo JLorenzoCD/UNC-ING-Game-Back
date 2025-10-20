@@ -404,7 +404,7 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
     match typeEvent:
         case Card_event.CARDS_OFF_THE_TABLE:
             diccionary=services_cards.Cards_Services(db).cards_off_the_table(match_id,event_payload["target_player_id"],player_id,match_card_id)
-            updated_match_cards=diccionary["discarted_instant_cards"]
+            updated_match_cards=diccionary["discarded_instant_cards"]
             discarded_card_event=diccionary["discarded_event_card"]
 
             updated_match_cards_schemas = [db_match_card_2_match_card_schema(card) for card in updated_match_cards]
@@ -437,6 +437,7 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
             }
 
             await manager.specificBroadcast(make_ws_message(WSEvent.CARD_EVENT,payload),match_id)
+
         case Card_event.LOOK_INTO_THE_ASHES:
 
             #efecto de carta look_into_the_ashes y devuelve la carta tomada actualizada para el payload del ws
@@ -456,6 +457,7 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
                 "updated_set": None
             }
             await manager.specificBroadcast(make_ws_message(WSEvent.CARD_EVENT,payload),match_id)
+
         case Card_event.AND_THEN_THERE_WAS_ONE_MORE:
 
             #efecto de carta and_then_there_was_one_more y devuelve secreto actualizado para el payload del ws
@@ -528,7 +530,6 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
             
-            return 0
         case Card_event.POINT_YOUR_SUSPICIONS:
             #hace algo
             return 0
