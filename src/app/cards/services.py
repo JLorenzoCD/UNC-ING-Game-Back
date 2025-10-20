@@ -15,7 +15,7 @@ from app.secrets.services import Secret_action
 
 class Card_event(Enum):
     CARDS_OFF_THE_TABLE = "CARDS OFF THE TABLE"
-    ANOTHER_VICTIM = "ANOTHER_VICTIM"
+    ANOTHER_VICTIM = "ANOTHER VICTIM"
     DEAD_CARD_FOLLY = "DEAD CARD FOLLY"
     LOOK_INTO_THE_ASHES = "LOOK INTO THE ASHES"
     CARD_TRADE = "CARD TRADE"

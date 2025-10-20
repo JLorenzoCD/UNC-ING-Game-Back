@@ -422,10 +422,9 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
             await manager.specificBroadcast(make_ws_message(WSEvent.CARD_EVENT,payload),match_id)
 
         case Card_event.ANOTHER_VICTIM:
-            updated_set=set_services.SetService(db).steal_set(payload["target_set_id"],player_id)
-            discarded_card_event=diccionary["discarded_event_card"]
-            
+            updated_set=set_services.SetService(db).steal_set(event_payload["target_set_id"],player_id)
             #convertir a schema
+            discarded_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
             discarded_card_event=db_match_card_2_match_card_schema(discarded_card_event)
             #construccion del payload
             payload={
