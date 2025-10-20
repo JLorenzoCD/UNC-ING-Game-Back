@@ -163,12 +163,14 @@ class Cards_Services:
         else:
             for nt in target_cards:
                 nt.is_discarded = True
+                nt.player_id = None
                 result.append(nt.id)
         event_card.is_discarded = True
+        event_card.player_id = None
         
         self._db.commit()
         
-        self._db.refresh(event_card)
+        # self._db.refresh(event_card)
         if event_card.is_discarded == False:
             raise ValueError("Cards Off the Table no se descartó correctamente")
         
