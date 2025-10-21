@@ -1,8 +1,5 @@
 # conftest.py
-from enum import Enum
 import pytest
-from uuid import UUID
-
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -12,7 +9,6 @@ import uuid
 from main import app
 from app.cards.models import Card, Card_Type
 from app.models.db import get_db, Base
-from app.secrets.models import Secret, Secret_Type
 # Base de datos en memoria para tests
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
@@ -51,23 +47,6 @@ def client(db_session):
         yield c
     
     app.dependency_overrides.clear()
-    
-def jsonable_encoder(obj):
-    """Convierte un objeto (Pydantic model, etc.) a un dict serializable a JSON."""
-    if hasattr(obj, 'model_dump'):
-        return obj.model_dump()
-    if isinstance(obj, dict):
-        return {k: jsonable_encoder(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [jsonable_encoder(v) for v in obj]
-    if isinstance(obj, (str, int, float, type(None))):
-        return obj
-    if isinstance(obj, UUID):
-        return str(obj)
-    if isinstance(obj, Enum):
-        return obj.value
-    # Añade más tipos si es necesario
-    return str(obj)
 
 def setup_match_and_players(client, db_session):
     """Configuración común: crea match, players y cartas"""
@@ -85,7 +64,7 @@ def setup_match_and_players(client, db_session):
     match_post = {
         "name":        "Test Match",
         "min_players": 2,
-        "max_players": 6,
+        "max_players": 4,
         "owner_id":    owner["id"],
     }
     response = client.post("/matches", json=match_post)
@@ -102,11 +81,6 @@ def setup_match_and_players(client, db_session):
     assert response.status_code == 201
     player2 = response.json()
     player2_id = uuid.UUID(player2['id'])
-    
-    # Unirlo a la partida
-    response = client.post(f"/matches/{match['id']}/join", params={"player_id":player2['id']})
-    assert response.status_code == 200
-
 
     # Agregar cartas base al sistema
     cards = [
@@ -135,16 +109,6 @@ def setup_match_and_players(client, db_session):
     db_session.add_all(cards)
     db_session.commit()
     
-    secrets = [
-        Secret(id=uuid.uuid4(), type=Secret_Type.MURDERER, content="You are the Murderer!"),
-        Secret(id=uuid.uuid4(), type=Secret_Type.ACCOMPLICE, content="You are the Accomplice!"),
-        Secret(id=uuid.uuid4(), type=Secret_Type.INNOCENT, content="You are Innocent!")    
-    ]
-    
-    if not db_session.query(Secret).first():
-        db_session.add_all(secrets)
-        db_session.commit()
-    
     return {
         'match_id': match_id,
         'match_str_id': match['id'],
@@ -152,6 +116,5 @@ def setup_match_and_players(client, db_session):
         'owner_str_id': owner['id'],
         'player2_id': player2_id,
         'player2_str_id': player2['id'],
-        'cards': cards,
-        'secrets': secrets
+        'cards': cards
     }

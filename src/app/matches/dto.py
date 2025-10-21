@@ -1,11 +1,13 @@
-"""" Defines data transfer objecs for Match (DTO) """
+"""
+Defines data transfer objects for Match (DTO)
+"""
 from dataclasses import dataclass
 from uuid import UUID
 
+
 @dataclass
 class MatchDTO:
-    name: str
+    name:        str
     min_players: int
     max_players: int
-    owner_id: UUID
-    
+    owner_id:    UUID

@@ -1,6 +1,6 @@
-from app.matches.models import Match, Match_Player
+from app.matches.models import Match
 from app.matches.schemas import MatchOut, Match_Player_Schema
-
+from app.player.models import Match_Player
 
 def db_match_2_match_schema(db_match: Match) -> MatchOut:
     return MatchOut.model_validate(db_match)
