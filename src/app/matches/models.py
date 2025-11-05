@@ -59,3 +59,4 @@ class Match(Base):
     )
     
     owner = relationship("Player", backref="matches")
+    events = relationship("EventosDeTurno", back_populates="match")
