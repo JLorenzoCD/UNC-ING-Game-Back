@@ -15,6 +15,7 @@ class WSEvent(str, Enum):
     PLAYER_SECRET_REVEAL = "player_secret_reveal"
     CARD_EVENT = "card_event"
     CARDS_DELETE = "cards_delete"
+    CANCELLATION_WINDOW_OPEN= "cancellation_window_open"
 
 def custom_encoder(o):
     if isinstance(o, UUID):
