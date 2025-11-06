@@ -536,7 +536,7 @@ class LogService:
             self._db.rollback()
             raise exception
         
-    def get_logs_by_match(self, match_id: UUID) -> List[match_schemas.MatchLogSchema]:
+    def get_logs_by_match(self, match_id: UUID) -> List[match_schemas.MatchLogOut]:
         result = self._db.query(MatchLogs).filter(MatchLogs.match_id == match_id).all()
 
         return [db_match_log_2_match_log_schema(match_log) for match_log in result]
