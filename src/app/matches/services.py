@@ -8,10 +8,10 @@ from datetime import datetime
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi import HTTPException, status
 
-from app.matches.models import Match, MatchStatus
+from app.matches.models import Match, MatchLogs, MatchStatus
 from app.matches.schemas import MatchOut
 from app.matches import schemas as match_schemas
-from app.matches.utils import db_match_2_match_schema
+from app.matches.utils import db_match_2_match_schema, db_match_log_2_match_log_schema
 from app.secrets.models import Secret, Match_Secret, Secret_Type
 from app.secrets.services import Secrets_Services
 from app.player.models import Player, Match_Player
@@ -35,7 +35,6 @@ class MatchNotFound(Exception):
 
 class MatchValidationError(Exception):
     pass
-
 
 
 class MatchService:
@@ -507,8 +506,6 @@ class PileService:
         )
 
 
-
-
 class SetService:
     def __init__(self, db):
         self._db = db
@@ -517,3 +514,29 @@ class SetService:
         result = self._db.query(Match_Set).filter(Match_Set.match_id == match_id).all()
         
         return [db_match_set_2_match_set_schema(match_set) for match_set in result]
+
+
+class LogService:
+    def __init__(self, db):
+        self._db = db
+
+    def create_log(self, match_id: UUID, message: str, event_type: str, player_id: Optional[UUID] = None) -> None:
+        new_log = MatchLogs(
+            match_id   = match_id,
+            message    = message,
+            event_type = event_type,
+            player_id  = player_id,
+            created_at = datetime.now()
+        )
+        try:
+            self._db.add(new_log)
+            self._db.commit()
+            self._db.refresh(new_log)
+        except SQLAlchemyError as exception:
+            self._db.rollback()
+            raise exception
+        
+    def get_logs_by_match(self, match_id: UUID) -> List[match_schemas.MatchLogSchema]:
+        result = self._db.query(MatchLogs).filter(MatchLogs.match_id == match_id).all()
+
+        return [db_match_log_2_match_log_schema(match_log) for match_log in result]
