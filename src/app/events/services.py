@@ -5,6 +5,17 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.events.models import EventosDeTurno
 
+#para el resolver
+from app.events.models import EventosDeTurno, EventStatus
+from app.cards.services import Card_event
+from app.cards import services as services_cards
+from app.matches import services as services_matches
+from app.secrets import services as services_secrets
+from app.cards.utils import db_match_card_2_match_card_schema
+from app.secrets.utils import db_match_secret_2_match_secret_schema
+from app.sets import services as set_services
+#falta servicios para set
+
 class EventService:
     def __init__(self, db: Session):
         self._db = db
@@ -20,6 +31,7 @@ class EventService:
         """
         Crea la fila del evento en la BBDD con un estado PENDING.
         """
+        print("createEvent")
         try:
             #solo pasamos los campos que la BBDD no tiene definidos por defecto.
             new_event = EventosDeTurno(
@@ -47,3 +59,133 @@ class EventService:
             self._db.rollback()
             print(f"Error inesperado al crear evento: {e}")
             raise
+
+    def resolve_event(self, event: EventosDeTurno) -> dict:
+        """
+        Handler de eventos. Contiene toda la logica que tenia antes el endpoint. Full BaseDatos, nada de ws
+        """
+        for prop,valor in vars(event).items():
+            print(prop,valor)
+        db = self._db #para no cambiar todo el codigo
+        match_id = event.match_id
+        player_id = event.player_id
+        match_card_id = event.match_card_id
+        event_payload = event.payload if event.payload else {}
+        typeEvent = event.event_type
+
+        try:
+            match typeEvent:
+                case Card_event.CARDS_OFF_THE_TABLE.value:
+                    diccionary=services_cards.Cards_Services(db).cards_off_the_table(match_id,event_payload["target_player_id"],player_id,match_card_id)
+                    updated_match_cards=diccionary["discarded_instant_cards"]
+                    discarded_card_event=diccionary["discarded_event_card"]
+
+                    updated_match_cards_schemas = [db_match_card_2_match_card_schema(card) for card in updated_match_cards]
+                    discarded_card_event=db_match_card_2_match_card_schema(discarded_card_event)
+
+                #construccion del payload
+                    payload={
+                        "type": typeEvent,
+                        "updated_match_cards": [card_schema.model_dump(mode='json') for card_schema in updated_match_cards_schemas],
+                        "updated_secret": None,
+                        "discarded_card_event": discarded_card_event.model_dump(mode='json'),
+                        "updated_set": None
+                    }
+                case Card_event.ANOTHER_VICTIM.value:
+                    updated_set=set_services.SetService(db).steal_set(event_payload["target_set_id"],player_id)
+                    #convertir a schema
+                    discarded_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
+                    discarded_card_event=db_match_card_2_match_card_schema(discarded_card_event)
+                    #construccion del payload
+                    payload={
+                        "type": typeEvent,
+                        "updated_match_cards": None,
+                        "updated_secret": None,
+                        "discarded_card_event": discarded_card_event.model_dump(mode='json'),
+                        "updated_set": updated_set.model_dump(mode='json')
+                    }
+
+                case Card_event.LOOK_INTO_THE_ASHES.value:
+
+                    #efecto de carta look_into_the_ashes y devuelve la carta tomada actualizada para el payload del ws
+                    taken_card=services_cards.Cards_Services(db).look_into_the_ashes_event(player_id,match_id,event_payload["target_card_id"])
+                    discarded_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
+
+                    #convertimos a schema para que sean serializables
+                    taken_card=db_match_card_2_match_card_schema(taken_card)
+                    discarded_card_event=db_match_card_2_match_card_schema(discarded_card_event)
+
+                    #construccion del payload
+                    payload={
+                        "type": typeEvent,
+                        "updated_match_cards": [taken_card.model_dump(mode='json')],
+                        "updated_secret": None,
+                        "discarded_card_event": discarded_card_event.model_dump(mode='json'),
+                        "updated_set": None
+                    }
+                case Card_event.AND_THEN_THERE_WAS_ONE_MORE.value:
+
+                    #efecto de carta and_then_there_was_one_more y devuelve secreto actualizado para el payload del ws
+                    updated_secret=services_cards.Cards_Services(db).and_then_there_was_one_more_event(event_payload["target_player_id"],event_payload["target_secret_id"])
+
+                    #descartamos la carta de evento jugada
+                    discarded_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
+
+                    #convertimos a schema para que sean serializables
+                    updated_secret=db_match_secret_2_match_secret_schema(updated_secret)
+                    discarded_card_event=db_match_card_2_match_card_schema(discarded_card_event)
+
+                    #construccion del payload
+                    payload={
+                        "type": typeEvent,
+                        "updated_match_cards": None,
+                        "updated_secret": updated_secret.model_dump(mode='json'),
+                        "discarded_card_event": discarded_card_event.model_dump(mode='json'),
+                        "updated_set": None
+                    }
+
+
+                case Card_event.DELAY_THE_MURDERER_ESCAPE.value:
+                    if len(event_payload["cards_ids"])>5:
+                        raise ValueError("Se pasaron mas de 5 cartas para retrasar")
+
+                    updated_match_cards=services_cards.Cards_Services(db).delay_the_murderer_escape_event(event_payload["cards_ids"])
+                    discarded_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
+
+                    #convertimos a schema para que sean serializables
+                    updated_match_cards_schemas = [db_match_card_2_match_card_schema(card) for card in updated_match_cards]
+                    discarded_card_event=db_match_card_2_match_card_schema(discarded_card_event)
+
+                    #construccion del payload
+                    payload={
+                        "type": typeEvent,
+                        "updated_match_cards": [card_schema.model_dump(mode='json') for card_schema in updated_match_cards_schemas],
+                        "updated_secret": None,
+                        "discarded_card_event": discarded_card_event.model_dump(mode='json'),
+                        "updated_set": None
+                    }
+
+                case Card_event.EARLY_TRAIN_TO_PADDINGTON.value:
+                    try:
+                        if "cards_ids" not in event_payload or not event_payload["cards_ids"]:
+                            raise ValueError("Se requiere 'cards_ids' con al menos una carta para el evento Early Train to Paddington")
+
+                        discarded_cards = services_cards.Cards_Services(db).early_train_to_paddington_event(match_id, event_payload["cards_ids"])
+
+                        discarded_card_event = services_cards.Cards_Services(db).discard_card(match_card_id, delete=True)
+
+                        serialized_discarded_cards = [mc.model_dump(mode="json") for mc in discarded_cards]
+                        serialized_discarded_card_event = db_match_card_2_match_card_schema(discarded_card_event).model_dump(mode="json")
+
+                        payload = {
+                            "type": typeEvent,
+                            "updated_match_cards": serialized_discarded_cards,
+                            "updated_secret": None,
+                            "discarded_card_event": serialized_discarded_card_event,
+                            "updated_set": None
+                        }
+                    except Exception as e:
+                        raise e
+            return payload
+        except Exception as e:
+            raise e
