@@ -401,14 +401,15 @@ async def get_sets(match_id: UUID, db=Depends(get_db)):
 
 @router.post("/{match_id}/events", status_code=status.HTTP_200_OK)
 async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_payload:dict, db=Depends(get_db)):
-    typeEvent=services_cards.Cards_Services(db).get_name_event(player_id,match_id,match_card_id)
     try:
-        new_event = services_event(db).create_event(
-            match_id = match_id,
-            player_id = player_id,
-            event_type_str = typeEvent.value,
-            match_card_id = match_card_id,
-            event_payload = event_payload
+        typeEvent=services_cards.Cards_Services(db).get_name_event(player_id,match_id,match_card_id)
+        print(typeEvent)
+        new_event = services_event.EventService(db).create_event(
+            match_id,
+            player_id,
+            typeEvent.value,
+            match_card_id,
+            event_payload
         )
         payload = {
             "event_id": str(new_event.id),
@@ -416,7 +417,6 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
             "player_id": player_id,
             "resolve_at_utc": new_event.resolve_at.isoformat(),
             "nsf_count": new_event.nsf_count
-
         }
         await manager.specificBroadcast(
             make_ws_message(WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
@@ -574,4 +574,4 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
             #como un default
             return 0
     return {"status":"success"}
-""""""
+"""
