@@ -6,7 +6,8 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 
 from app.models.db import Base
-from app.matches.models import Match, Match_Card
+from app.cards.models import Match_Card
+from app.matches.models import Match
 from app.player.models import Player 
 
 class EventStatus(PyEnum):
@@ -57,8 +58,8 @@ class EventosDeTurno(Base):
     )
     
     status: Mapped[EventStatus] = mapped_column(
-        Enum(EventStatus, name="event_status"),
-        server_default = EventStatus.PENDING.value,
+        String(50),
+        server_default = "Pending",
         index   = True,
         nullable=False
     )
