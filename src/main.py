@@ -10,6 +10,10 @@ from app.player.endpoints import player_router
 from app.matches.endpoints import router as matches_router
 from websocketManager.ws_routes import websocket_router
 
+import asyncio
+from contextlib import asynccontextmanager
+from app.events.worker import event_resolver_loop
+
 
 app = FastAPI()
 
@@ -77,4 +81,7 @@ def init_data():
             session.commit()
 
 Base.metadata.create_all(bind=engine)
+print("Iniciando servidor")
 init_data()
+asyncio.create_task(event_resolver_loop())
+print("Worker trabajando en segundo plano")
