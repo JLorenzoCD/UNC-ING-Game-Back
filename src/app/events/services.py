@@ -170,6 +170,10 @@ class EventService:
                         if "cards_ids" not in event_payload or not event_payload["cards_ids"]:
                             raise ValueError("Se requiere 'cards_ids' con al menos una carta para el evento Early Train to Paddington")
 
+                        #desvinculamos la foreign asi se permite borrar sin errores
+                        event.match_card_id = None
+                        db.commit()
+
                         discarded_cards = services_cards.Cards_Services(db).early_train_to_paddington_event(match_id, event_payload["cards_ids"])
 
                         discarded_card_event = services_cards.Cards_Services(db).discard_card(match_card_id, delete=True)
