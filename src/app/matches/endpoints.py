@@ -1,18 +1,19 @@
 from uuid import UUID
 from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 
 from websocketManager.ws_routes import manager
 from websocketManager.ws_messages import WSEvent, make_ws_message
-from app.matches.utils import db_match_2_match_schema
+
 from app.models.db import get_db
 from app.player.models import Player, Match_Player
+
 from app.matches import services
-
-from app.cards import services as services_cards #si no le pones alias a este services se destruye todo porque pisa al services de matches
-from app.cards.services import Card_event
-
+from app.matches.models import MatchEventType
+from app.matches.utils import db_match_2_match_schema
+from app.matches.ending import handle_match_ended, MatchEndedReason
 from app.matches.schemas import (
     Cards_by_Match_Schema,
     MatchIn,
@@ -22,19 +23,31 @@ from app.matches.schemas import (
     Players_by_Match_Schema,
     Match_number_of_Player,
 )
+
+# Cards: alias the module to avoid collision with app.matches.services
+from app.cards import services as services_cards
+# keep a second name used elsewhere in the module
+card_services = services_cards
+from app.cards.services import Card_event
 from app.cards.models import Card, Match_Card
 from app.cards.utils import db_match_card_2_match_card_schema
-from app.cards.schemas import (take_Match_Cards_in, discard_Match_Cards_in, Match_Card_Schema)
-from app.cards import services as card_services
+from app.cards.schemas import (
+    take_Match_Cards_in,
+    discard_Match_Cards_in,
+    Match_Card_Schema,
+)
+
+# Sets
+from app.sets import services as set_services
 from app.sets import schemas as set_schemas
 from app.sets.schemas import MatchSetOut
-from app.sets import services as set_services
 from app.sets.models import Match_Set, SetType
+
+# Secrets
 from app.secrets import services as secret_services
 from app.secrets import schemas as secret_schemas
 from app.secrets.models import Match_Secret, Secret_action
 from app.secrets.utils import db_match_secret_2_match_secret_schema
-from app.matches.ending import handle_match_ended,MatchEndedReason
 
 router = APIRouter(
     tags   = ["matches"],
@@ -353,7 +366,6 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-
 @router.put("/{match_id}/secrets/{secret_id}", status_code=200)
 async def update_secret_in_match(match_id: UUID, secret_id:UUID, secretIn:secret_schemas.SecretUpdate, db=Depends(get_db)) -> secret_schemas.Match_Secret_Schema:
     try: 
@@ -385,7 +397,6 @@ async def update_secret_in_match(match_id: UUID, secret_id:UUID, secretIn:secret
     except SQLAlchemyError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/{match_id}/sets", status_code=status.HTTP_200_OK, response_model=List[MatchSetOut])
 async def get_sets(match_id: UUID, db=Depends(get_db)):
     try:
@@ -396,7 +407,6 @@ async def get_sets(match_id: UUID, db=Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
     
     return sets
-
 
 @router.post("/{match_id}/events", status_code=status.HTTP_200_OK)
 async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_payload:dict, db=Depends(get_db)):
@@ -532,13 +542,20 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
         case Card_event.POINT_YOUR_SUSPICIONS:
             #hace algo
             return 0
+        
         case Card_event.DEAD_CARD_FOLLY:
             #hace algo
             return 0
+        
         case Card_event.CARD_TRADE:
             #hace algo
             return 0
+        
         case _:
             #como un default
             return 0
+    log = f"[EVENTO] Jugador {player_id} jugo el evento {typeEvent.name}"
+    id_log = services.LogService(db).create_log(match_id, log, MatchEventType.typeEvent.name, player_id)
+    await manager.specificBroadcast(make_ws_message(WSEvent.LOG, services.LogService(db).get_log_by_id(id_log).model_dump(mode='json')), match_id)
     return {"status":"success"}
+
