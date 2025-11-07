@@ -282,4 +282,17 @@ class Cards_Services:
             self._db.rollback()
             raise
 
+    def is_instant_event(self, event_type_str: str) -> bool:
+        """
+        Devuelve si un evento se aplica instantaneamente
+        Si un evento no es cancelable
+        """
+        #poner los eventos que no son cancelables
+        cancellable_events = [
+            Card_event.CARDS_OFF_THE_TABLE.value
+        ]
+        
+        if event_type_str in cancellable_events:
+            return True
+        return False
     
