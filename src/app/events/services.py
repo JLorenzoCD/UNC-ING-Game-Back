@@ -27,10 +27,13 @@ class EventService:
         player_id: uuid.UUID, 
         event_type_str: str,
         match_card_id: uuid.UUID | None,
-        event_payload: dict | None
+        event_payload: dict | None,
+        status: EventStatus | None = None
     ) -> EventosDeTurno:
         """
-        Crea la fila del evento en la BBDD con un estado PENDING.
+        Crea la fila del evento en la BBDD.
+        No enviar status para eventos cancelables
+        Enviar status RESOLVED para eventos no cancelables
         """
         print("createEvent")
         try:
@@ -42,9 +45,11 @@ class EventService:
                 match_card_id = match_card_id,
                 payload = event_payload
             )
+            if status:
+                new_event.status = status.value
             
             #por defecto:
-            #status = 'Pending', nsf_count = 0, created_at = NOW(), resolve_at = NOW() + 5s
+            #nsf_count = 0, created_at = NOW(), resolve_at = NOW() + 7s
             self._db.add(new_event)
             self._db.commit()
             self._db.refresh(new_event)

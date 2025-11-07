@@ -13,6 +13,7 @@ from app.matches import services
 from app.cards import services as services_cards #si no le pones alias a este services se destruye todo porque pisa al services de matches
 
 from app.events import services as services_event
+from app.events.models import EventStatus
 
 from app.matches.schemas import (
     Cards_by_Match_Schema,
@@ -403,26 +404,40 @@ async def get_sets(match_id: UUID, db=Depends(get_db)):
 async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_payload:dict, db=Depends(get_db)):
     try:
         typeEvent=services_cards.Cards_Services(db).get_name_event(player_id,match_id,match_card_id)
-        print(typeEvent)
-        new_event = services_event.EventService(db).create_event(
-            match_id,
-            player_id,
-            typeEvent.value,
-            match_card_id,
-            event_payload
-        )
+        if services_cards.Cards_Services(db).is_instant_event(typeEvent.value):
+            new_event = services_event.EventService(db).create_event(
+                match_id,
+                player_id,
+                typeEvent.value,
+                match_card_id,
+                event_payload,
+                EventStatus.RESOLVED
+            )
+            payload=services_event.EventService(db).resolve_event(new_event)
+            await manager.specificBroadcast(
+                                make_ws_message(WSEvent.CARD_EVENT, payload),
+                                match_id
+                            )
+        else:
+            new_event = services_event.EventService(db).create_event(
+                match_id,
+                player_id,
+                typeEvent.value,
+                match_card_id,
+                event_payload
+            )
 
-        payload = {
-            "event_id": str(new_event.id),
-            "event_type": typeEvent.value,
-            "player_id": player_id,
-            "resolve_at_utc": new_event.resolve_at.isoformat(),
-            "nsf_count": new_event.nsf_count,
-            "discarded_card": None
-        }
-        await manager.specificBroadcast(
-            make_ws_message(WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
-        )
+            payload = {
+                "event_id": str(new_event.id),
+                "event_type": typeEvent.value,
+                "player_id": player_id,
+                "resolve_at_utc": new_event.resolve_at.isoformat(),
+                "nsf_count": new_event.nsf_count,
+                "discarded_card": None
+            }
+            await manager.specificBroadcast(
+                make_ws_message(WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
+            )
         return {"status":"event_created", "event_id": new_event.id}
     except Exception as e:
         raise HTTPException(
@@ -435,7 +450,7 @@ async def play_not_so_fast(match_id:UUID,player_id: UUID, match_card_id:UUID, ev
     try:
         print("llegue al endpoint de la notsofast")
         typeEvent=services_cards.Cards_Services(db).get_name_event(player_id,match_id,match_card_id)
-        if (typeEvent != "NOT SO FAST"):
+        if (typeEvent.value != "NOT SO FAST"):
             raise Exception("Carta jugada no es una not so fast")
         updated_event=services_event.EventService(db).update_event_nsf(event_id,nsf_count)
         discarded_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
@@ -457,7 +472,7 @@ async def play_not_so_fast(match_id:UUID,player_id: UUID, match_card_id:UUID, ev
         print(f"alguien ya cancelo la accion error: {e}")
         return {"status": "failed", "message": "Alguien ya canceló la accion "}
     except Exception as e:
-        print("algun error por algun lado")
+        print(f"algun error por algun lado error:{e}")
         raise HTTPException(
             status_code = status.HTTP_400_BAD_REQUEST,
             detail=f"Error al procesar la carta {e}"
