@@ -350,6 +350,12 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
 
+        setType = setIn.type
+        player  = services.PlayersService(db).get_player(setIn.player_id)
+        log = f"[SET] Jugador {player.name} jugo el evento {setType}"
+        id_log = services.LogService(db).create_log(match_id, log, setType, player.id)
+        await manager.specificBroadcast(make_ws_message(WSEvent.LOG, services.LogService(db).get_log_by_id(id_log).model_dump(mode='json')), match_id)
+        
         return match_set
     except (set_services.InvalidCardError, set_services.InvalidMatchIdError, set_services.TargetSecretError) as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -554,8 +560,13 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
         case _:
             #como un default
             return 0
-    log = f"[EVENTO] Jugador {player_id} jugo el evento {typeEvent.name}"
-    id_log = services.LogService(db).create_log(match_id, log, MatchEventType.typeEvent.name, player_id)
-    await manager.specificBroadcast(make_ws_message(WSEvent.LOG, services.LogService(db).get_log_by_id(id_log).model_dump(mode='json')), match_id)
+    eventType = typeEvent.name if hasattr(typeEvent, "name") else typeEvent
+    player_obj = services.PlayersService(db).get_player(player_id)
+    log = f"[EVENTO] Jugador {player_obj.name} jugo el evento {eventType}"
+    id_log = services.LogService(db).create_log(match_id, log, typeEvent, player_obj.id)
+    await manager.specificBroadcast(
+        make_ws_message(WSEvent.LOG, services.LogService(db).get_log_by_id(id_log).model_dump(mode='json')),
+        match_id
+    )
     return {"status":"success"}
 
