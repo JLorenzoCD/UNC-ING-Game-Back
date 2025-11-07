@@ -70,15 +70,17 @@ class EventService:
         Actualiza el evento aumentandole +1 a la nsf_count y actualizando el resolve_at_time
         """
         try:
+            print("antes de hacer la consulta")
             #query atomica para que no haya condiciones de carrera(2 players o mas jueguen al mismo tiempo)
             update_count = self._db.query(EventosDeTurno).filter(
                 EventosDeTurno.id == event_id,
                 EventosDeTurno.nsf_count == nsf_count
             ).update({
                 EventosDeTurno.nsf_count: nsf_count + 1,
-                EventosDeTurno.resolve_at: func.now() + text("'5 seconds'::interval")
+                EventosDeTurno.resolve_at: func.now() + text("'7 seconds'::interval")
                 }, synchronize_session=False)
             self._db.commit()
+            print(f"El update_count: {update_count}")
 
 
             if update_count==1:

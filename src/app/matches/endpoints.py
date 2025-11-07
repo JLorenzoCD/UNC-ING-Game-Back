@@ -411,6 +411,7 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
             match_card_id,
             event_payload
         )
+
         payload = {
             "event_id": str(new_event.id),
             "event_type": typeEvent.value,
@@ -432,9 +433,10 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
 @router.post("/{match_id}/not_so_fast", status_code=status.HTTP_200_OK)
 async def play_not_so_fast(match_id:UUID,player_id: UUID, match_card_id:UUID, event_id:UUID, nsf_count:int, db=Depends(get_db)):
     try:
+        print("llegue al endpoint de la notsofast")
         typeEvent=services_cards.Cards_Services(db).get_name_event(player_id,match_id,match_card_id)
-        if typeEvent.value != "NOT_SO_FAST":
-             raise ValueError("La carta jugada no es un 'Not So Fast'")
+        if (typeEvent != "NOT SO FAST"):
+            raise Exception("Carta jugada no es una not so fast")
         updated_event=services_event.EventService(db).update_event_nsf(event_id,nsf_count)
         discarded_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
         discarded_card_event=db_match_card_2_match_card_schema(discarded_card_event)
@@ -446,14 +448,17 @@ async def play_not_so_fast(match_id:UUID,player_id: UUID, match_card_id:UUID, ev
             "nsf_count": updated_event.nsf_count,
             "discarded_card": discarded_card_event.model_dump(mode='json'),
         }
+        print("a punto de enviar el otro cancellation window open")
         await manager.specificBroadcast(
             make_ws_message(WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
         )
         return {"status": "ok", "message": "Cancelaste la accion"}
     except ValueError as e:
+        print(f"alguien ya cancelo la accion error: {e}")
         return {"status": "failed", "message": "Alguien ya canceló la accion "}
     except Exception as e:
+        print("algun error por algun lado")
         raise HTTPException(
             status_code = status.HTTP_400_BAD_REQUEST,
-            detail=f"Error al procesar la nsf {e}"
+            detail=f"Error al procesar la carta {e}"
         )

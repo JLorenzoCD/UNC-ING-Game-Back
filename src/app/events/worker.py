@@ -9,6 +9,8 @@ from app.models.db import session_local
 from app.events.models import EventosDeTurno, EventStatus
 from app.events.services import EventService
 
+from app.cards import services as card_services
+from app.cards.utils import db_match_card_2_match_card_schema
 
 from websocketManager.ws_routes import manager
 
@@ -73,10 +75,15 @@ async def event_resolver_loop():
                     #marcar como cancelado el evento
                     event.status = EventStatus.CANCELLED.value
                     db.commit()
+
+                    discarded_card_event=card_services.Cards_Services(db).discard_card(event.match_card_id)
+                    discarded_card_schema=db_match_card_2_match_card_schema(discarded_card_event)
+
                     payload = {
                         "event_id": str(event.id),
                         "event_type": event.event_type,
-                        "message": "Event was cancelled by Not So Fast"
+                        "message": "Event was cancelled by Not So Fast",
+                        "discarded_card": discarded_card_schema.model_dump(mode='json')#carta de evento jugada en primer lugar, hay que descartarla de igula forma  
                     }
                     await manager.specificBroadcast(
                         make_ws_message(WSEvent.EVENT_CANCELLED, payload),

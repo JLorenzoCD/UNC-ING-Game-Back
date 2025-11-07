@@ -79,7 +79,7 @@ class EventosDeTurno(Base):
     resolve_at: Mapped[DateTime] = mapped_column(
         TIMESTAMP(timezone=True), #normaliza todos los horarios a UTC(horario universal)
         nullable = False,
-        server_default = func.now() + text("'5 seconds'::interval"), #se pasa como text para que lo interprete solo
+        server_default = func.now() + text("'7 seconds'::interval"), #se pasa como text para que lo interprete solo
         index = True
     )
     
