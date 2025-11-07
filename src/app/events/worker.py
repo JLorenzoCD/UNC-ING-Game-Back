@@ -60,15 +60,28 @@ async def event_resolver_loop():
                         print(e)
                         event.status = EventStatus.CANCELLED.value
                         db.commit()
-
-                """
+                        payload = {
+                            "event_id": str(event.id),
+                            "event_type": event.event_type,
+                            "message": "Error in the execution of event"
+                        }
+                        await manager.specificBroadcast(
+                            make_ws_message(WSEvent.EVENT_CANCELLED, payload),
+                            event.match_id
+                        )
                 else:
                     #marcar como cancelado el evento
-                    event.status = EventStatus.CANCELLED
+                    event.status = EventStatus.CANCELLED.value
                     db.commit()
-                    
-                    #falta toda la implementacion
-                """
+                    payload = {
+                        "event_id": str(event.id),
+                        "event_type": event.event_type,
+                        "message": "Event was cancelled by Not So Fast"
+                    }
+                    await manager.specificBroadcast(
+                        make_ws_message(WSEvent.EVENT_CANCELLED, payload),
+                        event.match_id
+                    )
         
         except Exception as e:
             print(f"Error crítico en el bucle de resolución: {e}")
