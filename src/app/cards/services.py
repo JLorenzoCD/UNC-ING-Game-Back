@@ -114,7 +114,8 @@ class Cards_Services:
     
     def get_name_event(self, player_id:UUID, match_id:UUID,match_card_id:UUID):
         """
-        Devuelve el tipo de evento que es, verifica que la carta sea del jugador y pertenezca a la partida.       Si no encuentra la carta en la partida o no es del jugador levanta una excepcion
+        Devuelve el tipo de evento que es, verifica que la carta sea del jugador y pertenezca a la partida.
+        Si no encuentra la carta en la partida o no es del jugador levanta una excepcion
         """
         row=(self._db.query(Card)
                    .join(Match_Card, Match_Card.card_id == Card.id)

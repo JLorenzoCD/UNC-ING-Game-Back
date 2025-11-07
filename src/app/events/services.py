@@ -1,7 +1,8 @@
 import uuid
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-
+from sqlalchemy import Integer, ForeignKey, Enum, String, TIMESTAMP, DateTime, text
+from sqlalchemy.sql import func
 
 from app.events.models import EventosDeTurno
 
@@ -14,7 +15,7 @@ from app.secrets import services as services_secrets
 from app.cards.utils import db_match_card_2_match_card_schema
 from app.secrets.utils import db_match_secret_2_match_secret_schema
 from app.sets import services as set_services
-#falta servicios para set
+
 
 class EventService:
     def __init__(self, db: Session):
@@ -60,6 +61,43 @@ class EventService:
             print(f"Error inesperado al crear evento: {e}")
             raise
 
+    def update_event_nsf(
+        self,
+        event_id,
+        nsf_count
+    ) -> EventosDeTurno:
+        """
+        Actualiza el evento aumentandole +1 a la nsf_count y actualizando el resolve_at_time
+        """
+        try:
+            #query atomica para que no haya condiciones de carrera(2 players o mas jueguen al mismo tiempo)
+            update_count = self._db.query(EventosDeTurno).filter(
+                EventosDeTurno.id == event_id,
+                EventosDeTurno.nsf_count == nsf_count
+            ).update({
+                EventosDeTurno.nsf_count: nsf_count + 1,
+                EventosDeTurno.resolve_at: func.now() + text("'5 seconds'::interval")
+                }, synchronize_session=False)
+            self._db.commit()
+
+
+            if update_count==1:
+                print(f"Evento actualizado por NSF")
+                updated_event = self._db.query(EventosDeTurno).filter(
+                    EventosDeTurno.id == event_id
+                ).first()
+                return updated_event
+            else:
+                raise ValueError("Event_id no encontrado, ventana de tiempo terminado o alguien ya jugo not so fast")
+
+        except SQLAlchemyError as e:
+            self._db.rollback()
+            raise
+        except Exception as e:
+            self._db.rollback()
+            raise
+
+        
     def resolve_event(self, event: EventosDeTurno) -> dict:
         """
         Handler de eventos. Contiene toda la logica que tenia antes el endpoint. Full BaseDatos, nada de ws
