@@ -14,6 +14,11 @@ class MatchStatus(PyEnum):
     COMPLETED   = "Completed"
 
 class MatchEventType(PyEnum):
+    # System events
+    PLAYER_JOIN = "Player Join"
+    TURN = "Turn"
+    
+    # Detective events
     HERCULE_POIROT = "Hercule Poirot"
     MISS_MARPLE = "Miss Marple"
     MR_SATTERTHWAITE = "Mr Satterthwaite"
@@ -26,6 +31,7 @@ class MatchEventType(PyEnum):
 
     ARIADNE_OLIVER = "Ariadne Oliver"
 
+    # Event cards
     CARDS_OFF_THE_TABLE = "Cards Off The Table"
     ANOTHER_VICTIM = "Another Victim"
     DEAD_CARD_FOLLY = "Dead Card Folly"
@@ -36,9 +42,11 @@ class MatchEventType(PyEnum):
     EARLY_TRAIN_TO_PADDINGTON = "Early Train To Paddington"
     POINT_YOUR_SUSPICIONS = "Point Your Suspicions"
 
+    # Devious cards
     BLACKMAILED = "Blackmailed"
     SOCIAL_FAUX_PAS = "Social Faux Pas"
 
+    # Card actions
     DISCARD_CARDS = "Discard Cards"
     TAKE_CARDS = "Take Cards"
 
