@@ -303,7 +303,7 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
         ws_msj = make_ws_message(WSEvent.SET, payload)
         await manager.specificBroadcast(ws_msj, match_id)
 
-        # ---- Worker ----
+        # ---- Crear fila de Match_Event (Revisado por Worker) ----
         print(setIn.type)
         if setIn.type == SetType.TWO_BERESFORD:
             set_payload = set_services.SetService(db).create_set_payload(match_id, setIn)
@@ -328,8 +328,7 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
                 setIn.player_id,
                 setIn.type.value,
                 None,
-                set_payload,
-                EventStatus.RESOLVED
+                set_payload
             )           
             payload = {
                 "event_id": str(new_event.id),

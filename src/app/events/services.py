@@ -258,15 +258,15 @@ class EventService:
                                 set_models.SetType.PARKER_PYNE.value):
                     try:
                         if typeEvent in (set_models.SetType.HERCULE_POIROT.value, set_models.SetType.MISS_MARPLE.value):
-                            target_secret = secret_service.update_secret(secret_models.Secret_action.REVEAL, 
-                                                                        event_payload["target_secret_id"], 
-                                                                        event_payload["target_player_id"])
+                            target_secret = secret_service.Secrets_Services(db).update_secret(secret_models.Secret_action.REVEAL, 
+                                                                        uuid.UUID(event_payload["target_secret_id"]), 
+                                                                        uuid.UUID(event_payload["target_player_id"]))
                             match_secret_out = db_match_secret_2_match_secret_schema(target_secret)
                             
                         if typeEvent == (set_models.SetType.PARKER_PYNE.value):
-                            target_secret = secret_service.update_secret(secret_models.Secret_action.HIDE, 
-                                                                        event_payload["target_secret_id"], 
-                                                                        event_payload["target_player_id"])                        
+                            target_secret = secret_service.Secrets_Services(db).update_secret(secret_models.Secret_action.HIDE, 
+                                                                        uuid.UUID(event_payload["target_secret_id"]), 
+                                                                        uuid.UUID(event_payload["target_player_id"]))                     
                             match_secret_out = db_match_secret_2_match_secret_schema(target_secret)              
 
                         payload = match_secret_out.model_dump(mode='json')

@@ -9,6 +9,7 @@ from app.cards.models import Card, Match_Card, Card_Type
 from app.secrets.models import Secret, Secret_Type, Match_Secret
 from app.secrets import services as secret_services
 from app.matches.tests.conftest import setup_match_and_players, jsonable_encoder
+from app.events import services as event_services
 
 def create_match_cards_for_set(db_session, card_names: list[str], match_id: UUID, player_id: UUID) -> list[UUID]:
     """Helper para crear Match_Card a partir de una lista de nombres de cartas."""
@@ -91,11 +92,23 @@ def test_endpoint_play_set_Poirot_Marple(db_session, client, set_type, card_name
         assert set_response['quin_count'] == quins
         
         db_session.expire_all() # Forzar la recarga desde la BD
+        
+        new_event = event_services.EventService(db_session).create_event(
+            match_id,
+            owner_id,
+            set_response['type'],
+            None,
+            jsonable_encoder(set_in)
+        )
+        assert new_event is not None
+        
+        resutl = event_services.EventService(db_session).resolve_event(new_event)
+        assert new_event is not None
+
+        assert resutl["is_revealed"] == True
+        
         match_secret_db = db_session.query(Match_Secret).filter(Match_Secret.id == target_secret_id).first()
         assert match_secret_db.is_revealed is True
-        
-        is_cards_delete = db_session.query(Match_Card).filter(Match_Card.id.in_(match_card_ids)).all()
-        assert is_cards_delete == []
 
      
 @pytest.mark.parametrize("set_type, card_names", [
@@ -179,6 +192,20 @@ def test_endpoint_play_Pyne(db_session, client, set_type, card_names):
         set_response = response.json()
         assert set_response['type'] == set_type.value
         assert set_response['player_id'] == str(owner_id)
+                
+        new_event = event_services.EventService(db_session).create_event(
+            match_id,
+            owner_id,
+            set_response['type'],
+            None,
+            jsonable_encoder(set_in)
+        )
+        assert new_event is not None
+        
+        resutl = event_services.EventService(db_session).resolve_event(new_event)
+        assert new_event is not None
+
+        assert resutl["is_revealed"] == False
         
         db_session.expire_all() # Forzar la recarga desde la BD
         match_secret_db = db_session.query(Match_Secret).filter(Match_Secret.id == target_secret_id).first()

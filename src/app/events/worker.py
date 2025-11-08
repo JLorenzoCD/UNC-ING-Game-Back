@@ -57,10 +57,6 @@ async def event_resolver_loop():
                         # Marcar como resuelto el evento
                         event.status = EventStatus.RESOLVED.value
                         db.commit()
-
-                        # Recolectar List[UUID] para eliminar cartas
-                        set_payload = event.payload
-                        match_card_uuids = [uuid.UUID(card_id) for card_id in set_payload["match_cards_ids"]]
                         
                         # Avisar que se ejecuto el evento
                         if result_payload:
@@ -124,7 +120,7 @@ async def event_resolver_loop():
                             event.match_id
                         )
                 else:
-                    #marcar como cancelado el evento
+                    # Marcar como cancelado el evento
                     event.status = EventStatus.CANCELLED.value
                     db.commit()
 
@@ -152,7 +148,7 @@ async def event_resolver_loop():
                                 to_eliminate = True
                                 eliminate = card_service.discard_card(card, to_eliminate) 
                                  
-                            payload["discarded_card"] = set_payload["match_cards_ids"]
+                            payload["discarded_cards"] = set_payload["match_cards_ids"]
 
                     await manager.specificBroadcast(
                         make_ws_message(WSEvent.EVENT_CANCELLED, payload),
