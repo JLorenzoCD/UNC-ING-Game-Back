@@ -18,12 +18,15 @@ class ConnectionManager:
     def disconnect(self, player_id:uuid.UUID):
         ws=self.players.pop(player_id, None) #aplica None por defecto si no encuentra un player con ese ID
         if ws is None:
-            raise ValueError(f"El jugador {player_id} no se encontro en los jugadores activos")
+            print(f"[WS] ADVERTENCIA: El jugador {player_id} no se encontró en los jugadores activos al desconectar")
+            return
+        
         self.waiting_room.discard(ws)
 
         #lo desasocia si esta en alguna partida. No deberia poder desconectarse en partida(por ahora al menos)
-        for match_set in self.matches.values():
-            match_set.discard(ws)
+        for match_id, match_set in self.matches.items():
+            if ws in match_set:
+                match_set.discard(ws)
 
     def close_match(self, match_id: uuid.UUID):
         """
@@ -60,6 +63,9 @@ class ConnectionManager:
 
     def enterMatch(self, player_id:uuid.UUID, matchID:uuid.UUID):
         ws=self.players.get(player_id)
+        if ws is None:
+            print(f"[WS] ADVERTENCIA: No se encontró WebSocket para jugador {player_id}")
+            return
         if matchID not in self.matches:
             self.matches[matchID] = set()
         self.matches[matchID].add(ws)
@@ -71,10 +77,21 @@ class ConnectionManager:
             self.matches[matchID].discard(ws)
         self.waiting_room.add(ws)
 
+    def debug_connections_state(self):
+        """Debug method to print current connections state"""
+        print(f"[WS] === ESTADO DE CONEXIONES ===")
+        print(f"[WS] Total jugadores conectados: {len(self.players)}")
+        print(f"[WS] En waiting_room: {len(self.waiting_room)}")
+        print(f"[WS] Matches activos: {len(self.matches)}")
+        for match_id, connections in self.matches.items():
+            print(f"[WS]   Match {match_id}: {len(connections)} conexiones")
+        print(f"[WS] ================================")
+
     async def safe_send_message(self, message: str, ws: WebSocket):
         try:
             await ws.send_text(message)
-        except RuntimeError:
+        except RuntimeError as e:
+            print(f"[WS] RuntimeError al enviar mensaje: {e}")
             # Si el socket está cerrado, limpiamos
             player_id_to_remove = next((pid for pid, conn in self.players.items() if conn == ws), None)
             if player_id_to_remove:
@@ -82,7 +99,7 @@ class ConnectionManager:
             else:
                 self.waiting_room.discard(ws)
         except Exception as e:
-            print(f"Error inesperado al enviar mensaje: {e}")
+            print(f"[WS] Error inesperado al enviar mensaje: {e}")
 
     async def waiting_room_broadcast(self, message: str):
         for ws in list(self.waiting_room):
@@ -90,6 +107,8 @@ class ConnectionManager:
 
     async def specificBroadcast(self, message: str, matchID: uuid.UUID):
         setws = self.matches.get(matchID, set())
+        if not setws:
+            print(f"[WS] ADVERTENCIA: No hay conexiones en el match {matchID}")
         for ws in list(setws):
             await self.safe_send_message(message, ws)
             
@@ -102,6 +121,11 @@ async def ws_endpoint(ws: WebSocket):
     player_id = uuid.UUID(ws.query_params.get("player_id")) #sacamos el id de los queryparametros
     await manager.connect(ws,player_id)
     try:
-        await ws.receive() #queda bloqueado hasta que el cliente cierre
+        while True:
+            # Mantener la conexión activa y recibir mensajes del cliente
+            data = await ws.receive_text()
     except WebSocketDisconnect:
+        manager.disconnect(player_id)
+    except Exception as e:
+        print(f"[WS] Error en WebSocket para jugador {player_id}: {e}")
         manager.disconnect(player_id)

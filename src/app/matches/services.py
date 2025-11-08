@@ -119,6 +119,27 @@ class MatchService:
             raise
         return match
 
+    def get_current_player_by_match(self, match_id: UUID) -> Optional[UUID]:
+        """Get the current player ID based on current_player_order."""
+        try:
+            match = self.get_match_by_id(match_id)
+            if match.current_player_order is None:
+                return None
+            
+            # Get the player with the current order
+            current_player = (
+                self._db.query(Match_Player)
+                .filter(
+                    Match_Player.match_id == match_id,
+                    Match_Player.order == match.current_player_order
+                )
+                .first()
+            )
+            
+            return current_player.player_id if current_player else None
+        except Exception:
+            return None
+
     def pass_turn_by_id(self, match_id: UUID):
         """Pass the turn to the next player."""
         try:

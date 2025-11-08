@@ -134,7 +134,7 @@ class MatchLogs(Base):
     )
 
     event_type: Mapped[MatchEventType] = mapped_column(
-        Enum(MatchEventType, name="match_event_type"),
+        Enum(MatchEventType, name="match_event_type", values_callable=lambda obj: [e.name for e in obj]),
         nullable = False
     )
 
