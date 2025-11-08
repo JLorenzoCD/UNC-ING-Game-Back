@@ -5,7 +5,7 @@ from collections import Counter
 from typing import List, Optional
 
 from app.sets.models import Match_Set, SetType
-from app.sets.schemas import MatchSetOut
+from app.sets.schemas import MatchSetOut, SetIn
 from app.sets.utils import db_match_set_2_match_set_schema
 from app.cards.models import Card, Card_Type, Match_Card
 from app.secrets.models import Secret, Match_Secret
@@ -152,3 +152,14 @@ class SetService:
             raise
 
         return db_match_set_2_match_set_schema(match_set)
+    
+    def create_set_payload(self, match_id:UUID, setIn: SetIn):       
+        new_set_payload = {    
+            "type" : setIn.type.value,
+            "player_id": str(setIn.player_id),
+            "target_player_id": str(setIn.target_player_id),
+            "target_secret_id": str(setIn.target_secret_id),
+            "match_id": str(match_id)           
+        }
+        new_set_payload["match_cards_ids"] = [str(card_id) for card_id in setIn.card_ids]
+        return new_set_payload

@@ -12,10 +12,12 @@ from app.events.models import EventosDeTurno, EventStatus
 from app.cards.services import Card_event
 from app.cards import services as services_cards
 from app.matches import services as services_matches
-from app.secrets import services as services_secrets
+from app.secrets import services as secret_service
+from app.secrets import models as secret_models
 from app.cards.utils import db_match_card_2_match_card_schema
 from app.secrets.utils import db_match_secret_2_match_secret_schema
 from app.sets import services as set_services
+from app.sets import models as set_models
 
 
 class EventService:
@@ -250,6 +252,45 @@ class EventService:
                         }
                     except Exception as e:
                         raise e
+                
+                case t if t in (set_models.SetType.HERCULE_POIROT.value, 
+                                set_models.SetType.MISS_MARPLE.value, 
+                                set_models.SetType.PARKER_PYNE.value):
+                    try:
+                        if typeEvent in (set_models.SetType.HERCULE_POIROT.value, set_models.SetType.MISS_MARPLE.value):
+                            target_secret = secret_service.update_secret(secret_models.Secret_action.REVEAL, 
+                                                                        event_payload["target_secret_id"], 
+                                                                        event_payload["target_player_id"])
+                            match_secret_out = db_match_secret_2_match_secret_schema(target_secret)
+                            
+                        if typeEvent == (set_models.SetType.PARKER_PYNE.value):
+                            target_secret = secret_service.update_secret(secret_models.Secret_action.HIDE, 
+                                                                        event_payload["target_secret_id"], 
+                                                                        event_payload["target_player_id"])                        
+                            match_secret_out = db_match_secret_2_match_secret_schema(target_secret)              
+
+                        payload = match_secret_out.model_dump(mode='json')
+                        payload["type"] = typeEvent
+                        
+                    except Exception as e:
+                        raise e
+                case t if t in (set_models.SetType.LADY_EILEEN.value, 
+                                set_models.SetType.TOMMY_BERESFORD.value,
+                                set_models.SetType.TUPPENCE_BERESFORD.value,
+                                set_models.SetType.MR_SATTERTHWAITE.value):
+                    payload = {"target_player_id" : event_payload["target_player_id"]}
+                    payload["type"] = typeEvent
+
+                case set_models.SetType.TWO_BERESFORD.value:
+                    payload = {"target_player_id" : event_payload["target_player_id"]}
+                    payload["type"] = typeEvent
+
+                
+                case set_models.SetType.ADRIADNE_OLIVER.value:
+                    payload = {"target_player_id" : event_payload["target_player_id"]}
+                    payload["type"] = typeEvent
+
+                
             return payload
         except Exception as e:
             raise e

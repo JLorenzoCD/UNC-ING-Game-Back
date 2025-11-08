@@ -284,7 +284,7 @@ async def discard_card(match_id: UUID, cards: discard_Match_Cards_in, db=Depends
 @router.post("/{match_id}/sets", status_code=status.HTTP_201_CREATED)
 async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db)) -> set_schemas.MatchSetOut:
     try:
-        # Create Set
+        #  ---- Create Set ----
         match_card_ids: List[UUID] = setIn.card_ids
         set_service = set_services.SetService(db)
         set_service.set_verification(match_card_ids, match_id, setIn.type, setIn.target_player_id, setIn.target_secret_id)
@@ -293,52 +293,55 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
             "type" : setIn.type,
             "card_ids": match_card_ids,
             "player_id": setIn.player_id,
+            "target_player_id": setIn.target_player_id,
+            "target_secret_id": setIn.target_secret_id,
             "match_id": match_id           
         }
         match_set: set_schemas.MatchSetOut = set_service.create_set(set_data)
         payload = {}
         payload = match_set.model_dump(mode='json')
-
-        # Eliminar las Match_Cards     
-        card_service = card_services.Cards_Services(db)
-        for card in match_card_ids:
-            to_eliminate = True
-            eliminate = card_service.discard_card(card, to_eliminate)
-        
-        payload.update({"deleted_cards": [str(uuid) for uuid in match_card_ids]})
-        ws_msj  = make_ws_message(WSEvent.SET, payload)
+        ws_msj = make_ws_message(WSEvent.SET, payload)
         await manager.specificBroadcast(ws_msj, match_id)
-        
-        # Accion del Set (Casos)
-        secret_service = secret_services.Secrets_Services(db)
-        payload = {}
-        if setIn.target_secret_id is not None:
-            if match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE]:
-                target_secret = secret_service.update_secret(Secret_action.REVEAL, setIn.target_secret_id, setIn.target_player_id)
-                match_secret_out = db_match_secret_2_match_secret_schema(target_secret)
-                
-            if match_set.type == (SetType.PARKER_PYNE):
-                target_secret = secret_service.update_secret(Secret_action.HIDE, setIn.target_secret_id, setIn.target_player_id)
-                match_secret_out = db_match_secret_2_match_secret_schema(target_secret)              
 
-            payload = match_secret_out.model_dump(mode='json')
-            ws_msj  = make_ws_message(WSEvent.SECRET, payload)
-            await manager.specificBroadcast(ws_msj, match_id)
+        # ---- Worker ----
+        print(setIn.type)
+        if setIn.type == SetType.TWO_BERESFORD:
+            set_payload = set_services.SetService(db).create_set_payload(match_id, setIn)
+            new_event = services_event.EventService(db).create_event(
+                match_id,
+                setIn.player_id,
+                setIn.type.value,
+                None,
+                set_payload,
+                EventStatus.RESOLVED
+            )
+            payload=services_event.EventService(db).resolve_event(new_event)
+            await manager.specificBroadcast(
+                                make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload),
+                                match_id
+                            )
             
         else:
-            payload = {"target_player_id" : setIn.target_player_id}
-            ws_msj  = make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload)
-            await manager.specificBroadcast(ws_msj, match_id)
-        
-        # Verificacion de la condición de victoria    
-        try:
-            if match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE]:
-                res=secret_service.is_murderer_revealed(match_id)
-                if res:
-                    await handle_match_ended(db, manager, match_id, MatchEndedReason.MURDERER_REVEALED)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e))
-
+            set_payload = set_services.SetService(db).create_set_payload(match_id, setIn)
+            new_event = services_event.EventService(db).create_event(
+                match_id,
+                setIn.player_id,
+                setIn.type.value,
+                None,
+                set_payload,
+                EventStatus.RESOLVED
+            )           
+            payload = {
+                "event_id": str(new_event.id),
+                "event_type": setIn.type.value,
+                "player_id": str(setIn.player_id),
+                "resolve_at_utc": new_event.resolve_at.isoformat(),
+                "nsf_count": new_event.nsf_count,
+                "discarded_card": None
+            }
+            await manager.specificBroadcast(
+                make_ws_message(WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
+            )            
         return match_set
     except (set_services.InvalidCardError, set_services.InvalidMatchIdError, set_services.TargetSecretError) as e:
         raise HTTPException(status_code=400, detail=str(e))
