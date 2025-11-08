@@ -6,6 +6,7 @@ from sqlalchemy.sql import func
 
 from app.events.models import EventosDeTurno
 
+from datetime import datetime, timezone,timedelta
 #para el resolver
 from app.events.models import EventosDeTurno, EventStatus
 from app.cards.services import Card_event
@@ -37,19 +38,31 @@ class EventService:
         """
         print("createEvent")
         try:
-            #solo pasamos los campos que la BBDD no tiene definidos por defecto.
+            if status:
+                final_status = status.value
+            else:
+                final_status = EventStatus.PENDING.value
+
+
+            now_utc = datetime.now(timezone.utc)
+            if final_status == EventStatus.PENDING.value:
+                resolve_time = now_utc + timedelta(seconds=7)
+            else:
+                resolve_time = now_utc
+            
             new_event = EventosDeTurno(
                 match_id = match_id,
                 player_id = player_id,
                 event_type = event_type_str,
                 match_card_id = match_card_id,
-                payload = event_payload
+                payload = event_payload,
+
+                #no por defecto
+                status =final_status,
+                nsf_count=0,
+                resolve_at = resolve_time
             )
-            if status:
-                new_event.status = status.value
-            
-            #por defecto:
-            #nsf_count = 0, created_at = NOW(), resolve_at = NOW() + 7s
+
             self._db.add(new_event)
             self._db.commit()
             self._db.refresh(new_event)
@@ -76,13 +89,15 @@ class EventService:
         """
         try:
             print("antes de hacer la consulta")
+            new_resolve_time = datetime.now(timezone.utc) + timedelta(seconds=7)
             #query atomica para que no haya condiciones de carrera(2 players o mas jueguen al mismo tiempo)
             update_count = self._db.query(EventosDeTurno).filter(
                 EventosDeTurno.id == event_id,
-                EventosDeTurno.nsf_count == nsf_count
+                EventosDeTurno.nsf_count == nsf_count,
+                EventosDeTurno.status == EventStatus.PENDING.value
             ).update({
                 EventosDeTurno.nsf_count: nsf_count + 1,
-                EventosDeTurno.resolve_at: func.now() + text("'7 seconds'::interval")
+                EventosDeTurno.resolve_at: new_resolve_time
                 }, synchronize_session=False)
             self._db.commit()
             print(f"El update_count: {update_count}")

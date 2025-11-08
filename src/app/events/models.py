@@ -2,7 +2,7 @@ import uuid
 from enum import Enum as PyEnum
 from sqlalchemy import Integer, ForeignKey, Enum, String, TIMESTAMP, DateTime, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID, JSONB, JSON
 from sqlalchemy.sql import func
 
 from app.models.db import Base
@@ -59,27 +59,25 @@ class EventosDeTurno(Base):
     
     status: Mapped[EventStatus] = mapped_column(
         String(50),
-        server_default = "Pending",
         index   = True,
         nullable=False
     )
     
     payload: Mapped[dict] = mapped_column(
-        JSONB,
+        JSON,
         nullable = True
     )
     #las cartas involucradas en el set que vayan en el payload y match_card_id NULL
     
     nsf_count: Mapped[int] = mapped_column(
         Integer,
-        server_default = text("0"), #se pasa como text para que lo interprete solo
         nullable = False
     )
     
     resolve_at: Mapped[DateTime] = mapped_column(
         TIMESTAMP(timezone=True), #normaliza todos los horarios a UTC(horario universal)
         nullable = False,
-        server_default = func.now() + text("'7 seconds'::interval"), #se pasa como text para que lo interprete solo
+
         index = True
     )
     
