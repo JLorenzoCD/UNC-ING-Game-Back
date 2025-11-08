@@ -7,6 +7,7 @@ from datetime import date, datetime
 class WSEvent(str, Enum):
     MATCH                = "match"
     PLAYER_JOIN          = "player_join"
+    MATCH_CANCELLED      = "match_cancelled"
     TURN                 = "turn"
     CARDS                = "cards"
     MATCH_COMPLETED      = "match_completed"

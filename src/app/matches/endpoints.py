@@ -170,6 +170,49 @@ async def start_match(match_id: UUID, db=Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Could not start match: {str(e)}")
+
+@router.post("/{match_id}/cancel", status_code=status.HTTP_200_OK)
+async def cancel_match(match_id: UUID, owner_id: UUID, db=Depends(get_db)):
+    try:
+        cancelled_match = services.MatchService(db).cancel_match(match_id, owner_id)
+        
+        try:
+            owner = services.PlayersService(db).get_player(owner_id)
+            log_message = f"[CANCEL] Partida cancelada por {owner.name}"
+            # Note: This log will be deleted when we delete the match, but we create it for WebSocket broadcast
+            id_log = services.LogService(db).create_log(match_id, log_message, MatchEventType.MATCH_CANCELLED, owner_id)
+            log_out = services.LogService(db).get_log_by_id(id_log).model_dump(mode='json')
+            await manager.specificBroadcast(make_ws_message(WSEvent.LOG, log_out), match_id)
+        except Exception as e:
+            print(f"[LOG] error creando/broadcast log de cancelación: {e}")
+        
+        manager.close_match(match_id)
+        
+        payload = {
+            "match_id": str(match_id),
+            "reason": "cancelled_by_owner",
+            "details": f"La partida fue cancelada por el owner y eliminada"
+        }
+        await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH_CANCELLED, payload))
+        
+        try:
+            matches = services.MatchService(db).get_all()
+            for match in matches:
+                match_dict = match.model_dump(mode='json')
+                await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, match_dict))
+        except Exception as e:
+            print(f"[WS] Error broadcasting updated match list: {e}")
+        
+        return {"status": "Match cancelled and deleted successfully", "match_id": match_id}
+        
+    except services.MatchNotFound:
+        raise HTTPException(status_code=404, detail="Match not found")
+    except services.MatchValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
     
 @router.put("/{match_id}/pass_turn", status_code=status.HTTP_200_OK)
 async def pass_turn(match_id: UUID, db=Depends(get_db)):
