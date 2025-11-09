@@ -325,8 +325,6 @@ class EventService:
                 case Card_event.POINT_YOUR_SUSPICIONS.value:
                     print("Resolviendo el Point your suspicions...")
                     responses = event_payload.get('responses', [])
-                    if len(responses)!=2:
-                        raise ValueError("Faltan o sobran respuestas para el point_your_suspicions")
                     
                     vote_counts = Counter(responses)
                     most_voted_player = vote_counts.most_common(1)[0][0]
@@ -336,7 +334,7 @@ class EventService:
                     #[0] devuelve el parametro player_id y no la cantidad de recurrencias
 
                     payload = {
-                            "target_player_id": most_voted_player['id'],
+                            "target_player_id": most_voted_player,
                     }
             
             return payload
