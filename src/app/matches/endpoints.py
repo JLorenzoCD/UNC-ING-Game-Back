@@ -599,5 +599,23 @@ async def play_card_trade(match_id: UUID, player_id: UUID, event_id:UUID, event_
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Error al procesar la carta {e}"
         )
+
+
+@router.post("/{match_id}/point_your_suspicions", status_code=status.HTTP_200_OK)
+async def play_point_your_suspicions(match_id: UUID, player_id: UUID, event_id:UUID, event_payload: dict, db=Depends(get_db)):
+    try:
+        event_update=services_event.EventService(db).update_info_event(event_id,player_id,event_payload['target_player_id'])
+        if services_event.EventService(db).is_event_ready_to_resolve(event_update):
+            payload=services_event.EventService(db).resolve_event(event_update)
+            await manager.specificBroadcast(
+                make_ws_message(WSEvent.CARD_EVENT, payload), match_id
+            )
+        return {"status": "ok","message":"Point your suspicions de lujo"}
+    except Exception as e:
+        print(f"Algun error en point your suspicions error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error al procesar la carta {e}"
+        )
     
     
