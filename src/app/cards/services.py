@@ -23,6 +23,7 @@ class Card_event(Enum):
     DELAY_THE_MURDERER_ESCAPE = "DELAY THE MURDERER ESCAPE"
     EARLY_TRAIN_TO_PADDINGTON = "EARLY TRAIN TO PADDINGTON"
     POINT_YOUR_SUSPICIONS = "POINT YOUR SUSPICIONS"
+    NOT_SO_FAST = "NOT SO FAST"
 
 class Cards_Services:
     def __init__(self, db):
@@ -114,7 +115,8 @@ class Cards_Services:
     
     def get_name_event(self, player_id:UUID, match_id:UUID,match_card_id:UUID):
         """
-        Devuelve el tipo de evento que es, verifica que la carta sea del jugador y pertenezca a la partida.       Si no encuentra la carta en la partida o no es del jugador levanta una excepcion
+        Devuelve el tipo de evento que es, verifica que la carta sea del jugador y pertenezca a la partida.
+        Si no encuentra la carta en la partida o no es del jugador levanta una excepcion
         """
         row=(self._db.query(Card)
                    .join(Match_Card, Match_Card.card_id == Card.id)
@@ -280,4 +282,17 @@ class Cards_Services:
             self._db.rollback()
             raise
 
+    def is_instant_event(self, event_type_str: str) -> bool:
+        """
+        Devuelve si un evento se aplica instantaneamente
+        Si un evento no es cancelable
+        """
+        #poner los eventos que no son cancelables
+        cancellable_events = [
+            Card_event.CARDS_OFF_THE_TABLE.value
+        ]
+        
+        if event_type_str in cancellable_events:
+            return True
+        return False
     
