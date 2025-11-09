@@ -113,23 +113,61 @@ class Cards_Services:
             .all()
         )
     
-    def get_name_event(self, player_id:UUID, match_id:UUID,match_card_id:UUID):
+    def is_complex_event(self, event_type_str: str) -> bool:
         """
-        Devuelve el tipo de evento que es, verifica que la carta sea del jugador y pertenezca a la partida.
-        Si no encuentra la carta en la partida o no es del jugador levanta una excepcion
+        Devuelve si un evento se aplica compuesto
         """
-        row=(self._db.query(Card)
-                   .join(Match_Card, Match_Card.card_id == Card.id)
-                   .filter(Match_Card.id == match_card_id,
-                           Match_Card.match_id == match_id,
-                           Match_Card.player_id == player_id
-                           )
-                   .first()
-        )
-        if not row:
-            raise ValueError("Carta, player o partida incorrecto")
-        return Card_event(row.name)
+        #poner los eventos que no son cancelables
+        complex_events = [
+            Card_event.CARD_TRADE.value,
+            Card_event.DEAD_CARD_FOLLY.value,
+            Card_event.POINT_YOUR_SUSPICIONS.value
+        ]
+        
+        if event_type_str in complex_events:
+            return True
+        return False
+
+
+    def validate_card_ownership(
+        self, 
+        player_id: UUID, 
+        match_id: UUID, 
+        match_card_id: UUID
+    ) -> bool:
+        """
+        Verifica que la carta pertenece al jugador, está en la partida
+        y no está descartada. Devuelve True o levanta un valueError.
+        """
+        card_exists = self._db.query(Match_Card).filter(
+            Match_Card.id == match_card_id,
+            Match_Card.match_id == match_id,
+            Match_Card.player_id == player_id,
+            Match_Card.is_discarded == False
+        ).count() > 0
+        
+        if not card_exists:
+            raise ValueError("La carta no existe, no pertenece al jugador o ya fue descartada.")
+        
+        return True
     
+    def get_event_type_by_card(self, match_card_id: UUID) -> Card_event:
+        """
+        Obtiene el nombre/tipo de evento de una carta.
+        No valida propiedad, asume que la validación YA se hizo.
+        """
+        card_name = self._db.query(Card.name).join(
+            Match_Card, Match_Card.card_id == Card.id
+        ).filter(
+            Match_Card.id == match_card_id
+        ).scalar()
+        
+        if not card_name:
+            raise ValueError("No se pudo encontrar el nombre de la carta (logic error).")
+            
+        return Card_event(card_name)
+    
+
     def discard_card(self,match_card_id,delete=False):
         """
         Recibe una match_card_id y actualiza en la base de datos que es descartada, el discarded_at y que ya no tiene un player_id asociado
@@ -199,7 +237,6 @@ class Cards_Services:
         del jugador que jugó la carta (event_card_owner_id).
         Devuelve un diccionario de Match_cards de las cartas descartadas.
         """
-        event_card: Match_Card =  self._db.query(Match_Card).filter(Match_Card.id == event_card_id).first()
         result = []
         
         target_cards: list[Match_Card] = (
@@ -220,21 +257,14 @@ class Cards_Services:
                 nt.player_id = None
                 nt.discarded_at = datetime.now()
                 result.append(nt.id)
-        event_card.is_discarded = True
-        event_card.player_id = None
-        event_card.discarded_at = datetime.now()
         
         self._db.commit()
-        
-        # self._db.refresh(event_card)
-        if event_card.is_discarded == False:
-            raise ValueError("Cards Off the Table no se descartó correctamente")
         
         for card in target_cards:
             if not card.is_discarded:
                 raise ValueError(f"La carta {card.id} no se descartó correctamente")            
                     
-        return {"discarded_instant_cards": target_cards, "discarded_event_card": event_card}
+        return {"discarded_instant_cards": target_cards}
 
     def look_into_the_ashes_event(self,player_id,match_id,target_card_id):
         from app.matches import services as matches_services
@@ -282,6 +312,48 @@ class Cards_Services:
             self._db.rollback()
             raise
 
+
+    def swap_cards_owners(
+        self, 
+        match_card_id1: UUID, 
+        match_card_id2: UUID
+    ) -> list[Match_Card]:
+        """
+        Intercambia los dueños de dos Match_Card.
+        Esta función es "inteligente": busca a los dueños
+        y los intercambia.
+        """
+        
+        try:
+            card1 = self._db.get(Match_Card, match_card_id1)
+            card2 = self._db.get(Match_Card, match_card_id2)
+
+            if not card1 or not card2:
+                raise ValueError("Una o ambas cartas para el intercambio no fueron encontradas.")
+
+            if not card1.player_id or not card2.player_id:
+                raise ValueError("Una de las cartas no tiene dueño (ej: está en el mazo o descarte).")
+
+            print(f"Swap: P1 ({card1.player_id}) -> Card2, P2 ({card2.player_id}) -> Card1")
+
+            #guarda dueños actuales
+            owner1_id = card1.player_id
+            owner2_id = card2.player_id
+
+            #swap
+            card1.player_id = owner2_id
+            card2.player_id = owner1_id
+            
+            self._db.commit()
+            self._db.refresh(card1)
+            self._db.refresh(card2)
+            
+            return [card1, card2]
+            
+        except Exception as e:
+            print(f"Error en swap_card_owners: {e}")
+            raise e
+    
     def is_instant_event(self, event_type_str: str) -> bool:
         """
         Devuelve si un evento se aplica instantaneamente
@@ -296,3 +368,4 @@ class Cards_Services:
             return True
         return False
     
+

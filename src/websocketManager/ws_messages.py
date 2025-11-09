@@ -16,6 +16,7 @@ class WSEvent(str, Enum):
     CARDS_DELETE = "cards_delete"
     CANCELLATION_WINDOW_OPEN= "cancellation_window_open"
     EVENT_CANCELLED = "event_cancelled"
+    PENDING_TARGET_RESPONSE = "pending_target_response"
     CARD_EVENT           = "card_event"
     LOG                  = "new_log"
 

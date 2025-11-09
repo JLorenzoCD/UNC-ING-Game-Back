@@ -69,7 +69,6 @@ def test_cards_off_the_table(db):
 
     # Extraer los objetos y IDs para las aserciones
     discarded_nsf_objects = result["discarded_instant_cards"]
-    discarded_event = result["discarded_event_card"]
 
     # Convertir la lista de objetos devueltos a un set de IDs para una búsqueda eficiente
     discarded_nsf_ids = {card.id for card in discarded_nsf_objects}
@@ -85,14 +84,6 @@ def test_cards_off_the_table(db):
     assert expected_nsf_id_1 in discarded_nsf_ids
     assert expected_nsf_id_2 in discarded_nsf_ids
 
-    # Verificar que se devolvió el ID correcto de la carta de evento
-    assert discarded_event.id == event_card_id
-    
-    
-    # Verificar que la carta de evento "Cards Off The Table" fue descartada
-    event_card_db = db.query(Match_Card).filter(Match_Card.id == event_card_id).first()
-    assert event_card_db.is_discarded is True
-    assert event_card_db.player_id is None
 
     # Verificar que las cartas "Not so Fast" del jugador 2 fueron descartadas
     not_so_fast_cards_db = db.query(Match_Card).filter(Match_Card.id.in_([hand_player_2[0].id, hand_player_2[1].id])).all()
@@ -106,10 +97,3 @@ def test_cards_off_the_table(db):
         Match_Card.is_discarded == False
     ).count()
     assert remaining_cards_p2 == 4 # Tenía 6, se le descartaron 2
-
-    # Verificar que las otras cartas del jugador 1 no fueron afectadas
-    remaining_cards_p1 = db.query(Match_Card).filter(
-        Match_Card.player_id == player_1.id,
-        Match_Card.is_discarded == False
-    ).count()
-    assert remaining_cards_p1 == 5 # Tenía 6, se le descartó 1
