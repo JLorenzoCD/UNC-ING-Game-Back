@@ -69,9 +69,6 @@ async def event_resolver_loop():
                             elif result_payload.get("type") in (SetType.HERCULE_POIROT.value, #Set simples
                                                                 SetType.MISS_MARPLE.value, 
                                                                 SetType.PARKER_PYNE.value):
-                                await manager.specificBroadcast(
-                                    make_ws_message(WSEvent.SECRET, result_payload), 
-                                    event.match_id)
                                 
                                 # Recolectar List[UUID] para eliminar cartas
                                 set_payload = event.payload
@@ -80,6 +77,11 @@ async def event_resolver_loop():
                                 for card in match_card_uuids:
                                     to_eliminate = True
                                     eliminate = card_service.discard_card(card, to_eliminate)
+                                
+                                result_payload["deleted_cards"] = set_payload["match_cards_ids"]
+                                await manager.specificBroadcast(
+                                    make_ws_message(WSEvent.SECRET, result_payload), 
+                                    event.match_id)
                                 
                                 # Condicion de Victoria         
                                 try:
@@ -90,11 +92,8 @@ async def event_resolver_loop():
                                 except Exception as e:
                                     raise HTTPException(status_code=400, detail=str(e))                                                                
                                                                 
-                            else:                                                             #Set compuestos
-                                await manager.specificBroadcast(
-                                    make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, result_payload), 
-                                                                event.match_id)
-                                                               
+                            else:
+                                #Set compuestos        
                                 # Recolectar List[UUID] para eliminar cartas
                                 set_payload = event.payload
                                 match_card_uuids = [uuid.UUID(card_id) for card_id in set_payload["match_cards_ids"]]
@@ -103,6 +102,11 @@ async def event_resolver_loop():
                                     to_eliminate = True
                                     eliminate = card_service.discard_card(card, to_eliminate)  
                         
+                                result_payload["deleted_cards"] = set_payload["match_cards_ids"]                                
+                                await manager.specificBroadcast(
+                                    make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, result_payload), 
+                                                                event.match_id)
+
                     except Exception as e:
                         #resolve event fallo, no deberia pasar bajo ningun concepto pero podria cancelarlo al evento si se rompe algo, o crear un failed
                         db.rollback()
@@ -123,7 +127,8 @@ async def event_resolver_loop():
                     # Marcar como cancelado el evento
                     event.status = EventStatus.CANCELLED.value
                     db.commit()
-
+                    payload={}
+                    
                     if event.event_type in [e.value for e in Card_event]:
                         discarded_card_event=card_services.Cards_Services(db).discard_card(event.match_card_id)
                         discarded_card_schema=db_match_card_2_match_card_schema(discarded_card_event)
@@ -148,7 +153,7 @@ async def event_resolver_loop():
                                 to_eliminate = True
                                 eliminate = card_service.discard_card(card, to_eliminate) 
                                  
-                            payload["discarded_cards"] = set_payload["match_cards_ids"]
+                            payload["deleted_cards"] = set_payload["match_cards_ids"]
 
                     await manager.specificBroadcast(
                         make_ws_message(WSEvent.EVENT_CANCELLED, payload),
