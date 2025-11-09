@@ -10,6 +10,7 @@ from app.secrets.models import Secret, Secret_Type, Match_Secret
 from app.secrets import services as secret_services
 from app.matches.tests.conftest import setup_match_and_players, jsonable_encoder
 from app.events import services as event_services
+from app.sets import services as set_services
 
 def create_match_cards_for_set(db_session, card_names: list[str], match_id: UUID, player_id: UUID) -> list[UUID]:
     """Helper para crear Match_Card a partir de una lista de nombres de cartas."""
@@ -212,9 +213,6 @@ def test_endpoint_play_Pyne(db_session, client, set_type, card_names):
         assert match_secret_db.is_revealed is False
 
 @pytest.mark.parametrize("set_type, card_names, quins_count_expected", [
-    # LADY_EILEEN
-    (SetType.LADY_EILEEN, ["LADY EILEEN", "LADY EILEEN"], 0),
-    (SetType.LADY_EILEEN, ["LADY EILEEN", "HARLEY QUIN WILDCARD"], 1),
     # TWO_BERESFORD
     (SetType.TWO_BERESFORD, ["TOMMY BERESFORD", "TUPPENCE BERESFORD"], 0),
     # MR_SATTERTHWAITE
@@ -300,4 +298,88 @@ def test_endpoint_play_Eileen_Beresford_Satterthwaitte_invalid_combination(db_se
         
         assert response.status_code == 400, f"Error {response.status_code}: {response.text}"
         assert "No se debería seleccionar secreto en este momento" in response.json()["detail"]
+
+@pytest.mark.parametrize("set_type, card_names, quins_count_expected", [
+    # LADY_EILEEN
+    (SetType.LADY_EILEEN, ["LADY EILEEN", "LADY EILEEN"], 0),
+    (SetType.LADY_EILEEN, ["LADY EILEEN", "HARLEY QUIN WILDCARD"], 1),
+])
+def test_endpoint_play_Eileen(db_session, client, set_type, card_names, quins_count_expected):
+    """Verifica que los sets de Eileen, hermanos Beresford y Mr. Satterthwaite no realicen accion pero creen el set."""
+    with patch('app.matches.endpoints.manager') as mock_manager:
+        mock_manager.specificBroadcast = AsyncMock()
+        mock_manager.waiting_room_broadcast = AsyncMock()
+
+        setup_data = setup_match_and_players(client, db_session)
+        match_id = setup_data['match_id']
+        match_str_id = setup_data['match_str_id']
+        owner_id = setup_data['owner_id']
+        player2_id = setup_data['player2_id']
+
+        secret_base = db_session.query(Secret).filter(Secret.type == Secret_Type.INNOCENT).first()
+
+        match_card_ids = create_match_cards_for_set(db_session, card_names, match_id, owner_id)
+        match_secret_ids = create_match_secrets(db_session, secret_base, match_id, [owner_id, player2_id])
         
+        target_secret_id = match_secret_ids[0] # El secreto del jugador 1
+        secret_services.Secrets_Services(db_session).reveal_secret(target_secret_id)
+
+        set_in = {
+            "type": set_type,
+            "card_ids": match_card_ids,
+            "player_id": owner_id,
+            "target_player_id": owner_id,
+            "target_secret_id": None
+        }
+    #         type: SetType
+    # card_ids: List[UUID]
+    # player_id: UUID
+    # target_player_id: UUID
+    # target_secret_id: Optional[UUID] = None
+    
+        response = client.post(f"/matches/{match_str_id}/sets", json=jsonable_encoder(set_in))
+        assert response.status_code == 201, f"Error {response.status_code}: {response.text}"
+        
+        # 1. Define los datos del set por separado
+        set_data_payload = {
+            "type": set_type,
+            "card_ids": match_card_ids,
+            "player_id": owner_id,
+            "target_player_id": owner_id,
+            "target_secret_id": None
+        }
+
+        # 2. Crea el payload del evento con la estructura anidada correcta
+        event_payload = {
+            "type": jsonable_encoder(set_type),
+            "card_ids": jsonable_encoder(match_card_ids),
+            "player_id": jsonable_encoder(owner_id),
+            "target_player_id": jsonable_encoder(owner_id),
+            "target_secret_id": None,
+            "is_create_set": True,
+            "set_data": jsonable_encoder(set_data_payload)  # <--- Anida los datos aquí
+        }
+
+        # 3. Pasa el payload estructurado al crear el evento
+        new_event = event_services.EventService(db_session).create_event(
+            match_id,
+            owner_id,
+            SetType.LADY_EILEEN.value,
+            None,
+            jsonable_encoder(event_payload) # <--- Pasa el payload correcto
+        )
+
+        assert new_event is not None
+
+        # Ahora esta llamada debería funcionar
+        resutl = event_services.EventService(db_session).resolve_event(new_event)
+        accion_set = resutl["accion_set"]
+        
+        assert accion_set["target_player_id"] == str(owner_id)
+        assert accion_set["type"] == SetType.LADY_EILEEN.value
+        
+        data = resutl["data_set"]
+        assert data is not None
+        
+        assert data["deleted_cards"] == [str(card) for card in match_card_ids]
+        assert data["type"] == SetType.LADY_EILEEN.value

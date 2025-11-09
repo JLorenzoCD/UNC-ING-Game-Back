@@ -69,16 +69,6 @@ async def event_resolver_loop():
                             elif result_payload.get("type") in (SetType.HERCULE_POIROT.value, #Set simples
                                                                 SetType.MISS_MARPLE.value, 
                                                                 SetType.PARKER_PYNE.value):
-                                
-                                # Recolectar List[UUID] para eliminar cartas
-                                set_payload = event.payload
-                                match_card_uuids = [uuid.UUID(card_id) for card_id in set_payload["match_cards_ids"]]
-                                card_service = card_services.Cards_Services(db)
-                                for card in match_card_uuids:
-                                    to_eliminate = True
-                                    eliminate = card_service.discard_card(card, to_eliminate)
-                                
-                                result_payload["deleted_cards"] = set_payload["match_cards_ids"]
                                 await manager.specificBroadcast(
                                     make_ws_message(WSEvent.SECRET, result_payload), 
                                     event.match_id)
@@ -86,23 +76,24 @@ async def event_resolver_loop():
                                 # Condicion de Victoria         
                                 try:
                                     if event.event_type in [SetType.HERCULE_POIROT.value, SetType.MISS_MARPLE.value]:
-                                        res=secret_service.is_murderer_revealed(event.match_id)
+                                        res=secret_service.Secrets_Services(db).is_murderer_revealed(event.match_id)
                                         if res:
                                             await handle_match_ended(db, manager, event.match_id, MatchEndedReason.MURDERER_REVEALED)
                                 except Exception as e:
-                                    raise HTTPException(status_code=400, detail=str(e))                                                                
-                                                                
+                                    raise HTTPException(status_code=400, detail=str(e))
+                            # Caso Lady Eileen                                                                    
+                            elif result_payload.get("type") == SetType.LADY_EILEEN.value:
+                                
+                                data_set = result_payload["data_set"]
+                                data_set_payload = make_ws_message(WSEvent.SET, data_set)
+                                await manager.specificBroadcast(data_set_payload, event.match_id)
+                                
+                                data_accion = result_payload["accion_set"]                                                               
+                                await manager.specificBroadcast(
+                                    make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, data_accion), 
+                                                                event.match_id)                             
                             else:
-                                #Set compuestos        
-                                # Recolectar List[UUID] para eliminar cartas
-                                set_payload = event.payload
-                                match_card_uuids = [uuid.UUID(card_id) for card_id in set_payload["match_cards_ids"]]
-                                card_service = card_services.Cards_Services(db)
-                                for card in match_card_uuids:
-                                    to_eliminate = True
-                                    eliminate = card_service.discard_card(card, to_eliminate)  
-                        
-                                result_payload["deleted_cards"] = set_payload["match_cards_ids"]                                
+                                #Set compuestos                                
                                 await manager.specificBroadcast(
                                     make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, result_payload), 
                                                                 event.match_id)
@@ -145,16 +136,6 @@ async def event_resolver_loop():
                             "event_type": event.event_type,
                             "message": "Event was cancelled by Not So Fast",
                         }
-                        if event.event_type != SetType.LADY_EILEEN.value:
-                            set_payload = event.payload
-                            match_card_uuids = [uuid.UUID(card_id) for card_id in set_payload["match_cards_ids"]]
-                            card_service = card_services.Cards_Services(db)
-                            for card in match_card_uuids:
-                                to_eliminate = True
-                                eliminate = card_service.discard_card(card, to_eliminate) 
-                                 
-                            payload["deleted_cards"] = set_payload["match_cards_ids"]
-
                     await manager.specificBroadcast(
                         make_ws_message(WSEvent.EVENT_CANCELLED, payload),
                         event.match_id

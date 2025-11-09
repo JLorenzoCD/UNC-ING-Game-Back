@@ -252,7 +252,8 @@ class EventService:
                         }
                     except Exception as e:
                         raise e
-                
+                    
+                # Casos Simples
                 case t if t in (set_models.SetType.HERCULE_POIROT.value, 
                                 set_models.SetType.MISS_MARPLE.value, 
                                 set_models.SetType.PARKER_PYNE.value):
@@ -274,8 +275,7 @@ class EventService:
                         
                     except Exception as e:
                         raise e
-                case t if t in (set_models.SetType.LADY_EILEEN.value, 
-                                set_models.SetType.TOMMY_BERESFORD.value,
+                case t if t in (set_models.SetType.TOMMY_BERESFORD.value,
                                 set_models.SetType.TUPPENCE_BERESFORD.value,
                                 set_models.SetType.MR_SATTERTHWAITE.value):
                     payload = {"target_player_id" : event_payload["target_player_id"]}
@@ -283,13 +283,51 @@ class EventService:
 
                 case set_models.SetType.TWO_BERESFORD.value:
                     payload = {"target_player_id" : event_payload["target_player_id"]}
-                    payload["type"] = typeEvent
-
                 
                 case set_models.SetType.ADRIADNE_OLIVER.value:
                     payload = {"target_player_id" : event_payload["target_player_id"]}
                     payload["type"] = typeEvent
 
+                case set_models.SetType.LADY_EILEEN.value:
+                    accion_set = {
+                        "target_player_id" : event_payload["target_player_id"],
+                         "type" : typeEvent         
+                        }
+                    payload = {"accion_set" : accion_set}
+                    
+                    if event_payload["is_create_set"] == True:
+                        #Crear Set
+                        data = event_payload["set_data"]
+                        set_data = {
+                            "type" : set_models.SetType.LADY_EILEEN,
+                            "card_ids": [uuid.UUID(card_id) for card_id in data["card_ids"]],
+                            "player_id": player_id,
+                            "target_player_id": uuid.UUID(data["target_player_id"]),
+                            "target_secret_id": None,
+                            "match_id": match_id      
+                        }
+                        match_set = set_services.SetService(db).create_set(set_data)
+                        # Eliminar cartas 
+                        create_payload = match_set.model_dump(mode='json')
+                        card_service = services_cards.Cards_Services(db)
+                        for card in set_data["card_ids"]:
+                            to_eliminate = True
+                            eliminate = card_service.discard_card(card, to_eliminate)  
+                        create_payload.update({"deleted_cards": data["card_ids"]})                        
+                        payload["data_set"] = create_payload
+                        
+                    elif event_payload["is_create_set"] == False:
+                        # Bajar una carta
+                        match_set_id = uuid.UUID(event_payload("set_id"))
+                        match_set = set_services.SetService(db).get_match_set(match_set_id, match_id)
+                        card_service = services_cards.Cards_Services(db)
+                        update_payload = match_set.model_dump(mode='json')                        
+                        #Eliminamos la carta
+                        to_eliminate = True
+                        eliminate = card_service.discard_card(match_card_id, to_eliminate)
+                        update_payload.update({"deleted_cards": [str(uuid) for uuid in data["card_ids"]]})                        
+                        payload["data_set"] = update_payload                            
+                    
                 
             return payload
         except Exception as e:
