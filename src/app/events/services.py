@@ -119,7 +119,55 @@ class EventService:
             self._db.rollback()
             raise
 
-        
+    def update_info_event(
+        self, 
+        event_id: uuid.UUID,
+        player_id: uuid.UUID,
+        payload_from_endpoint: dict
+    ) -> EventosDeTurno:
+        """
+        "Pushea" la respuesta de un jugador al 'payload' del evento.
+        """
+        try:
+            event = self._db.get(EventosDeTurno, event_id)
+            if not event:
+                raise ValueError("Evento no encontrado")
+
+            if event.status != EventStatus.PENDING_TARGET_RESPONSE.value:
+                raise ValueError("El evento no está esperando una respuesta.")
+            
+            if 'responses' in event.payload:
+                for response in event.payload['responses']:
+                    # Vemos si el 'player_id' de esta respuesta
+                    # coincide con el jugador que llama al endpoint
+                    if response.get('player_id') == str(player_id):
+                        raise ValueError("¡Este jugador ya ha enviado una respuesta para este evento!")
+
+            new_payload = event.payload.copy()
+
+            # 5. Inicializamos la lista de 'responses' en la COPIA
+            if 'responses' not in new_payload:
+                new_payload['responses'] = []
+
+            # 6. "Pusheamos" la info nueva a la COPIA
+            new_payload['responses'].append(payload_from_endpoint)
+
+            #asignamos copia al objeto evento.
+            #al ser un objeto "diferente" SQLAlchemy si detecta el cambio.
+            event.payload = new_payload 
+            self._db.commit()
+            self._db.refresh(event)
+            
+            print(f"Respuesta de {player_id} añadida al evento {event.id}")
+            return event
+
+        except (SQLAlchemyError, ValueError) as e:
+            self._db.rollback()
+            print(f"Error al actualizar info del evento: {e}")
+            raise e
+    
+
+
     def resolve_event(self, event: EventosDeTurno) -> dict:
         """
         Handler de eventos. Contiene toda la logica que tenia antes el endpoint. Full BaseDatos, nada de ws
@@ -138,30 +186,26 @@ class EventService:
                 case Card_event.CARDS_OFF_THE_TABLE.value:
                     diccionary=services_cards.Cards_Services(db).cards_off_the_table(match_id,event_payload["target_player_id"],player_id,match_card_id)
                     updated_match_cards=diccionary["discarded_instant_cards"]
-                    discarded_card_event=diccionary["discarded_event_card"]
 
                     updated_match_cards_schemas = [db_match_card_2_match_card_schema(card) for card in updated_match_cards]
-                    discarded_card_event=db_match_card_2_match_card_schema(discarded_card_event)
 
                 #construccion del payload
                     payload={
                         "type": typeEvent,
                         "updated_match_cards": [card_schema.model_dump(mode='json') for card_schema in updated_match_cards_schemas],
                         "updated_secret": None,
-                        "discarded_card_event": discarded_card_event.model_dump(mode='json'),
+                        "discarded_card_event": None,
                         "updated_set": None
                     }
                 case Card_event.ANOTHER_VICTIM.value:
                     updated_set=set_services.SetService(db).steal_set(event_payload["target_set_id"],player_id)
                     #convertir a schema
-                    discarded_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
-                    discarded_card_event=db_match_card_2_match_card_schema(discarded_card_event)
                     #construccion del payload
                     payload={
                         "type": typeEvent,
                         "updated_match_cards": None,
                         "updated_secret": None,
-                        "discarded_card_event": discarded_card_event.model_dump(mode='json'),
+                        "discarded_card_event": None,
                         "updated_set": updated_set.model_dump(mode='json')
                     }
 
@@ -169,18 +213,18 @@ class EventService:
 
                     #efecto de carta look_into_the_ashes y devuelve la carta tomada actualizada para el payload del ws
                     taken_card=services_cards.Cards_Services(db).look_into_the_ashes_event(player_id,match_id,event_payload["target_card_id"])
-                    discarded_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
+
 
                     #convertimos a schema para que sean serializables
                     taken_card=db_match_card_2_match_card_schema(taken_card)
-                    discarded_card_event=db_match_card_2_match_card_schema(discarded_card_event)
+
 
                     #construccion del payload
                     payload={
                         "type": typeEvent,
                         "updated_match_cards": [taken_card.model_dump(mode='json')],
                         "updated_secret": None,
-                        "discarded_card_event": discarded_card_event.model_dump(mode='json'),
+                        "discarded_card_event": None,
                         "updated_set": None
                     }
                 case Card_event.AND_THEN_THERE_WAS_ONE_MORE.value:
@@ -188,19 +232,16 @@ class EventService:
                     #efecto de carta and_then_there_was_one_more y devuelve secreto actualizado para el payload del ws
                     updated_secret=services_cards.Cards_Services(db).and_then_there_was_one_more_event(event_payload["target_player_id"],event_payload["target_secret_id"])
 
-                    #descartamos la carta de evento jugada
-                    discarded_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
 
                     #convertimos a schema para que sean serializables
                     updated_secret=db_match_secret_2_match_secret_schema(updated_secret)
-                    discarded_card_event=db_match_card_2_match_card_schema(discarded_card_event)
 
                     #construccion del payload
                     payload={
                         "type": typeEvent,
                         "updated_match_cards": None,
                         "updated_secret": updated_secret.model_dump(mode='json'),
-                        "discarded_card_event": discarded_card_event.model_dump(mode='json'),
+                        "discarded_card_event": None,
                         "updated_set": None
                     }
 
@@ -210,18 +251,16 @@ class EventService:
                         raise ValueError("Se pasaron mas de 5 cartas para retrasar")
 
                     updated_match_cards=services_cards.Cards_Services(db).delay_the_murderer_escape_event(event_payload["cards_ids"])
-                    discarded_card_event=services_cards.Cards_Services(db).discard_card(match_card_id)
 
                     #convertimos a schema para que sean serializables
                     updated_match_cards_schemas = [db_match_card_2_match_card_schema(card) for card in updated_match_cards]
-                    discarded_card_event=db_match_card_2_match_card_schema(discarded_card_event)
 
                     #construccion del payload
                     payload={
                         "type": typeEvent,
                         "updated_match_cards": [card_schema.model_dump(mode='json') for card_schema in updated_match_cards_schemas],
                         "updated_secret": None,
-                        "discarded_card_event": discarded_card_event.model_dump(mode='json'),
+                        "discarded_card_event": None,
                         "updated_set": None
                     }
 
@@ -235,21 +274,36 @@ class EventService:
                         db.commit()
 
                         discarded_cards = services_cards.Cards_Services(db).early_train_to_paddington_event(match_id, event_payload["cards_ids"])
-
-                        discarded_card_event = services_cards.Cards_Services(db).discard_card(match_card_id, delete=True)
+                        services_cards.Cards_Services(db).discard_card(match_card_id, True)
 
                         serialized_discarded_cards = [mc.model_dump(mode="json") for mc in discarded_cards]
-                        serialized_discarded_card_event = db_match_card_2_match_card_schema(discarded_card_event).model_dump(mode="json")
 
                         payload = {
                             "type": typeEvent,
                             "updated_match_cards": serialized_discarded_cards,
                             "updated_secret": None,
-                            "discarded_card_event": serialized_discarded_card_event,
+                            "discarded_card_event": None,
                             "updated_set": None
                         }
                     except Exception as e:
                         raise e
+                #case Card_event.CARD_TRADE.value:
+                    #print("Resolviendo FASE 2 de Card Trade...")
+
+                    #updated_match_cards = services_cards.Cards_Services(db).swap_card_owners(match_card_id1,match_card_id2)
+                    
+                    #print(f"Intercambiando {match_card_id1} (de P1) por {match_card_id2} (de P2)")
+
+                    #updated_match_cards_schemas = [mc.model_dump(mode="json") for mc in updated_match_cards_schemas]
+
+                    #payload = {
+                    #        "type": typeEvent,
+                    #        "updated_match_cards": updated_match_cards_schemas,
+                    #        "updated_secret": None,
+                    #        "discarded_card_event": None,
+                    #        "updated_set": None
+                    #    }
+            
             return payload
         except Exception as e:
             raise e

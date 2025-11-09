@@ -42,18 +42,30 @@ async def event_resolver_loop():
                     #hay nsf_count par se ejecuta
                     try:
                         #llamo al handler del evento
-                        result_payload = event_service.resolve_event(event)
-
-                        #marcar como resuelto el evento
-                        event.status = EventStatus.RESOLVED.value
-                        db.commit()
-
-                        #avisar que se ejecuto el evento
-                        if result_payload:
+                        if card_services.Cards_Services(db).is_complex_event(event.event_type):
+                            event.status = EventStatus.PENDING_TARGET_RESPONSE.value
+                            db.commit()
+                            payload = {
+                                "event_type": event.event_type,
+                                "event_id": event.id,
+                                "players_id": 0#arreglo players involucrados
+                            }#Acomodar el payload por como lo pida el front
                             await manager.specificBroadcast(
-                                make_ws_message(WSEvent.CARD_EVENT, result_payload),
+                                make_ws_message(WSEvent.PENDING_TARGET_RESPONSE, payload),
                                 event.match_id
                             )
+                        else:
+                            result_payload = event_service.resolve_event(event)
+                            #marcar como resuelto el evento
+                            event.status = EventStatus.RESOLVED.value
+                            db.commit()
+
+                            #avisar que se ejecuto el evento
+                            if result_payload:
+                                await manager.specificBroadcast(
+                                    make_ws_message(WSEvent.CARD_EVENT, result_payload),
+                                    event.match_id
+                                )
                         
                     except Exception as e:
                         #resolve event fallo, no deberia pasar bajo ningun concepto pero podria cancelarlo al evento si se rompe algo, o crear un failed
@@ -76,14 +88,12 @@ async def event_resolver_loop():
                     event.status = EventStatus.CANCELLED.value
                     db.commit()
 
-                    discarded_card_event=card_services.Cards_Services(db).discard_card(event.match_card_id)
-                    discarded_card_schema=db_match_card_2_match_card_schema(discarded_card_event)
 
                     payload = {
                         "event_id": str(event.id),
                         "event_type": event.event_type,
                         "message": "Event was cancelled by Not So Fast",
-                        "discarded_card": discarded_card_schema.model_dump(mode='json')#carta de evento jugada en primer lugar, hay que descartarla de igula forma  
+                        "discarded_card": None,
                     }
                     await manager.specificBroadcast(
                         make_ws_message(WSEvent.EVENT_CANCELLED, payload),

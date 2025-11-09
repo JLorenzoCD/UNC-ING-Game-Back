@@ -403,7 +403,11 @@ async def get_sets(match_id: UUID, db=Depends(get_db)):
 @router.post("/{match_id}/events", status_code=status.HTTP_200_OK)
 async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_payload:dict, db=Depends(get_db)):
     try:
-        typeEvent=services_cards.Cards_Services(db).get_name_event(player_id,match_id,match_card_id)
+        services_cards.Cards_Services(db).validate_card_ownership(player_id,match_id,match_card_id)
+        print("se valido bien la carta")
+        typeEvent=services_cards.Cards_Services(db).get_event_type_by_card(match_card_id)
+        print("se hizo bien el gettypeevent")
+        print(typeEvent.value)
         if services_cards.Cards_Services(db).is_instant_event(typeEvent.value):
             new_event = services_event.EventService(db).create_event(
                 match_id,
@@ -414,6 +418,10 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
                 EventStatus.RESOLVED
             )
             payload=services_event.EventService(db).resolve_event(new_event)
+            discarded_card_event = services_cards.Cards_Services(db).discard_card(match_card_id, delete=False)
+            discarded_card_event = db_match_card_2_match_card_schema(discarded_card_event).model_dump(mode="json")
+            payload["discarded_card_event"]=discarded_card_event
+            print("se descarto bien la carta")
             await manager.specificBroadcast(
                                 make_ws_message(WSEvent.CARD_EVENT, payload),
                                 match_id
@@ -426,14 +434,15 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
                 match_card_id,
                 event_payload
             )
-
+            discarded_card_event = services_cards.Cards_Services(db).discard_card(match_card_id, delete=False)
+            discarded_card_event = db_match_card_2_match_card_schema(discarded_card_event).model_dump(mode="json")
             payload = {
                 "event_id": str(new_event.id),
                 "event_type": typeEvent.value,
                 "player_id": player_id,
                 "resolve_at_utc": new_event.resolve_at.isoformat(),
                 "nsf_count": new_event.nsf_count,
-                "discarded_card": None
+                "discarded_card": discarded_card_event
             }
             await manager.specificBroadcast(
                 make_ws_message(WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
@@ -449,7 +458,8 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
 async def play_not_so_fast(match_id:UUID,player_id: UUID, match_card_id:UUID, event_id:UUID, nsf_count:int, db=Depends(get_db)):
     try:
         print("llegue al endpoint de la notsofast")
-        typeEvent=services_cards.Cards_Services(db).get_name_event(player_id,match_id,match_card_id)
+        services_cards.Cards_Services(db).validate_card_ownership(player_id,match_id,match_card_id)
+        typeEvent=services_cards.Cards_Services(db).get_event_type_by_card(match_card_id)
         if (typeEvent.value != "NOT SO FAST"):
             raise Exception("Carta jugada no es una not so fast")
         updated_event=services_event.EventService(db).update_event_nsf(event_id,nsf_count)
@@ -477,3 +487,22 @@ async def play_not_so_fast(match_id:UUID,player_id: UUID, match_card_id:UUID, ev
             status_code = status.HTTP_400_BAD_REQUEST,
             detail=f"Error al procesar la carta {e}"
         )
+    
+@router.post("/{match_id}/card_trade", status_code=status.HTTP_200_OK)
+async def play_card_trade(match_id: UUID, player_id: UUID, event_id:UUID, target_card_id: UUID, db=Depends(get_db)):
+    try:
+        services_cards.Cards_Services(db).validate_card_ownership(player_id,match_id,target_card_id)
+        event_update=services_event.EventService(db).update_info_event(event_id,player_id,target_card_id)
+        payload=services_event.EventService(db).resolve_event(event_update)
+        await manager.specificBroadcast(
+            make_ws_message(WSEvent.CARD_EVENT, payload), match_id
+        )
+        return {"status": "ok","message":"CardTrade de lujo"}
+    except Exception as e:
+        print(f"Algun error en card trade error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error al procesar la carta {e}"
+        )
+    
+    
