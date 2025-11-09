@@ -5,6 +5,7 @@ from sqlalchemy import Integer, ForeignKey, Enum, String, TIMESTAMP, DateTime, t
 from sqlalchemy.sql import func
 
 from app.events.models import EventosDeTurno
+from collections import Counter
 
 from datetime import datetime, timezone,timedelta
 #para el resolver
@@ -321,6 +322,24 @@ class EventService:
                             "updated_set": None,
                             "message": f"{typeEvent} was succesfull"
                         }
+                case Card_event.POINT_YOUR_SUSPICIONS.value:
+                    print("Resolviendo el Point your suspicions...")
+                    responses = event_payload.get('responses', [])
+                    if len(responses)!=2:
+                        raise ValueError("Faltan o sobran respuestas para el point_your_suspicions")
+                    
+                    vote_counts = Counter(responses)
+                    most_voted_player = vote_counts.most_common(1)[0][0]
+                    #si hay desempate agarra el que encuentre primero para no hacer tanto quilombo
+                    #(1) lista el primer elemento mas comun
+                    #(0) agarra el elemento de esa lista
+                    #(0) devuelve el parametro player_id y no la cantidad de recurrencias
+
+                    payload = {
+                            "type": typeEvent,
+                            "most_voted_player": most_voted_player,
+                            "message": f"{typeEvent} was succesfull"
+                    }
             
             return payload
         except Exception as e:
