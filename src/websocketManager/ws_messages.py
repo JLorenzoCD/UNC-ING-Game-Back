@@ -5,18 +5,19 @@ from uuid import UUID
 from datetime import date, datetime
 
 class WSEvent(str, Enum):
-    MATCH       = "match"
-    PLAYER_JOIN = "player_join"
-    TURN        = "turn"
-    CARDS       = "cards"
-    MATCH_COMPLETED = "match_completed"
-    SET         = "set"
-    SECRET      = "secret"
+    MATCH                = "match"
+    PLAYER_JOIN          = "player_join"
+    TURN                 = "turn"
+    CARDS                = "cards"
+    MATCH_COMPLETED      = "match_completed"
+    SET                  = "set"
+    SECRET               = "secret"
     PLAYER_SECRET_REVEAL = "player_secret_reveal"
-    CARD_EVENT = "card_event"
     CARDS_DELETE = "cards_delete"
     CANCELLATION_WINDOW_OPEN= "cancellation_window_open"
     EVENT_CANCELLED = "event_cancelled"
+    CARD_EVENT           = "card_event"
+    LOG                  = "new_log"
 
 def custom_encoder(o):
     if isinstance(o, UUID):
