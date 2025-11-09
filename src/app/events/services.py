@@ -199,7 +199,8 @@ class EventService:
                         "updated_match_cards": [card_schema.model_dump(mode='json') for card_schema in updated_match_cards_schemas],
                         "updated_secret": None,
                         "discarded_card_event": None,
-                        "updated_set": None
+                        "updated_set": None,
+                        "message": f"{typeEvent} was succesfull"
                     }
                 case Card_event.ANOTHER_VICTIM.value:
                     updated_set=set_services.SetService(db).steal_set(event_payload["target_set_id"],player_id)
@@ -210,7 +211,8 @@ class EventService:
                         "updated_match_cards": None,
                         "updated_secret": None,
                         "discarded_card_event": None,
-                        "updated_set": updated_set.model_dump(mode='json')
+                        "updated_set": updated_set.model_dump(mode='json'),
+                        "message": f"{typeEvent} was succesfull"
                     }
 
                 case Card_event.LOOK_INTO_THE_ASHES.value:
@@ -229,7 +231,8 @@ class EventService:
                         "updated_match_cards": [taken_card.model_dump(mode='json')],
                         "updated_secret": None,
                         "discarded_card_event": None,
-                        "updated_set": None
+                        "updated_set": None,
+                        "message": f"{typeEvent} was succesfull"
                     }
                 case Card_event.AND_THEN_THERE_WAS_ONE_MORE.value:
 
@@ -246,7 +249,8 @@ class EventService:
                         "updated_match_cards": None,
                         "updated_secret": updated_secret.model_dump(mode='json'),
                         "discarded_card_event": None,
-                        "updated_set": None
+                        "updated_set": None,
+                        "message": f"{typeEvent} was succesfull"
                     }
 
 
@@ -265,7 +269,8 @@ class EventService:
                         "updated_match_cards": [card_schema.model_dump(mode='json') for card_schema in updated_match_cards_schemas],
                         "updated_secret": None,
                         "discarded_card_event": None,
-                        "updated_set": None
+                        "updated_set": None,
+                        "message": f"{typeEvent} was succesfull"
                     }
 
                 case Card_event.EARLY_TRAIN_TO_PADDINGTON.value:
@@ -287,7 +292,8 @@ class EventService:
                             "updated_match_cards": serialized_discarded_cards,
                             "updated_secret": None,
                             "discarded_card_event": None,
-                            "updated_set": None
+                            "updated_set": None,
+                            "message": f"{typeEvent} was succesfull"
                         }
                     except Exception as e:
                         raise e
@@ -303,14 +309,17 @@ class EventService:
                     
                     print(f"Intercambiando {match_card_id1} por {match_card_id2}")
 
-                    updated_match_cards_schemas = [mc.model_dump(mode="json") for mc in updated_match_cards]
+                    updated_match_cards_schemas = [db_match_card_2_match_card_schema(card) for card in updated_match_cards]
+
+                    updated_match_cards = [mc.model_dump(mode="json") for mc in updated_match_cards_schemas]
 
                     payload = {
                             "type": typeEvent,
-                            "updated_match_cards": updated_match_cards_schemas,
+                            "updated_match_cards": updated_match_cards,
                             "updated_secret": None,
                             "discarded_card_event": None,
-                            "updated_set": None
+                            "updated_set": None,
+                            "message": f"{typeEvent} was succesfull"
                         }
             
             return payload

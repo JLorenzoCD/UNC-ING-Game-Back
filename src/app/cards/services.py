@@ -313,7 +313,7 @@ class Cards_Services:
             raise
 
 
-    def swap_card_owners(
+    def swap_cards_owners(
         self, 
         match_card_id1: UUID, 
         match_card_id2: UUID

@@ -489,10 +489,10 @@ async def play_not_so_fast(match_id:UUID,player_id: UUID, match_card_id:UUID, ev
         )
     
 @router.post("/{match_id}/card_trade", status_code=status.HTTP_200_OK)
-async def play_card_trade(match_id: UUID, player_id: UUID, event_id:UUID, target_card_id: UUID, db=Depends(get_db)):
+async def play_card_trade(match_id: UUID, player_id: UUID, event_id:UUID, event_payload: dict, db=Depends(get_db)):
     try:
-        services_cards.Cards_Services(db).validate_card_ownership(player_id,match_id,target_card_id)
-        event_update=services_event.EventService(db).update_info_event(event_id,player_id,target_card_id)
+        services_cards.Cards_Services(db).validate_card_ownership(player_id,match_id,event_payload['target_card_id'])
+        event_update=services_event.EventService(db).update_info_event(event_id,player_id,event_payload['target_card_id'])
         if services_event.EventService(db).is_event_ready_to_resolve(event_update):
             payload=services_event.EventService(db).resolve_event(event_update)
             await manager.specificBroadcast(
