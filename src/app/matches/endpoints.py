@@ -495,7 +495,8 @@ async def get_sets(match_id: UUID, db=Depends(get_db)):
     return sets
 
 @router.post("/{match_id}/events", status_code=status.HTTP_200_OK)
-async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_payload:dict, db=Depends(get_db)):
+async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_payload:dict | None, db=Depends(get_db)):
+    print("entre al endpoint play_event")
     try:
         services_cards.Cards_Services(db).validate_card_ownership(player_id,match_id,match_card_id)
         print("se valido bien la carta")
@@ -608,7 +609,7 @@ async def play_point_your_suspicions(match_id: UUID, player_id: UUID, event_id:U
         if services_event.EventService(db).is_event_ready_to_resolve(event_update):
             payload=services_event.EventService(db).resolve_event(event_update)
             await manager.specificBroadcast(
-                make_ws_message(WSEvent.CARD_EVENT, payload), match_id
+                make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload), match_id
             )
         return {"status": "ok","message":"Point your suspicions de lujo"}
     except Exception as e:

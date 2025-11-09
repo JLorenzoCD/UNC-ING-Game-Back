@@ -332,13 +332,11 @@ class EventService:
                     most_voted_player = vote_counts.most_common(1)[0][0]
                     #si hay desempate agarra el que encuentre primero para no hacer tanto quilombo
                     #(1) lista el primer elemento mas comun
-                    #(0) agarra el elemento de esa lista
-                    #(0) devuelve el parametro player_id y no la cantidad de recurrencias
+                    #[0] agarra la primera tupla de esa lista
+                    #[0] devuelve el parametro player_id y no la cantidad de recurrencias
 
                     payload = {
-                            "type": typeEvent,
-                            "most_voted_player": most_voted_player,
-                            "message": f"{typeEvent} was succesfull"
+                            "target_player_id": most_voted_player['id'],
                     }
             
             return payload
