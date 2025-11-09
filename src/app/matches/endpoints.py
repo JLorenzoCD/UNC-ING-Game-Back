@@ -493,10 +493,11 @@ async def play_card_trade(match_id: UUID, player_id: UUID, event_id:UUID, target
     try:
         services_cards.Cards_Services(db).validate_card_ownership(player_id,match_id,target_card_id)
         event_update=services_event.EventService(db).update_info_event(event_id,player_id,target_card_id)
-        payload=services_event.EventService(db).resolve_event(event_update)
-        await manager.specificBroadcast(
-            make_ws_message(WSEvent.CARD_EVENT, payload), match_id
-        )
+        if services_event.EventService(db).is_event_ready_to_resolve(event_update):
+            payload=services_event.EventService(db).resolve_event(event_update)
+            await manager.specificBroadcast(
+                make_ws_message(WSEvent.CARD_EVENT, payload), match_id
+            )
         return {"status": "ok","message":"CardTrade de lujo"}
     except Exception as e:
         print(f"Algun error en card trade error: {e}")
