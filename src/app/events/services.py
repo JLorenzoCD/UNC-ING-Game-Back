@@ -123,7 +123,7 @@ class EventService:
         self, 
         event_id: uuid.UUID,
         player_id: uuid.UUID,
-        payload_from_endpoint: dict
+        info_from_endpoint: uuid.UUID
     ) -> EventosDeTurno:
         """
         "Pushea" la respuesta de un jugador al 'payload' del evento.
@@ -136,25 +136,17 @@ class EventService:
             if event.status != EventStatus.PENDING_TARGET_RESPONSE.value:
                 raise ValueError("El evento no está esperando una respuesta.")
             
-            if 'responses' in event.payload:
-                for response in event.payload['responses']:
-                    # Vemos si el 'player_id' de esta respuesta
-                    # coincide con el jugador que llama al endpoint
-                    if response.get('player_id') == str(player_id):
-                        raise ValueError("¡Este jugador ya ha enviado una respuesta para este evento!")
+            current_payload = event.payload if event.payload else {}
+            responses_list = current_payload.get('responses', [])
 
-            new_payload = event.payload.copy()
+            new_responses_list = responses_list.copy()
+            new_responses_list.append(str(info_from_endpoint))
 
-            # 5. Inicializamos la lista de 'responses' en la COPIA
-            if 'responses' not in new_payload:
-                new_payload['responses'] = []
-
-            # 6. "Pusheamos" la info nueva a la COPIA
-            new_payload['responses'].append(payload_from_endpoint)
-
-            #asignamos copia al objeto evento.
-            #al ser un objeto "diferente" SQLAlchemy si detecta el cambio.
+            new_payload = current_payload.copy()
+            new_payload['responses'] = new_responses_list
+            
             event.payload = new_payload 
+            
             self._db.commit()
             self._db.refresh(event)
             
@@ -167,6 +159,18 @@ class EventService:
             raise e
     
 
+    def is_event_ready_to_resolve(self, event:EventosDeTurno)-> bool:
+        """
+        Verifica si se cargo toda la info necesaria para resolver el evento
+        """
+        event_type=event.event_type
+        payload = event.payload
+        responses = payload.get('responses', [])
+
+        if event_type == Card_event.CARD_TRADE.value:
+            return len(responses) == 2
+        else:
+            return len(responses) == len(services_matches.MatchService(self._db).get_players_from_match(event.match_id))
 
     def resolve_event(self, event: EventosDeTurno) -> dict:
         """
@@ -287,22 +291,27 @@ class EventService:
                         }
                     except Exception as e:
                         raise e
-                #case Card_event.CARD_TRADE.value:
-                    #print("Resolviendo FASE 2 de Card Trade...")
+                case Card_event.CARD_TRADE.value:
+                    print("Resolviendo el Card Trade...")
+                    responses = event_payload.get('responses', [])
+                    if len(responses)!=2:
+                        raise ValueError("Faltan o sobran respuestas para el card_trade")
+                    match_card_id1=responses[0]
+                    match_card_id2=responses[1]
 
-                    #updated_match_cards = services_cards.Cards_Services(db).swap_card_owners(match_card_id1,match_card_id2)
+                    updated_match_cards = services_cards.Cards_Services(db).swap_cards_owners(match_card_id1,match_card_id2)
                     
-                    #print(f"Intercambiando {match_card_id1} (de P1) por {match_card_id2} (de P2)")
+                    print(f"Intercambiando {match_card_id1} por {match_card_id2}")
 
-                    #updated_match_cards_schemas = [mc.model_dump(mode="json") for mc in updated_match_cards_schemas]
+                    updated_match_cards_schemas = [mc.model_dump(mode="json") for mc in updated_match_cards]
 
-                    #payload = {
-                    #        "type": typeEvent,
-                    #        "updated_match_cards": updated_match_cards_schemas,
-                    #        "updated_secret": None,
-                    #        "discarded_card_event": None,
-                    #        "updated_set": None
-                    #    }
+                    payload = {
+                            "type": typeEvent,
+                            "updated_match_cards": updated_match_cards_schemas,
+                            "updated_secret": None,
+                            "discarded_card_event": None,
+                            "updated_set": None
+                        }
             
             return payload
         except Exception as e:
