@@ -601,3 +601,13 @@ async def play_card_trade(match_id: UUID, player_id: UUID, event_id:UUID, event_
         )
     
     
+@router.get("/{match_id}/logs", status_code=status.HTTP_200_OK, response_model=List[MatchLogOut])
+async def get_logs(match_id: UUID, db=Depends(get_db)) -> List[MatchLogOut]:
+    try:
+        logs = services.LogService(db).get_logs_by_match(match_id)
+    except SQLAlchemyError:
+        raise HTTPException(status_code=500)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return logs
