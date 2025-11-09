@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 from app.events.worker import event_resolver_loop
 
 
-def init_data():
+def init_data_total():
     with Session(engine) as session:
         init_data(session)
 
@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
     """
     print("Iniciando servidor")
     Base.metadata.create_all(bind=engine)
-    init_data()
+    init_data_total()
     # --- ¡AQUÍ ES DONDE VA EL WORKER! ---
     print("Worker trabajando en segundo plano")
     asyncio.create_task(event_resolver_loop())

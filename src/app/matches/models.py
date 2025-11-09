@@ -97,9 +97,7 @@ class Match(Base):
     )
     
     owner = relationship("Player", backref="matches")
-<<<<<<< HEAD
     events = relationship("EventosDeTurno", back_populates="match")
-=======
 
 class MatchLogs(Base):
     """
@@ -143,4 +141,3 @@ class MatchLogs(Base):
 
     match = relationship("Match", backref="match_logs")
     player = relationship("Player", backref="match_logs")
->>>>>>> develop
