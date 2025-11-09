@@ -312,6 +312,48 @@ class Cards_Services:
             self._db.rollback()
             raise
 
+
+    def swap_card_owners(
+        self, 
+        match_card_id1: UUID, 
+        match_card_id2: UUID
+    ) -> list[Match_Card]:
+        """
+        Intercambia los dueños de dos Match_Card.
+        Esta función es "inteligente": busca a los dueños
+        y los intercambia.
+        """
+        
+        try:
+            card1 = self._db.get(Match_Card, match_card_id1)
+            card2 = self._db.get(Match_Card, match_card_id2)
+
+            if not card1 or not card2:
+                raise ValueError("Una o ambas cartas para el intercambio no fueron encontradas.")
+
+            if not card1.player_id or not card2.player_id:
+                raise ValueError("Una de las cartas no tiene dueño (ej: está en el mazo o descarte).")
+
+            print(f"Swap: P1 ({card1.player_id}) -> Card2, P2 ({card2.player_id}) -> Card1")
+
+            #guarda dueños actuales
+            owner1_id = card1.player_id
+            owner2_id = card2.player_id
+
+            #swap
+            card1.player_id = owner2_id
+            card2.player_id = owner1_id
+            
+            self._db.commit()
+            self._db.refresh(card1)
+            self._db.refresh(card2)
+            
+            return [card1, card2]
+            
+        except Exception as e:
+            print(f"Error en swap_card_owners: {e}")
+            raise e
+    
     def is_instant_event(self, event_type_str: str) -> bool:
         """
         Devuelve si un evento se aplica instantaneamente
@@ -326,3 +368,4 @@ class Cards_Services:
             return True
         return False
     
+
