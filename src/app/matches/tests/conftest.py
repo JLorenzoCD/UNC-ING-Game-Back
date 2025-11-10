@@ -47,10 +47,19 @@ def client(db_session):
     
     app.dependency_overrides[get_db] = override_get_db_with_session
     
+    # Also configure WebSocket manager to use test database
+    from websocketManager.ws_routes import manager
+    def test_db_session_factory():
+        return db_session
+    manager.set_db_session_factory(test_db_session_factory)
+    
     with TestClient(app) as c:
         yield c
     
     app.dependency_overrides.clear()
+    # Reset WebSocket manager to default
+    from app.models.db import session_local
+    manager.set_db_session_factory(session_local)
     
 def jsonable_encoder(obj):
     """Convierte un objeto (Pydantic model, etc.) a un dict serializable a JSON."""

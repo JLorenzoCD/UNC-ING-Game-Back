@@ -124,7 +124,7 @@ class MatchService:
             raise
         return match
 
-    def get_in_progress_matches_of_player(self, player_id: UUID) -> List[match_schemas.Match_number_of_Player]:
+    def get_active_matches_ids_player(self, player_id: UUID) -> List[UUID]:
         try:
             match_players = (
                 self._db.query(Match_Player)
@@ -136,21 +136,7 @@ class MatchService:
                 .all()
             )
             
-            combined = []
-            for mp in match_players:
-                match = mp.match
-                
-                match_out = db_match_2_match_schema(match)
-                
-                player_count = self.count_players_by_match(match.id)
-                
-                extended_match = match_schemas.Match_number_of_Player(
-                    **match_out.model_dump(),
-                    current_player_count=player_count
-                )
-                combined.append(extended_match)
-            
-            return combined
+            return [mp.player_id for mp in match_players]
         except SQLAlchemyError:
             self._db.rollback()
             raise

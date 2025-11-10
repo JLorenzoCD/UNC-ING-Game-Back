@@ -1,24 +1,44 @@
 from fastapi import WebSocket,FastAPI,WebSocketDisconnect,APIRouter
 import uuid
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Callable
 
+from app.models.db import session_local
 from app.matches.services import MatchService
+from app.ws_events.services import WsEventsService
+from app.ws_events.utils import db_ws_event_2_schema
 
 websocket_router = APIRouter()
 
 class ConnectionManager:
-    def __init__(self):
+    def __init__(self, db_session_factory: Callable = None):
         self.matches: dict[uuid.UUID, set[WebSocket]] = {}
         self.players: dict[uuid.UUID, WebSocket] = {}
         self.waiting_room: set[WebSocket] = set()
+        # Use provided session factory or default to session_local
+        self._db_session_factory = db_session_factory or session_local
+    
+    def set_db_session_factory(self, db_session_factory: Callable):
+        """Set a custom database session factory (useful for testing)"""
+        self._db_session_factory = db_session_factory
+    
+    def _get_db_session(self):
+        """Get a database session using the configured factory"""
+        return self._db_session_factory()
 
     async def connect(self, ws: WebSocket, player_id: uuid.UUID):
         await ws.accept()
         self.players[player_id] = ws
 
-        in_progress_matches = MatchService.get_in_progress_matches_of_player(player_id)
-        for match_id in in_progress_matches:
-            self.enterMatch(player_id, match_id)
+        db = self._get_db_session()
+        try:
+            in_progress_matches = MatchService(db).get_active_matches_ids_player(player_id)
+            for match_id in in_progress_matches:
+                self.enterMatch(player_id, match_id)
+                last_event = WsEventsService(db).get_last_match_event(match_id)  
+                if last_event:
+                    await self.safe_send_message(db_ws_event_2_schema(last_event), ws)
+        finally:
+            db.close()
 
         self.waiting_room.add(ws)
 
@@ -114,6 +134,13 @@ class ConnectionManager:
         setws = self.matches.get(matchID, set())
         if not setws:
             print(f"[WS] ADVERTENCIA: No hay conexiones en el match {matchID}")
+        
+        db = self._get_db_session()
+        try:
+            WsEventsService(db).create_event(matchID, message)
+        finally:
+            db.close()
+            
         for ws in list(setws):
             await self.safe_send_message(message, ws)
             

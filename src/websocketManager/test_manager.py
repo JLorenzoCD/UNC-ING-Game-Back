@@ -1,5 +1,6 @@
 import uuid
 import pytest
+from unittest.mock import patch
 from websocketManager.ws_routes import ConnectionManager
 
 class FakeWebSocket:
@@ -14,7 +15,12 @@ class FakeWebSocket:
         self.sent_messages.append(message)
 
 @pytest.mark.asyncio
-async def test_connect_and_disconnect():
+@patch('websocketManager.ws_routes.MatchService')
+@patch('websocketManager.ws_routes.WsEventsService')
+async def test_connect_and_disconnect(mock_ws_events_service, mock_match_service):
+    # Mock the database services
+    mock_match_service.return_value.get_active_matches_ids_player.return_value = []
+    
     manager = ConnectionManager()
     ws = FakeWebSocket()
     player_id = uuid.uuid4()
@@ -29,7 +35,12 @@ async def test_connect_and_disconnect():
     assert ws not in manager.waiting_room
 
 @pytest.mark.asyncio
-async def test_enter_and_quit_match():
+@patch('websocketManager.ws_routes.MatchService')
+@patch('websocketManager.ws_routes.WsEventsService')
+async def test_enter_and_quit_match(mock_ws_events_service, mock_match_service):
+    # Mock the database services
+    mock_match_service.return_value.get_active_matches_ids_player.return_value = []
+    
     manager = ConnectionManager()
     ws = FakeWebSocket()
     player_id = uuid.uuid4()
@@ -47,7 +58,12 @@ async def test_enter_and_quit_match():
     assert ws in manager.waiting_room
 
 @pytest.mark.asyncio
-async def test_waiting_room_broadcast():
+@patch('websocketManager.ws_routes.MatchService')
+@patch('websocketManager.ws_routes.WsEventsService')
+async def test_waiting_room_broadcast(mock_ws_events_service, mock_match_service):
+    # Mock the database services
+    mock_match_service.return_value.get_active_matches_ids_player.return_value = []
+    
     manager = ConnectionManager()
     ws1, ws2 = FakeWebSocket(), FakeWebSocket()
     pl_id1,pl_id2= uuid.uuid4(), uuid.uuid4()
@@ -60,7 +76,13 @@ async def test_waiting_room_broadcast():
     assert "Hello" in ws2.sent_messages
 
 @pytest.mark.asyncio
-async def test_specific_broadcast():
+@patch('websocketManager.ws_routes.MatchService')
+@patch('websocketManager.ws_routes.WsEventsService')
+async def test_specific_broadcast(mock_ws_events_service, mock_match_service):
+    # Mock the database services
+    mock_match_service.return_value.get_active_matches_ids_player.return_value = []
+    mock_ws_events_service.return_value.create_event.return_value = None
+    
     manager = ConnectionManager()
     ws1, ws2 = FakeWebSocket(), FakeWebSocket()
     pl_id1,pl_id2= uuid.uuid4(), uuid.uuid4()
@@ -78,7 +100,12 @@ async def test_specific_broadcast():
 
 
 @pytest.mark.asyncio
-async def test_close_match_moves_all_to_waiting_room():
+@patch('websocketManager.ws_routes.MatchService')
+@patch('websocketManager.ws_routes.WsEventsService')
+async def test_close_match_moves_all_to_waiting_room(mock_ws_events_service, mock_match_service):
+    # Mock the database services
+    mock_match_service.return_value.get_active_matches_ids_player.return_value = []
+    
     manager = ConnectionManager()
     ws1, ws2 = FakeWebSocket(), FakeWebSocket()
     p1, p2 = uuid.uuid4(), uuid.uuid4()
@@ -112,11 +139,16 @@ async def test_close_match_when_match_missing():
     manager.close_match(uuid.uuid4())
 
 @pytest.mark.asyncio
-async def test_close_match_keeps_players_dict_intact():
+@patch('websocketManager.ws_routes.MatchService')
+@patch('websocketManager.ws_routes.WsEventsService')
+async def test_close_match_keeps_players_dict_intact(mock_ws_events_service, mock_match_service):
     """
     Al cerrar la sala se usa quitMatch (cuando hay player_id),
     lo cual NO elimina al player de `players`; sólo lo mueve a waiting_room.
     """
+    # Mock the database services
+    mock_match_service.return_value.get_active_matches_ids_player.return_value = []
+    
     manager = ConnectionManager()
     ws = FakeWebSocket()
     player_id = uuid.uuid4()
