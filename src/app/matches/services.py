@@ -1,11 +1,12 @@
 import random
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import DateTime
 
 from app.cards.models import Card, Match_Card
 from app.cards.schemas import Match_Card_Schema
@@ -65,7 +66,7 @@ class MatchService:
             min_players=match_dto.min_players,
             max_players=match_dto.max_players,
             owner_id=owner.id,
-            timer_turn=datetime.now().isoformat()
+            timer_turn=datetime.now(timezone.utc)
         )
         
         try:
@@ -163,7 +164,7 @@ class MatchService:
         else:
             match.current_player_order = match.current_player_order + 1
         
-        match.timer_turn = datetime.now().isoformat()
+        match.timer_turn = datetime.now(timezone.utc)
         self._db.commit()
         self._db.refresh(match)
         return match
