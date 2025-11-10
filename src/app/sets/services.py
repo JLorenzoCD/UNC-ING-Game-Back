@@ -184,7 +184,7 @@ class SetService:
         
         if not card_ids:
             raise InvalidCardError("No hay carta de Detective para bajar")
-        if len(card_ids) > 1:
+        if len(card_ids) < 2:
             raise InvalidCardError("Solo se debe mandar una carta")
         
         for card_id in card_ids:
@@ -194,7 +194,6 @@ class SetService:
             
         detective = self._get_card_names(card_ids)
         
-        
         match_set = self._db.query(Match_Set).filter(Match_Set.id == set_id).first()
         if not match_set:
             raise InvalidSetError(f"No se encontró el set con id {set_id}")
@@ -202,7 +201,7 @@ class SetService:
         for name in detective:
             validation = self._validate_detective_in_set(name, match_set.type.value)
         
-        if match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE, SetType.PARKER_PYNE] and target_secret is None:
+        if (match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE, SetType.PARKER_PYNE] and target_secret is None) or detective[0] != SetType.ADRIADNE_OLIVER.value:
             raise TargetSecretError("No hay secreto seleccionado")
         
         if target_secret:
