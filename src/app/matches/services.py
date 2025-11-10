@@ -349,7 +349,7 @@ class MatchService:
             raise MatchValidationError("Solo se pueden cancelar partidas en estado 'waiting'.")
         
         match_out = db_match_2_match_schema(match)
-        
+
         self._delete_match_completely(match_id)
         
         return match_out
