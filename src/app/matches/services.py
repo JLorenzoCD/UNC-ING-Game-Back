@@ -261,7 +261,7 @@ class MatchService:
                 Card.description
             ).join(Card, Match_Card.card_id == Card.id)\
             .filter(Match_Card.match_id == match_id)\
-            .all()
+            .order_by(Match_Card.id).all()
             
             combined: List[match_schemas.Cards_by_Match_Schema] = []
             for r in results:

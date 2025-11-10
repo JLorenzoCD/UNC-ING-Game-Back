@@ -2,6 +2,7 @@ from uuid import UUID
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
+from datetime import date, datetime, timezone
 
 from websocketManager.ws_routes import manager
 from websocketManager.ws_messages import WSEvent, make_ws_message
@@ -403,6 +404,117 @@ async def discard_card(match_id: UUID, cards: discard_Match_Cards_in, db=Depends
             return {"status": "success", "cards_discarded": len(discarded_cards_ids)}
     except HTTPException as exception:
         raise exception
+    
+
+@router.put("/{match_id}/timeout/{player_id}", status_code=status.HTTP_200_OK)
+async def time_out(match_id: UUID, player_id:UUID, db = Depends(get_db)) -> Match_Card_Schema:
+    try:
+        match_services = services.MatchService(db)
+        match = match_services.get_match_by_id(match_id)
+        time_now = datetime.now(timezone.utc)
+        
+        # Agregar verificaicon entre el timer de match.timer_turn y el time_now sea mayor a 60 segundos
+        if not match.timer_turn:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El timer de la partida no está activo."
+            )
+        time_diff = (time_now - match.timer_turn).total_seconds()
+        if time_diff <= 60:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"No es time out el tiempo de la partida es {match.timer_turn} y el tiempo actual es {time_now}"
+            )
+            
+        player = db.query(Match_Player).filter(Match_Player.match_id == match_id, Match_Player.player_id == player_id).first()
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found in this match")
+        
+        # Obtener una carta aleaotria de la mano del Player, descartarla y reponer la 4ta carta del mazo regular
+        first_card: Match_Card = db.query(Match_Card).filter(
+            Match_Card.match_id == match_id,
+            Match_Card.player_id == player_id,
+            Match_Card.is_discarded == False
+        ).first()
+        if not first_card:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"No se encontró la carta de descarte"
+            )
+        if first_card:
+            card_services.Cards_Services(db).discard_card(
+                player_id=player_id, 
+                match_id=match_id, 
+                cards=[first_card.id]
+            )
+            discarded_card_schema = db_match_card_2_match_card_schema(first_card)
+        
+        fourth_card: Match_Card = db.query(Match_Card).filter(
+                        Match_Card.player_id == None,
+                        Match_Card.is_discarded == False
+                        ).order_by(Match_Card.id).offset(3).first()
+        
+        if fourth_card:
+            services.PileService(db).take_cards(player_id, match_id, cards=[fourth_card])
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"No se encontró la cuarta carta"
+            )
+                        
+        results = services.MatchService(db).get_extended_cards_by_match(match_id, ids=[first_card.id, fourth_card.id])
+        payload = [
+            {
+            "id": card[0],
+            "card_id": card[1],
+            "match_id": card[2],
+            "player_id": card[3],
+            "is_discarded": card[4],
+            "discarded_at": card[5],
+            "name": card[6],
+            "type": card[7].value if hasattr(card[7], 'value') else card[7],
+            "description": card[8],
+            }
+            for card in results
+        ]
+        await manager.specificBroadcast(make_ws_message(WSEvent.CARDS, payload), match_id)        
+        
+        # Logica para pasar el turno
+        match=services.MatchService(db).pass_turn_by_id(match_id)
+        
+        # Obtener el jugador actual después del cambio de turno
+        current_player_id = services.MatchService(db).get_current_player_by_match(match_id)
+        
+        match_dict = db_match_2_match_schema(match).model_dump(mode="json")
+        # Agregar el current_player_id al payload si existe
+        if current_player_id:
+            match_dict["current_player_id"] = str(current_player_id)
+        
+        msg = make_ws_message(WSEvent.TURN, match_dict)
+        try:
+            await manager.specificBroadcast(msg, match_id)
+        except Exception as ws_err:
+            print(f"[WS] pass_turn broadcast error: {ws_err}")
+        
+        # Crear log con información del jugador actual
+        try:
+            if current_player_id:
+                player_obj = services.PlayersService(db).get_player(current_player_id)
+                log = f"[TURN] Es turno de {player_obj.name}"
+                id_log = services.LogService(db).create_log(match_id, log, MatchEventType.TURN, player_obj.id)
+                log_out = services.LogService(db).get_log_by_id(id_log).model_dump(mode='json')
+                await manager.specificBroadcast(make_ws_message(WSEvent.LOG, log_out), match_id)
+            else:
+                print(f"[LOG] No se pudo obtener current_player_id para match {match_id}")
+        except Exception as e:
+            print(f"[LOG] error creando/broadcast log de turno: {e}")
+        
+        return {"match_id": match_id}
+    
+    except Exception:
+        raise HTTPException(status_code=400)
+
+  
     
 @router.post("/{match_id}/sets", status_code=status.HTTP_201_CREATED)
 async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db)) -> Optional[set_schemas.MatchSetOut]:
