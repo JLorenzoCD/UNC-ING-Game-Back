@@ -124,6 +124,44 @@ class MatchService:
             raise
         return match
 
+    def get_ongoing_matches_of_player(self, player_id: UUID) -> List[UUID]:
+        try:
+            match_players = (
+                self._db.query(Match_Player)
+                .join(Match, Match_Player.match_id == Match.id)
+                .filter(
+                    Match_Player.player_id == player_id,
+                    Match.status != MatchStatus.COMPLETED,
+                )
+                .all()
+            )
+            
+            return [mp.match_id for mp in match_players]
+        except SQLAlchemyError:
+            self._db.rollback()
+            raise
+        except Exception:
+            raise
+
+    def get_active_matches_ids_player(self, player_id: UUID) -> List[UUID]:
+        try:
+            match_players = (
+                self._db.query(Match_Player)
+                .join(Match, Match_Player.match_id == Match.id)
+                .filter(
+                    Match_Player.player_id == player_id,
+                    Match.status == MatchStatus.IN_PROGRESS
+                )
+                .all()
+            )
+            
+            return [mp.match_id for mp in match_players]
+        except SQLAlchemyError:
+            self._db.rollback()
+            raise
+        except Exception:
+            raise
+
     def get_current_player_by_match(self, match_id: UUID) -> Optional[UUID]:
         """Get the current player ID based on current_player_order."""
         try:

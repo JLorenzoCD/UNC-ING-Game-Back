@@ -67,9 +67,9 @@ async def handle_match_ended(db, manager, match_id: UUID,
     except Exception as e:
         print(f"Error al enviar WS: {e}")
 
-    #try:
-    #    manager.close_match(match_id)
-    #except Exception as e:
-    #    print(f"Error al cerrar la partida: {e}")
-    #
+    try:
+       manager.close_match(match_id)
+    except Exception as e:
+       print(f"Error al cerrar la partida: {e}")
+    
     return payload
