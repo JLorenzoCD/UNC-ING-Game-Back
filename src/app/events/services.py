@@ -37,7 +37,7 @@ class EventService:
         No enviar status para eventos cancelables
         Enviar status RESOLVED para eventos no cancelables
         """
-        print("createEvent")
+        # print("createEvent") # Comentado para no llenar la consola
         try:
             if status:
                 final_status = status.value
@@ -68,7 +68,7 @@ class EventService:
             self._db.commit()
             self._db.refresh(new_event)
             
-            print(f"Evento (ID: {new_event.id}) creado: {event_type_str}")
+            # print(f"Evento (ID: {new_event.id}) creado: {event_type_str}") # Comentado para no llenar la consola
             return new_event
 
         except SQLAlchemyError as e:
@@ -89,7 +89,7 @@ class EventService:
         Actualiza el evento aumentandole +1 a la nsf_count y actualizando el resolve_at_time
         """
         try:
-            print("antes de hacer la consulta")
+            # print("antes de hacer la consulta") # Debug print comentado
             new_resolve_time = datetime.now(timezone.utc) + timedelta(seconds=7)
             #query atomica para que no haya condiciones de carrera(2 players o mas jueguen al mismo tiempo)
             update_count = self._db.query(EventosDeTurno).filter(
@@ -101,11 +101,11 @@ class EventService:
                 EventosDeTurno.resolve_at: new_resolve_time
                 }, synchronize_session=False)
             self._db.commit()
-            print(f"El update_count: {update_count}")
+            # print(f"El update_count: {update_count}") # Debug print comentado
 
 
             if update_count==1:
-                print(f"Evento actualizado por NSF")
+                # print(f"Evento actualizado por NSF") # Debug print comentado
                 updated_event = self._db.query(EventosDeTurno).filter(
                     EventosDeTurno.id == event_id
                 ).first()

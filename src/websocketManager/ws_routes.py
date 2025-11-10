@@ -5,7 +5,6 @@ from typing import List, Dict, Any, Optional, Callable
 from app.models.db import session_local
 from app.matches.services import MatchService
 from app.ws_events.services import WsEventsService
-from app.ws_events.utils import db_ws_event_2_schema
 
 websocket_router = APIRouter()
 
@@ -49,10 +48,13 @@ class ConnectionManager:
             
             if in_progress_matches:
                 for match_id in in_progress_matches:
-                    self.enterMatch(player_id, match_id)
+                    # Primero obtenemos el último evento ANTES de entrar al match
                     last_event = WsEventsService(db).get_last_match_event(match_id)  
+                    # Luego entramos al match para recibir eventos futuros
+                    self.enterMatch(player_id, match_id)
+                    # Finalmente enviamos el último evento si existe
                     if last_event:
-                        await self.safe_send_message(db_ws_event_2_schema(last_event), ws)
+                        await self.safe_send_message(last_event.message, ws)
                 print(f"[WS] Jugador {player_id} reconectado a {len(in_progress_matches)} partida(s) activa(s)")
             else:
                 self.waiting_room.add(ws)
