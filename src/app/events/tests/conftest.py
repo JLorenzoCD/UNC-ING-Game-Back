@@ -5,13 +5,13 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 import uuid
 
-# --- Importa las cosas de tu app ---
-from main import app, populate_initial_data # (Usa el nombre corregido)
-from app.models.db import get_db, Base
-from app.cards.models import Card, Card_Type
-from app.secrets.models import Secret, Secret_Type
+# --- 1. ¡IMPORTA LOS NOMBRES CORRECTOS DE 'main.py'! ---
+from main import app, init_data_total 
 
-# (Esto es copiado de tu 'app/matches/tests/conftest.py')
+from app.models.db import get_db, Base
+# (El resto de tus imports de modelos si 'init_data_total' no los trae)
+
+# Base de datos en memoria para tests
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
 engine = create_engine(
@@ -28,42 +28,26 @@ def override_get_db():
     finally:
         db.close()
 
-# --- ¡LA FIXTURE! ---
-# (La nombramos 'db' para que coincida con tus tests de 'events')
+# --- 2. ¡DEFINIMOS EL FIXTURE 'db'! ---
+# (Tus tests en 'test_events_services.py' están pidiendo 'db')
 @pytest.fixture
 def db():
-    """Fixture que provee una sesión de base de datos de prueba"""
+    """
+    Fixture que provee una sesión de base de datos de prueba
+    (scope 'function', se borra después de cada test)
+    """
+    # 1. Crea las tablas (¡incluyendo eventos_de_turno!)
     Base.metadata.create_all(bind=engine)
+    
+    # 2. Llama a tu función de init
+    init_data_total() 
+    
     session = TestingSessionLocal()
-    
-    # --- ¡LLAMAMOS A LA FUNCIÓN DE INIT! ---
-    # (Usamos la sesión de test para poblar la BBDD en memoria)
-    # (¡Esto arregla el 'init_data() takes 0 positional arguments but 1 was given'!)
-    
-    # (Tenemos que "falsear" el 'init_data' de main.py
-    #  o, mejor, hacer que nuestro 'init_data' local funcione)
-    
-    # Vamos a usar la sesión local para 'init_data'
     try:
-        # (Aquí replicamos la lógica de 'populate_initial_data'
-        #  para la BBDD de test en memoria)
-        if not session.query(Secret).first():
-            session.add_all([
-                Secret(id=uuid.uuid4(), type="MURDERER", content="You are the Murderer!"),
-                # ... (etc)
-            ])
-            session.commit()
-        if not session.query(Card).first():
-            session.add_all([
-                Card(id=uuid.uuid4(), name="NOT SO FAST", type=Card_Type.INSTANT, description="..."),
-                # ... (etc)
-            ])
-            session.commit()
-    
         yield session
-        
     finally:
         session.close()
+        # Borra todo para el próximo test
         Base.metadata.drop_all(bind=engine)
 
 @pytest.fixture
