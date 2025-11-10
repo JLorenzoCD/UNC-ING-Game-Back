@@ -34,3 +34,8 @@ class AddSetIn (BaseModel):
     player_id: UUID
     target_player_id: UUID
     target_secret_id: Optional[UUID] = None
+    
+class stoleSetIn(BaseModel):
+    player_id: UUID
+    target_player_id: UUID
+    target_secret_id: Optional[UUID] = None
