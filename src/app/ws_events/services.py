@@ -1,6 +1,5 @@
 
 from datetime import datetime
-from requests import Session
 from sqlalchemy import UUID
 
 from app.events.models import EventosDeTurno
@@ -8,7 +7,7 @@ from app.ws_events.models import WsEvent
 
 
 class WsEventsService:
-    def __init__(self, db: Session):
+    def __init__(self, db):
         self._db = db
 
     def create_event(self, match_id: UUID, message: str) -> WsEvent:

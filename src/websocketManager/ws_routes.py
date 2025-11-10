@@ -27,20 +27,41 @@ class ConnectionManager:
 
     async def connect(self, ws: WebSocket, player_id: uuid.UUID):
         await ws.accept()
+        
+        # Evitar conexiones duplicadas - desconectar WebSocket anterior si existe
+        old_ws = self.players.get(player_id)
+        if old_ws:
+            print(f"[WS] Desconectando WebSocket anterior para jugador {player_id}")
+            try:
+                await old_ws.close()
+            except Exception:
+                pass  # Ignorar errores al cerrar conexión anterior
+            # Limpiar de todas las estructuras
+            self.waiting_room.discard(old_ws)
+            for match_connections in self.matches.values():
+                match_connections.discard(old_ws)
+        
         self.players[player_id] = ws
 
         db = self._get_db_session()
         try:
             in_progress_matches = MatchService(db).get_active_matches_ids_player(player_id)
-            for match_id in in_progress_matches:
-                self.enterMatch(player_id, match_id)
-                last_event = WsEventsService(db).get_last_match_event(match_id)  
-                if last_event:
-                    await self.safe_send_message(db_ws_event_2_schema(last_event), ws)
+            
+            if in_progress_matches:
+                for match_id in in_progress_matches:
+                    self.enterMatch(player_id, match_id)
+                    last_event = WsEventsService(db).get_last_match_event(match_id)  
+                    if last_event:
+                        await self.safe_send_message(db_ws_event_2_schema(last_event), ws)
+                print(f"[WS] Jugador {player_id} reconectado a {len(in_progress_matches)} partida(s) activa(s)")
+            else:
+                self.waiting_room.add(ws)
+                print(f"[WS] Jugador {player_id} conectado al waiting room")
+                
+        except Exception as e:
+            print(f"[WS] Error al conectar jugador {player_id}: {e}")
         finally:
             db.close()
-
-        self.waiting_room.add(ws)
 
     def disconnect(self, player_id:uuid.UUID):
         ws=self.players.pop(player_id, None) #aplica None por defecto si no encuentra un player con ese ID
@@ -117,18 +138,45 @@ class ConnectionManager:
             await ws.send_text(message)
         except RuntimeError as e:
             print(f"[WS] RuntimeError al enviar mensaje: {e}")
-            # Si el socket está cerrado, limpiamos
+            # Si el socket está cerrado, limpiamos SIN causar desconexión explícita
             player_id_to_remove = next((pid for pid, conn in self.players.items() if conn == ws), None)
             if player_id_to_remove:
-                self.disconnect(player_id_to_remove)
-            else:
-                self.waiting_room.discard(ws)
+                # Solo removemos de las estructuras, no llamamos disconnect que puede causar loops
+                self.players.pop(player_id_to_remove, None)
+                for match_connections in self.matches.values():
+                    match_connections.discard(ws)
+            self.waiting_room.discard(ws)
         except Exception as e:
             print(f"[WS] Error inesperado al enviar mensaje: {e}")
+            # En caso de error inesperado, también limpiamos silenciosamente
+            player_id_to_remove = next((pid for pid, conn in self.players.items() if conn == ws), None)
+            if player_id_to_remove:
+                self.players.pop(player_id_to_remove, None)
+                for match_connections in self.matches.values():
+                    match_connections.discard(ws)
+            self.waiting_room.discard(ws)
 
     async def waiting_room_broadcast(self, message: str):
-        for ws in list(self.waiting_room):
-            await self.safe_send_message(message, ws)
+        # Crear una copia de la lista para evitar modificaciones concurrentes
+        waiting_room_copy = list(self.waiting_room)
+        print(f"[WS] Broadcasting a {len(waiting_room_copy)} conexiones en waiting room")
+        
+        failed_connections = []
+        for ws in waiting_room_copy:
+            try:
+                await ws.send_text(message)
+            except Exception as e:
+                print(f"[WS] Error enviando broadcast a waiting room: {e}")
+                failed_connections.append(ws)
+        
+        # Limpiar conexiones que fallaron
+        for failed_ws in failed_connections:
+            self.waiting_room.discard(failed_ws)
+            # Buscar y limpiar el jugador asociado
+            player_id_to_remove = next((pid for pid, conn in self.players.items() if conn == failed_ws), None)
+            if player_id_to_remove:
+                self.players.pop(player_id_to_remove, None)
+                print(f"[WS] Limpiado jugador {player_id_to_remove} por conexión fallida")
 
     async def specificBroadcast(self, message: str, matchID: uuid.UUID):
         setws = self.matches.get(matchID, set())

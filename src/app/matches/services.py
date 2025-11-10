@@ -136,7 +136,7 @@ class MatchService:
                 .all()
             )
             
-            return [mp.player_id for mp in match_players]
+            return [mp.match_id for mp in match_players]
         except SQLAlchemyError:
             self._db.rollback()
             raise
