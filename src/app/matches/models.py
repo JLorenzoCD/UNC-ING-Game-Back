@@ -1,6 +1,6 @@
 import uuid
 from enum import Enum as PyEnum
-from sqlalchemy import Integer, ForeignKey, Enum
+from sqlalchemy import Integer, ForeignKey, Enum, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime
@@ -95,6 +95,10 @@ class Match(Base):
         Integer,
         default = 1
     )
+    
+    timer_turn: Mapped[datetime | None] = mapped_column(
+        DateTime, default=None
+    )    
     
     owner = relationship("Player", backref="matches")
     events = relationship("EventosDeTurno", back_populates="match")

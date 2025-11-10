@@ -170,13 +170,31 @@ async def start_match(match_id: UUID, db=Depends(get_db)):
         await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, payload))
         await manager.specificBroadcast(make_ws_message(WSEvent.MATCH, payload), match_id)
         
-        return {"status": "Match started successfully"}
     except services.MatchNotFound:
         raise HTTPException(status_code=404, detail="Match not found")
     except SQLAlchemyError as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Could not start match: {str(e)}")
+    
+    # Obtener el jugador actual después del cambio de turno
+    current_player_id = services.MatchService(db).get_current_player_by_match(match_id)
+    
+    # Crear log con información del jugador actual
+    try:
+        if current_player_id:
+            player_obj = services.PlayersService(db).get_player(current_player_id)
+            log = f"[TURN] Es turno de {player_obj.name}"
+            id_log = services.LogService(db).create_log(match_id, log, MatchEventType.TURN, player_obj.id)
+            log_out = services.LogService(db).get_log_by_id(id_log).model_dump(mode='json')
+            await manager.specificBroadcast(make_ws_message(WSEvent.LOG, log_out), match_id)
+        else:
+            print(f"[LOG] No se pudo obtener current_player_id para match {match_id}")
+    except Exception as e:
+        print(f"[LOG] error creando/broadcast log de turno: {e}")
+
+    return {"status": "Match started successfully"}
+
 
 @router.post("/{match_id}/cancel", status_code=status.HTTP_200_OK)
 async def cancel_match(match_id: UUID, owner_id: UUID, db=Depends(get_db)):

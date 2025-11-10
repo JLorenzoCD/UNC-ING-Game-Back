@@ -64,7 +64,8 @@ class MatchService:
             name=match_dto.name,
             min_players=match_dto.min_players,
             max_players=match_dto.max_players,
-            owner_id=owner.id
+            owner_id=owner.id,
+            timer_turn=datetime.now().isoformat()
         )
         
         try:
@@ -161,6 +162,8 @@ class MatchService:
             match.current_player_order = 1
         else:
             match.current_player_order = match.current_player_order + 1
+        
+        match.timer_turn = datetime.now().isoformat()
         self._db.commit()
         self._db.refresh(match)
         return match
