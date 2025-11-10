@@ -68,7 +68,7 @@ class MatchService:
             owner_id=owner.id,
             timer_turn=datetime.now(timezone.utc)
         )
-        
+        print(new_match.timer_turn)
         try:
             self._db.add(new_match)
             self._db.commit()
@@ -167,6 +167,8 @@ class MatchService:
         match.timer_turn = datetime.now(timezone.utc)
         self._db.commit()
         self._db.refresh(match)
+        
+        print(match.timer_turn)
         return match
 
     def extended_match(self, match: Match) -> match_schemas.Match_number_of_Player | None:
