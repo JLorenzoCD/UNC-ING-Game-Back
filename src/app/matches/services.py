@@ -598,11 +598,6 @@ class PileService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
                 detail={"error": "Database error", "details": str(exception)}
             )
-        if match_card.player_id == None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"La carta no se actualizó y el player_id es {match_card.player_id}"
-                )
         return match_card
     
     def discard_cards(self, player_id: UUID, match_id: UUID, cards: list[UUID]) -> None:
