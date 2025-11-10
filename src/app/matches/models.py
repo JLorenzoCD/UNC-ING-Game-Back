@@ -16,6 +16,7 @@ class MatchStatus(PyEnum):
 class MatchEventType(PyEnum):
     # System events
     PLAYER_JOIN = "Player Join"
+    PLAYER_QUIT = "Player Quit"
     TURN = "Turn"
     
     # Detective events
