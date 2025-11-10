@@ -10,7 +10,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.cards.models import Card, Match_Card
 from app.cards.schemas import Match_Card_Schema
 from app.cards.services import Cards_Services
-from app.cards.utils import db_match_card_2_match_card_schema
+from app.events.models import EventosDeTurno
+from app.ws_events.models import WsEvent
 from app.matches import schemas as match_schemas
 from app.matches.models import Match, MatchLogs, MatchStatus
 from app.matches.schemas import MatchOut
@@ -123,6 +124,44 @@ class MatchService:
         except Exception:
             raise
         return match
+
+    def get_ongoing_matches_of_player(self, player_id: UUID) -> List[UUID]:
+        try:
+            match_players = (
+                self._db.query(Match_Player)
+                .join(Match, Match_Player.match_id == Match.id)
+                .filter(
+                    Match_Player.player_id == player_id,
+                    Match.status != MatchStatus.COMPLETED,
+                )
+                .all()
+            )
+            
+            return [mp.match_id for mp in match_players]
+        except SQLAlchemyError:
+            self._db.rollback()
+            raise
+        except Exception:
+            raise
+
+    def get_active_matches_ids_player(self, player_id: UUID) -> List[UUID]:
+        try:
+            match_players = (
+                self._db.query(Match_Player)
+                .join(Match, Match_Player.match_id == Match.id)
+                .filter(
+                    Match_Player.player_id == player_id,
+                    Match.status == MatchStatus.IN_PROGRESS
+                )
+                .all()
+            )
+            
+            return [mp.match_id for mp in match_players]
+        except SQLAlchemyError:
+            self._db.rollback()
+            raise
+        except Exception:
+            raise
 
     def get_current_player_by_match(self, match_id: UUID) -> Optional[UUID]:
         """Get the current player ID based on current_player_order."""
@@ -343,7 +382,7 @@ class MatchService:
             match: Match = self.get_match_by_id(match_id)
         except Exception:
             raise MatchNotFound()
-        
+
         if not match:
             raise MatchNotFound()
         
@@ -362,6 +401,16 @@ class MatchService:
     def _delete_match_completely(self, match_id: UUID) -> None:
         """Delete a match and all its related data from the database."""
         try:
+            self._db.query(WsEvent).filter(Match_Player.match_id == match_id).delete()
+
+            self._db.query(EventosDeTurno).filter(EventosDeTurno.match_id == match_id).delete()
+
+            self._db.query(Match_Secret).filter(Match_Secret.match_id == match_id).delete()
+
+            self._db.query(Match_Card).filter(Match_Card.match_id == match_id).delete()
+
+            self._db.query(Match_Set).filter(Match_Set.match_id == match_id).delete()
+
             # Delete Match_Player entries
             self._db.query(Match_Player).filter(Match_Player.match_id == match_id).delete()
             
@@ -373,6 +422,7 @@ class MatchService:
             
             self._db.commit()
         except SQLAlchemyError as exception:
+            print(f"Error deleting match {match_id}: {exception}")
             self._db.rollback()
             raise exception
 

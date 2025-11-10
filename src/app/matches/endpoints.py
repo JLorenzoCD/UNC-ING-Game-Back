@@ -68,6 +68,8 @@ async def create_match(
     match_in: MatchIn,
     db = Depends(get_db)
 ) -> MatchResponse:
+    if len(services.MatchService(db).get_ongoing_matches_of_player(match_in.owner_id)) > 0:
+            raise HTTPException(status_code=400, detail="Player is already in an ongoing match")
     try:
         match_dto = match_in.to_dto()
         new_match = services.MatchService(db).create(match_dto)
@@ -79,7 +81,7 @@ async def create_match(
         raise HTTPException(status_code=500, detail="Internal server error. " + str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
     # PRIMERO: Agregar el owner al match
     manager.enterMatch(new_match.owner_id, new_match.id)
     
@@ -126,6 +128,9 @@ async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
     if not info_player:
         raise HTTPException(status_code=404, detail="Player not found")
     
+    if len(services.MatchService(db).get_ongoing_matches_of_player(player_id)) > 0:
+        raise HTTPException(status_code=400, detail="Player is already in an ongoing match")
+
     services.MatchService(db).join(match_id, player_id)
     
     # PRIMERO: Agregar el jugador al match en el WebSocket manager
