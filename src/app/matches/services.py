@@ -40,6 +40,11 @@ class MatchValidationError(Exception):
     pass
 
 
+class PlayerNotInMatch(Exception):
+    """Raised when a player is not in the specified match."""
+    pass
+
+
 class MatchService:
     """Service class for managing matches."""
     
@@ -546,6 +551,22 @@ class MatchService:
                 raise MatchValidationError("Match is not in a valid state to start")
         else:
             raise MatchValidationError("Match is not in a valid state to start")
+    
+    def quit_match(self, match_id: UUID, player_id: UUID) -> None:
+        match_player = (
+            self._db.query(Match_Player)
+            .filter(Match_Player.match_id == match_id, Match_Player.player_id == player_id)
+            .first()
+        )
+        if not match_player:
+            raise PlayerNotInMatch()
+        
+        try:
+            self._db.delete(match_player)
+            self._db.commit()
+        except SQLAlchemyError as exception:
+            self._db.rollback()
+            raise exception
 
 
 class PileService:
