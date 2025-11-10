@@ -601,7 +601,7 @@ class PileService:
         if match_card.player_id == None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"La carta no se actualizó y el player_id es {match_card.player_id} --- {match_id}"
+                detail=f"La carta no se actualizó y el player_id es {match_card.player_id}"
                 )
         return match_card
     
