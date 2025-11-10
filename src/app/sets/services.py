@@ -201,7 +201,7 @@ class SetService:
         for name in detective:
             validation = self._validate_detective_in_set(name, match_set.type.value)
         
-        if (match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE, SetType.PARKER_PYNE] and target_secret is None) or detective[0] != SetType.ADRIADNE_OLIVER.value:
+        if (match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE, SetType.PARKER_PYNE] and target_secret is None) and detective[0] != SetType.ADRIADNE_OLIVER.value:
             raise TargetSecretError("No hay secreto seleccionado")
         
         if target_secret:
