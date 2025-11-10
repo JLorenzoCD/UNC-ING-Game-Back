@@ -662,7 +662,78 @@ async def put_down_a_detective(match_id: UUID, set_id:UUID, set_info:set_schemas
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-           
+
+
+@router.put("/{match_id}/sets/{set_id}/stolen", status_code=200)
+async def play_set_stolen(match_id: UUID, set_id: UUID, stolen_setIn: set_schemas.stoleSetIn, db=Depends(get_db)) -> set_schemas.MatchSetOut:
+    try:
+    # ---- Verificaciones ----
+        match_set = set_services.SetService(db).get_match_set(set_id, match_id)
+        set_type = match_set.type
+        target_secret = stolen_setIn.target_secret_id
+        target_player = stolen_setIn.target_player_id
+        if not target_player:
+            raise set_services.InvalidCardError
+             
+        if set_type in [SetType.HERCULE_POIROT, 
+                        SetType.MISS_MARPLE, 
+                        SetType.PARKER_PYNE] and target_secret is None:
+            raise set_services.TargetSecretError("No hay secreto seleccionado")
+        
+        if target_secret:
+            secret = secret_services.Secrets_Services(db).get_match_secret_by_id(target_secret)
+            if secret.player_id != target_player:
+                raise set_services.TargetSecretError("El secreto y el jugador no coinciden")
+            
+            if set_type in [SetType.LADY_EILEEN, SetType.TUPPENCE_BERESFORD, 
+                            SetType.TOMMY_BERESFORD, SetType.TWO_BERESFORD, 
+                            SetType.MR_SATTERTHWAITE]:
+                raise set_services.TargetSecretError("No se debería seleccionar secreto en este momento")        
+        
+        # ---- Acciones ----
+        secret_service = secret_services.Secrets_Services(db)        
+        if target_secret is not None:
+            if match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE]:
+                target_secret = secret_service.update_secret(secret_services.Secret_action.REVEAL, 
+                                                             target_secret, 
+                                                             target_player)
+                match_secret_out = db_match_secret_2_match_secret_schema(target_secret)
+                
+            if match_set.type == (SetType.PARKER_PYNE):
+                target_secret = secret_service.update_secret(secret_services.Secret_action.HIDE, 
+                                                             target_secret, 
+                                                             target_player)
+                match_secret_out = db_match_secret_2_match_secret_schema(target_secret)              
+
+            payload = match_secret_out.model_dump(mode='json')
+            
+            ws_msj = make_ws_message(WSEvent.SECRET, payload)
+            await manager.specificBroadcast(ws_msj, match_id)
+            
+        else:
+            payload = {"target_player_id" : target_player}
+            ws_msj = make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload)
+            await manager.specificBroadcast(ws_msj, match_id)
+        
+        match_set_out = db_match_set_2_match_set_schema(match_set)
+        return match_set_out
+        
+    except (set_services.InvalidCardError, 
+            set_services.InvalidMatchIdError, 
+            set_services.TargetSecretError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+    except set_services.InvalidSetError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    except (ValueError, secret_services.SecretNotFound) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))        
 
 @router.put("/{match_id}/secrets/{secret_id}", status_code=200)
 async def update_secret_in_match(match_id: UUID, secret_id:UUID, secretIn:secret_schemas.SecretUpdate, db=Depends(get_db)) -> secret_schemas.Match_Secret_Schema:
