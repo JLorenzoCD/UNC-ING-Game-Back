@@ -15,6 +15,7 @@ class SetType(PyEnum):
     HERCULE_POIROT = "HERCULE POIROT"
     MISS_MARPLE = "MISS MARPLE" 
     MR_SATTERTHWAITE = "MR SATTERTHWAITE"
+    ADRIADNE_OLIVER = "ARIADNE OLIVER"
 
 class Match_Set (Base):
     """

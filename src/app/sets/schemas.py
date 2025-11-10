@@ -27,3 +27,15 @@ class SetIn (BaseModel):
     player_id: UUID
     target_player_id: UUID
     target_secret_id: Optional[UUID] = None
+    
+class AddSetIn (BaseModel):
+
+    card_ids: List[UUID]
+    player_id: UUID
+    target_player_id: UUID
+    target_secret_id: Optional[UUID] = None
+    
+class stoleSetIn(BaseModel):
+    player_id: UUID
+    target_player_id: UUID
+    target_secret_id: Optional[UUID] = None

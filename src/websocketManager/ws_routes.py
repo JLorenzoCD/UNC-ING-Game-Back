@@ -59,8 +59,6 @@ class ConnectionManager:
         # por si quedó la sala vacía, borramos la key (sin explotar si ya no existe)
         self.matches.pop(match_id, None)
 
-
-
     def enterMatch(self, player_id:uuid.UUID, matchID:uuid.UUID):
         ws=self.players.get(player_id)
         if ws is None:
