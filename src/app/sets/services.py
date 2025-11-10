@@ -253,7 +253,7 @@ class SetService:
             raise InvalidSetError("No se encontró el set")
         return match_set
     
-    def beresford_brothers_in_set_two_beresford(card_name: str, set_type: SetType) -> bool:
+    def beresford_brothers_in_set_two_beresford(self, card_name: str, set_type: SetType) -> bool:
         """
         Verifica si estamos en el caso de que agregamos a TOMMY_BERESFORD en  TUPPENCE_BERESFORD y viceversa
         """

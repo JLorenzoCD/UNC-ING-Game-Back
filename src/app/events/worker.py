@@ -44,8 +44,6 @@ async def event_resolver_loop():
                 EventosDeTurno.status == EventStatus.PENDING.value,
                 EventosDeTurno.resolve_at <= datetime.now(timezone.utc)
             ).all() 
-            if not events_to_resolve:
-                print("No hay eventos para resolver")
             for event in events_to_resolve:
                 #verifica si se va a ejecutar el evento o no
                 if event.nsf_count % 2 == 0:

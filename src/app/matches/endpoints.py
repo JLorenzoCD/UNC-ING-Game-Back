@@ -32,6 +32,7 @@ from app.sets import schemas as set_schemas
 from app.sets.schemas import MatchSetOut
 from app.sets import services as set_services
 from app.sets.models import Match_Set, SetType
+from app.sets.utils import db_match_set_2_match_set_schema
 from app.secrets import services as secret_services
 from app.secrets import schemas as secret_schemas
 from app.secrets.models import Match_Secret, Secret_action
@@ -302,7 +303,8 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
         if setIn.type != SetType.LADY_EILEEN:
             match_set = set_service.create_set(set_data)
             payload = {}
-            payload = match_set.model_dump(mode='json')
+            match_set_out = db_match_set_2_match_set_schema(match_set)
+            payload = match_set_out.model_dump(mode='json')
             card_service = card_services.Cards_Services(db)
             for card in setIn.card_ids:
                 to_eliminate = True
@@ -411,7 +413,8 @@ async def put_down_a_detective(match_id: UUID, set_id:UUID, setIn:set_schemas.Ad
         # Actualizamos si es el caso de que agregamos a TOMMY_BERESFORD en  TUPPENCE_BERESFORD y viceversa
             if set_service.beresford_brothers_in_set_two_beresford(card_name, match_set.type.value):
                 match_set = set_service.update_setType(set_id, SetType.TWO_BERESFORD)
-            payload = match_set.model_dump(mode='json')
+                match_set_out = db_match_set_2_match_set_schema(match_set)
+            payload = match_set_out.model_dump(mode='json')
             
             # Eliminamos las cartas excepto Lady Eileen
             card_service = card_services.Cards_Services(db)

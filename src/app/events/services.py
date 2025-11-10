@@ -18,6 +18,7 @@ from app.cards.utils import db_match_card_2_match_card_schema
 from app.secrets.utils import db_match_secret_2_match_secret_schema
 from app.sets import services as set_services
 from app.sets import models as set_models
+from app.sets.utils import db_match_set_2_match_set_schema
 
 
 class EventService:
@@ -306,8 +307,9 @@ class EventService:
                             "match_id": match_id      
                         }
                         match_set = set_services.SetService(db).create_set(set_data)
-                        # Eliminar cartas 
-                        create_payload = match_set.model_dump(mode='json')
+                        # Eliminar cartas
+                        match_set_out =  db_match_set_2_match_set_schema(match_set)
+                        create_payload = match_set_out.model_dump(mode='json')
                         card_service = services_cards.Cards_Services(db)
                         for card in set_data["card_ids"]:
                             to_eliminate = True
@@ -320,7 +322,8 @@ class EventService:
                         match_set_id = uuid.UUID(event_payload("set_id"))
                         match_set = set_services.SetService(db).get_match_set(match_set_id, match_id)
                         card_service = services_cards.Cards_Services(db)
-                        update_payload = match_set.model_dump(mode='json')                        
+                        match_set_out = db_match_set_2_match_set_schema(match_set)
+                        update_payload = match_set_out.model_dump(mode='json')                        
                         #Eliminamos la carta
                         to_eliminate = True
                         eliminate = card_service.discard_card(match_card_id, to_eliminate)
