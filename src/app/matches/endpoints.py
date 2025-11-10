@@ -407,7 +407,7 @@ async def discard_card(match_id: UUID, cards: discard_Match_Cards_in, db=Depends
     
 
 @router.put("/{match_id}/timeout/{player_id}", status_code=status.HTTP_200_OK)
-async def time_out(match_id: UUID, player_id:UUID, db = Depends(get_db)) -> Match_Card_Schema:
+async def time_out(match_id: UUID, player_id:UUID, db = Depends(get_db)) -> List[Match_Card_Schema]:
     try:
         match_services = services.MatchService(db)
         match = match_services.get_match_by_id(match_id)
@@ -505,7 +505,7 @@ async def time_out(match_id: UUID, player_id:UUID, db = Depends(get_db)) -> Matc
         except Exception as e:
             print(f"[LOG] error creando/broadcast log de turno: {e}")
         
-        return {"match_id": match_id}
+        return results
     
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
