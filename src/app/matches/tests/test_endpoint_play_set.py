@@ -376,10 +376,10 @@ def test_endpoint_play_Eileen(db_session, client, set_type, card_names, quins_co
         accion_set = resutl["accion_set"]
         
         assert accion_set["target_player_id"] == str(owner_id)
-        assert accion_set["type"] == SetType.LADY_EILEEN.value
+        assert resutl["type"] == SetType.LADY_EILEEN.value
         
         data = resutl["data_set"]
         assert data is not None
         
         assert data["deleted_cards"] == [str(card) for card in match_card_ids]
-        assert data["type"] == SetType.LADY_EILEEN.value
+        assert resutl["type"] == SetType.LADY_EILEEN.value
