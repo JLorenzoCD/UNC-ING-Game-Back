@@ -81,7 +81,6 @@ async def event_resolver_loop():
                             #marcar como resuelto el evento
                             event.status = EventStatus.RESOLVED.value
                             db.commit()
-                        
                             # Avisar que se ejecuto el evento
                             if result_payload:
                                 if result_payload.get("type") in [e.value for e in Card_event]:   #Eventos
@@ -89,6 +88,8 @@ async def event_resolver_loop():
                                         make_ws_message(WSEvent.CARD_EVENT, result_payload),
                                         event.match_id
                                     )
+                                    if result_payload.get("type")==Card_event.EARLY_TRAIN_TO_PADDINGTON.value and (len(result_payload.get("updated_match_cards"))<=6 or services_match.PileService.get_count_cards_pile(event.match_id)<=0):
+                                        await handle_match_ended(db, manager, event.match_id, MatchEndedReason.DECK_FINISHED)
                                     
                                 elif result_payload.get("type") in (SetType.HERCULE_POIROT.value, #Set simples
                                                                     SetType.MISS_MARPLE.value, 
