@@ -283,4 +283,62 @@ class Secrets_Services:
             "accomplice_name": accomplice_name,
         }
     
+    def is_everyone_in_social_disgrace(self, match_id: UUID) -> bool:
+        """
+        Verifica si todos los jugadores inocentes (no murderer ni accomplice) 
+        tienen todos sus secretos revelados.
+        
+        Returns:
+            bool: True si todos los inocentes están en desgracia social, False en caso contrario
+        """
+        # Obtener IDs del murderer y accomplice
+        murderer_id = None
+        accomplice_id = None
+        
+        try:
+            murderer_id = self.get_murderer_id(match_id)
+        except ValueError:
+            # Si no hay murderer asignado, no se puede estar en desgracia social
+            return False
+            
+        try:
+            accomplice_id = self.get_accomplice_id(match_id)
+        except:
+            # Accomplice es opcional, puede no existir
+            pass
+
+        # Obtener todos los jugadores del match
+        from app.player.models import Match_Player
+        all_players = (
+            self._db.query(Match_Player.player_id)
+            .filter(Match_Player.match_id == match_id)
+        ).all()
+        
+        # Filtrar jugadores inocentes (excluir murderer y accomplice)
+        innocent_player_ids = []
+        for player in all_players:
+            player_id = player[0]
+            if player_id != murderer_id and player_id != accomplice_id:
+                innocent_player_ids.append(player_id)
+        
+        # Si no hay jugadores inocentes, no están en desgracia
+        if not innocent_player_ids:
+            return False
+        
+        # Verificar que todos los secretos de todos los jugadores inocentes estén revelados
+        for innocent_id in innocent_player_ids:
+            # Obtener todos los secretos del jugador inocente
+            player_secrets = (
+                self._db.query(Match_Secret)
+                .filter(Match_Secret.match_id == match_id)
+                .filter(Match_Secret.player_id == innocent_id)
+            ).all()
+            
+            # Si el jugador tiene secretos sin revelar, no están en desgracia social
+            for secret in player_secrets:
+                if not secret.is_revealed:
+                    return False
+        
+        return True
+    
     

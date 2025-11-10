@@ -704,6 +704,18 @@ async def play_set_stolen(match_id: UUID, set_id: UUID, stolen_setIn: set_schema
                                                              target_player)
                 match_secret_out = db_match_secret_2_match_secret_schema(target_secret)
                 
+                # Chequear condiciones de victoria después de revelar un secreto
+                try:
+                    res = secret_service.is_murderer_revealed(match_id)
+                    if res:
+                        await handle_match_ended(db, manager, match_id, MatchEndedReason.MURDERER_REVEALED)
+                    else:
+                        # Verificar si todos están en desgracia social
+                        if secret_service.is_everyone_in_social_disgrace(match_id):
+                            await handle_match_ended(db, manager, match_id, MatchEndedReason.SOCIAL_DISGRACE)
+                except Exception as e:
+                    print(f"Error al verificar condiciones de victoria: {e}")
+                
             if match_set.type == (SetType.PARKER_PYNE):
                 target_secret = secret_service.update_secret(secret_services.Secret_action.HIDE, 
                                                              target_secret, 
@@ -759,6 +771,10 @@ async def update_secret_in_match(match_id: UUID, secret_id:UUID, secretIn:secret
                 res=secret_service.is_murderer_revealed(match_id)
                 if res:
                     await handle_match_ended(db, manager, match_id, MatchEndedReason.MURDERER_REVEALED)
+                else:
+                    # Verificar si todos están en desgracia social
+                    if secret_service.is_everyone_in_social_disgrace(match_id):
+                        await handle_match_ended(db, manager, match_id, MatchEndedReason.SOCIAL_DISGRACE)
             except Exception as e:
                 raise HTTPException(status_code=400, detail=str(e))
         

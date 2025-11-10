@@ -125,3 +125,111 @@ def test_get_full_info_without_murderer(db_session, client):
 
     #nunca se inicio la partida, debe devolver None ya que no hay murderer
     assert info is None
+
+def test_is_everyone_in_social_disgrace_false_when_match_not_started(db_session, client):
+    """Test que verifica que no hay desgracia social cuando la partida no empezó"""
+    setup = setup_match_and_players(client, db_session)
+    match_id = setup["match_id"]
+
+    svc = Secrets_Services(db_session)
+    result = svc.is_everyone_in_social_disgrace(match_id)
+    
+    # Debe devolver False porque no hay murderer asignado
+    assert result is False
+
+def test_is_everyone_in_social_disgrace_false_when_some_innocent_secrets_hidden(db_session, client):
+    """Test que verifica que no hay desgracia social cuando algunos secretos inocentes no están revelados"""
+    setup = setup_match_and_players(client, db_session)
+    match_id = setup["match_id"]
+    match_str_id = setup["match_str_id"]
+
+    # Iniciar partida
+    resp = client.post(f"/matches/{match_str_id}/start")
+    assert resp.status_code == 200
+
+    svc = Secrets_Services(db_session)
+    
+    # Obtener todos los secretos inocentes
+    innocent_secrets = (
+        db_session.query(Match_Secret)
+        .join(Secret, Match_Secret.secret_id == Secret.id)
+        .filter(Match_Secret.match_id == match_id)
+        .filter(Secret.type == Secret_Type.INNOCENT)
+        .filter(Match_Secret.player_id.isnot(None))
+    ).all()
+    
+    # Revelar solo algunos secretos inocentes (no todos)
+    if len(innocent_secrets) > 1:
+        svc.reveal_secret(innocent_secrets[0].id)
+    
+    result = svc.is_everyone_in_social_disgrace(match_id)
+    
+    # Debe devolver False porque no todos los secretos inocentes están revelados
+    assert result is False
+
+def test_is_everyone_in_social_disgrace_true_when_all_innocent_secrets_revealed(db_session, client):
+    """Test que verifica que hay desgracia social cuando todos los secretos inocentes están revelados"""
+    setup = setup_match_and_players(client, db_session)
+    match_id = setup["match_id"]
+    match_str_id = setup["match_str_id"]
+
+    # Iniciar partida
+    resp = client.post(f"/matches/{match_str_id}/start")
+    assert resp.status_code == 200
+
+    svc = Secrets_Services(db_session)
+    
+    # Obtener todos los secretos inocentes
+    innocent_secrets = (
+        db_session.query(Match_Secret)
+        .join(Secret, Match_Secret.secret_id == Secret.id)
+        .filter(Match_Secret.match_id == match_id)
+        .filter(Secret.type == Secret_Type.INNOCENT)
+        .filter(Match_Secret.player_id.isnot(None))
+    ).all()
+    
+    # Revelar todos los secretos inocentes
+    for secret in innocent_secrets:
+        svc.reveal_secret(secret.id)
+    
+    result = svc.is_everyone_in_social_disgrace(match_id)
+    
+    # Debe devolver True porque todos los secretos inocentes están revelados
+    assert result is True
+
+def test_is_everyone_in_social_disgrace_two_players_scenario(db_session, client):
+    """Test que verifica el escenario específico de 2 jugadores donde el inocente queda en desgracia social"""
+    setup = setup_match_and_players(client, db_session)
+    match_id = setup["match_id"]
+    match_str_id = setup["match_str_id"]
+    owner_id = setup["owner_id"]
+    player2_id = setup["player2_id"]
+
+    # Iniciar partida
+    resp = client.post(f"/matches/{match_str_id}/start")
+    assert resp.status_code == 200
+
+    svc = Secrets_Services(db_session)
+    
+    # Obtener el ID del murderer
+    murderer_id = svc.get_murderer_id(match_id)
+    
+    # Determinar quién es el inocente
+    innocent_id = player2_id if murderer_id == owner_id else owner_id
+    
+    # Obtener todos los secretos del jugador inocente
+    innocent_secrets = (
+        db_session.query(Match_Secret)
+        .filter(Match_Secret.match_id == match_id)
+        .filter(Match_Secret.player_id == innocent_id)
+    ).all()
+    
+    # Revelar todos los secretos del jugador inocente
+    for secret in innocent_secrets:
+        svc.reveal_secret(secret.id)
+    
+    result = svc.is_everyone_in_social_disgrace(match_id)
+    
+    # Debe devolver True porque el jugador inocente tiene todos sus secretos revelados
+    # independientemente de si quedan secretos INNOCENT sin revelar que pertenecen al murderer
+    assert result is True

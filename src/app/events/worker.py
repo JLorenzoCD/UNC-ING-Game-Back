@@ -104,6 +104,10 @@ async def event_resolver_loop():
                                             res=secret_service.Secrets_Services(db).is_murderer_revealed(event.match_id)
                                             if res:
                                                 await handle_match_ended(db, manager, event.match_id, MatchEndedReason.MURDERER_REVEALED)
+                                            else:
+                                                # Verificar si todos están en desgracia social
+                                                if secret_service.Secrets_Services(db).is_everyone_in_social_disgrace(event.match_id):
+                                                    await handle_match_ended(db, manager, event.match_id, MatchEndedReason.SOCIAL_DISGRACE)
                                     except Exception as e:
                                         raise HTTPException(status_code=400, detail=str(e))
                                 # Caso Lady Eileen                                                                    
