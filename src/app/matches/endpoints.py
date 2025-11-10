@@ -399,12 +399,12 @@ async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db
         raise HTTPException(status_code=500, detail=str(e))
     
 @router.put('/{match_id}/sets/{set_id}', status_code=200)
-async def put_down_a_detective(match_id: UUID, set_id:UUID, setIn:set_schemas.AddSetIn, db=Depends(get_db)) -> set_schemas.MatchSetOut:
+async def put_down_a_detective(match_id: UUID, set_id:UUID, set_info:set_schemas.AddSetIn, db=Depends(get_db)) -> set_schemas.MatchSetOut:
     try:
         # ---- Verificaciones y Bajar carta al Set ----
-        match_card_ids: List[UUID] = setIn.card_ids
+        match_card_ids: List[UUID] = set_info.card_ids
         set_service = set_services.SetService(db)
-        set_service.add_card_verification(match_card_ids, set_id, setIn.target_player_id, setIn.target_secret_id)
+        set_service.add_card_verification(match_card_ids, set_id, set_info.target_player_id, set_info.target_secret_id)
         
         match_set = set_service.get_match_set(set_id, match_id)
         match_set_out = db_match_set_2_match_set_schema(match_set)
@@ -420,7 +420,7 @@ async def put_down_a_detective(match_id: UUID, set_id:UUID, setIn:set_schemas.Ad
             
             # Eliminamos las cartas excepto Lady Eileen
             card_service = card_services.Cards_Services(db)
-            for card in setIn.card_ids:
+            for card in set_info.card_ids:
                 to_eliminate = True
                 eliminate = card_service.discard_card(card, to_eliminate)  
             payload.update({"deleted_cards": [str(uuid) for uuid in match_card_ids]})            
@@ -428,27 +428,28 @@ async def put_down_a_detective(match_id: UUID, set_id:UUID, setIn:set_schemas.Ad
             await manager.specificBroadcast(ws_msj, match_id)
 
         # ---- Casos posibles para el Worker ----
+        set_type = match_set.type
         set_in_complete = set_schemas.SetIn(
-            type=match_set.type,
-            card_ids=setIn.card_ids,
-            player_id=setIn.player_id,
-            target_player_id=setIn.target_player_id,
-            target_secret_id=setIn.target_secret_id
+            type=set_type,
+            card_ids=set_info.card_ids,
+            player_id=set_info.player_id,
+            target_player_id=set_info.target_player_id,
+            target_secret_id=set_info.target_secret_id
         )
     
         # Caso Oliver 
         if card_name == SetType.ADRIADNE_OLIVER.value:
             set_in_Oliver = set_schemas.SetIn(
                 type=SetType.ADRIADNE_OLIVER,
-                card_ids=setIn.card_ids,
-                player_id=setIn.player_id,
-                target_player_id=setIn.target_player_id,
-                target_secret_id=setIn.target_secret_id
+                card_ids=set_info.card_ids,
+                player_id=set_info.player_id,
+                target_player_id=set_info.target_player_id,
+                target_secret_id=set_info.target_secret_id
             )
             set_payload = set_services.SetService(db).create_set_payload(match_id, set_in_Oliver, is_Oliver=True)
             new_event = services_event.EventService(db).create_event(
                 match_id,
-                setIn.player_id,
+                set_info.player_id,
                 SetType.ADRIADNE_OLIVER.value,
                 None,
                 set_payload,
@@ -456,7 +457,7 @@ async def put_down_a_detective(match_id: UUID, set_id:UUID, setIn:set_schemas.Ad
             payload = {
                 "event_id": str(new_event.id),
                 "event_type": set_in_complete.type.value,
-                "player_id": str(setIn.player_id),
+                "player_id": str(set_info.player_id),
                 "resolve_at_utc": new_event.resolve_at.isoformat(),
                 "nsf_count": new_event.nsf_count,
                 "discarded_card": None
@@ -469,7 +470,7 @@ async def put_down_a_detective(match_id: UUID, set_id:UUID, setIn:set_schemas.Ad
             set_payload = set_services.SetService(db).create_set_payload(match_id, set_in_complete, is_Oliver=False)
             new_event = services_event.EventService(db).create_event(
                 match_id,
-                setIn.player_id,
+                set_info.player_id,
                 set_in_complete.type.value,
                 None,
                 set_payload,
@@ -483,12 +484,12 @@ async def put_down_a_detective(match_id: UUID, set_id:UUID, setIn:set_schemas.Ad
             
         # Caso Lady Eileen
         elif match_set.type == SetType.LADY_EILEEN:
-            set_payload = set_services.SetService(db).create_set_payload(match_id, setIn, is_Oliver=False)
+            set_payload = set_services.SetService(db).create_set_payload(match_id, set_in_complete, is_Oliver=False)
             set_payload.update({"is_create_set": False})
             set_payload.update({"set_id": str(match_set.id)})
             new_event = services_event.EventService(db).create_event(
                 match_id,
-                setIn.player_id,
+                set_info.player_id,
                 set_in_complete.type.value,
                 match_card_ids[0],
                 set_payload
@@ -496,7 +497,7 @@ async def put_down_a_detective(match_id: UUID, set_id:UUID, setIn:set_schemas.Ad
             payload = {
                 "event_id": str(new_event.id),
                 "event_type": set_in_complete.type.value,
-                "player_id": str(setIn.player_id),
+                "player_id": str(set_info.player_id),
                 "resolve_at_utc": new_event.resolve_at.isoformat(),
                 "nsf_count": new_event.nsf_count,
                 "discarded_card": None
@@ -506,10 +507,10 @@ async def put_down_a_detective(match_id: UUID, set_id:UUID, setIn:set_schemas.Ad
             )     
         # Caso otro Detectives                  
         else:
-            set_payload = set_services.SetService(db).create_set_payload(match_id, setIn, is_Oliver=False)
+            set_payload = set_services.SetService(db).create_set_payload(match_id, set_in_complete, is_Oliver=False)
             new_event = services_event.EventService(db).create_event(
                 match_id,
-                setIn.player_id,
+                set_info.player_id,
                 set_in_complete.type.value,
                 None,
                 set_payload
@@ -517,7 +518,7 @@ async def put_down_a_detective(match_id: UUID, set_id:UUID, setIn:set_schemas.Ad
             payload = {
                 "event_id": str(new_event.id),
                 "event_type": set_in_complete.type.value,
-                "player_id": str(setIn.player_id),
+                "player_id": str(set_info.player_id),
                 "resolve_at_utc": new_event.resolve_at.isoformat(),
                 "nsf_count": new_event.nsf_count,
                 "discarded_card": None

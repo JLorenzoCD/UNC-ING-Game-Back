@@ -109,7 +109,7 @@ def setup_match_and_players(client, db_session):
 
 
     # Agregar cartas base al sistema
-    cards = [
+    cards = [        
         Card(id=uuid.UUID("d572ba5c-20b8-4ee0-8bf5-f792887b0073"), name="NOT SO FAST", type=Card_Type.INSTANT, description="Instant card"),
         Card(id=uuid.UUID("a95eebac-9c02-4ea0-99fd-5bde7882ac79"), name="PARKER PYNE", type=Card_Type.DETECTIVE, description="Detective card"),
         Card(id=uuid.UUID("d314be48-bbd2-4093-b53f-4715515f6dd7"), name="LADY EILEEN", type=Card_Type.DETECTIVE, description="Detective card"),
