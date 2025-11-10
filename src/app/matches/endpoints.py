@@ -452,7 +452,7 @@ async def time_out(match_id: UUID, player_id:UUID, db = Depends(get_db)) -> Opti
             if new_card.player_id != player_id:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"La carta no se actualizó y el player_id es {new_card.player_id}"
+                    detail=f"La carta no se actualizó y el player_id es {new_card.player_id} --- {fourth_card}"
                 )
         else:
             raise HTTPException(
