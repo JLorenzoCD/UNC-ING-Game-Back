@@ -689,7 +689,6 @@ async def play_set_stolen(match_id: UUID, set_id: UUID, stolen_setIn: set_schema
         else:
             payload = {"target_player_id" : target_player}
             ws_msj = make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload)
-            
             await manager.specificBroadcast(ws_msj, match_id)
         
         match_set_out = db_match_set_2_match_set_schema(match_set)
