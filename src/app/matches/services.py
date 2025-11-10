@@ -581,7 +581,7 @@ class PileService:
     def __init__(self, db):
         self._db = db
 
-    def take_cards(self, player_id: UUID, match_id: UUID, cards: list[UUID]) -> None:
+    def take_cards(self, player_id: UUID, match_id: UUID, cards: list[UUID]) -> Match_Card:
         """Take cards from the pile and assign to player."""
         try:
             for card in cards:
@@ -591,12 +591,14 @@ class PileService:
                     match_card.is_discarded = False
                     match_card.discarded_at = None
             self._db.commit()
+            self._db.refresh(match_card)
         except SQLAlchemyError as exception:
             self._db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
                 detail={"error": "Database error", "details": str(exception)}
             )
+        return match_card
     
     def discard_cards(self, player_id: UUID, match_id: UUID, cards: list[UUID]) -> None:
         """Discard cards from player to the pile."""

@@ -407,7 +407,7 @@ async def discard_card(match_id: UUID, cards: discard_Match_Cards_in, db=Depends
     
 
 @router.put("/{match_id}/timeout/{player_id}", status_code=status.HTTP_200_OK)
-async def time_out(match_id: UUID, player_id:UUID, db = Depends(get_db)) -> List[Match_Card_Schema]:
+async def time_out(match_id: UUID, player_id:UUID, db = Depends(get_db)) -> Optional[List[Match_Card_Schema]]:
     try:
         match_services = services.MatchService(db)
         match = match_services.get_match_by_id(match_id)
@@ -421,11 +421,8 @@ async def time_out(match_id: UUID, player_id:UUID, db = Depends(get_db)) -> List
             )
         time_diff = (time_now - match.timer_turn).total_seconds()
         if time_diff <= 60:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"No es time out el tiempo de la partida es {match.timer_turn} y el tiempo actual es {time_now}"
-            )
-            
+            return None
+        
         player = db.query(Match_Player).filter(Match_Player.match_id == match_id, Match_Player.player_id == player_id).first()
         if not player:
             raise HTTPException(status_code=404, detail="Player not found in this match")
@@ -451,14 +448,23 @@ async def time_out(match_id: UUID, player_id:UUID, db = Depends(get_db)) -> List
                         ).order_by(Match_Card.id).offset(3).first()
         
         if fourth_card:
-            services.PileService(db).take_cards(player_id, match_id, cards=[fourth_card.id])
+            new_card = services.PileService(db).take_cards(player_id, match_id, cards=[fourth_card.id])
+            if new_card.player_id != player_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"La carta no se actualizó y el player_id es {new_card.player_id}"
+                )
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"No se encontró la cuarta carta"
             )
-                        
-        results = services.MatchService(db).get_extended_cards_by_match(match_id, ids=[first_card.id, fourth_card.id])
+        
+        print(fourth_card)
+            
+        ids = list(set([first_card.id, fourth_card.id]))
+             
+        results = services.MatchService(db).get_extended_cards_by_match(match_id, ids)
         payload = [
             {
             "id": card[0],
