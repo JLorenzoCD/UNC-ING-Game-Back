@@ -376,6 +376,44 @@ class MatchService:
             self._db.rollback()
             raise exception
 
+    def cancel_match(self, match_id: UUID, owner_id: UUID) -> MatchOut:
+        try:
+            match: Match = self.get_match_by_id(match_id)
+        except Exception:
+            raise MatchNotFound()
+        
+        if not match:
+            raise MatchNotFound()
+        
+        if match.owner_id != owner_id:
+            raise MatchValidationError("Solo el propietario de la partida puede cancelarla.")
+        
+        if match.status != MatchStatus.WAITING:
+            raise MatchValidationError("Solo se pueden cancelar partidas en estado 'waiting'.")
+        
+        match_out = db_match_2_match_schema(match)
+
+        self._delete_match_completely(match_id)
+        
+        return match_out
+
+    def _delete_match_completely(self, match_id: UUID) -> None:
+        """Delete a match and all its related data from the database."""
+        try:
+            # Delete Match_Player entries
+            self._db.query(Match_Player).filter(Match_Player.match_id == match_id).delete()
+            
+            # Delete MatchLogs entries
+            self._db.query(MatchLogs).filter(MatchLogs.match_id == match_id).delete()
+            
+            # Delete the match itself
+            self._db.query(Match).filter(Match.id == match_id).delete()
+            
+            self._db.commit()
+        except SQLAlchemyError as exception:
+            self._db.rollback()
+            raise exception
+
     def get_players_from_match(self, match_id: UUID):
         """Get all players from a match."""
         return (

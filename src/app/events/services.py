@@ -13,10 +13,13 @@ from app.events.models import EventosDeTurno, EventStatus
 from app.cards.services import Card_event
 from app.cards import services as services_cards
 from app.matches import services as services_matches
-from app.secrets import services as services_secrets
+from app.secrets import services as secret_service
+from app.secrets import models as secret_models
 from app.cards.utils import db_match_card_2_match_card_schema
 from app.secrets.utils import db_match_secret_2_match_secret_schema
 from app.sets import services as set_services
+from app.sets import models as set_models
+from app.sets.utils import db_match_set_2_match_set_schema
 
 
 class EventService:
@@ -322,6 +325,23 @@ class EventService:
                             "updated_set": None,
                             "message": f"{typeEvent} was succesfull"
                         }
+                case Card_event.DEAD_CARD_FOLLY.value:
+                    print("Resolviendo el Dead Card Folly...")
+                    responses = event_payload.get('responses', [])
+                    direction = event_payload.get('direction')
+
+                    updated_match_cards = services_cards.Cards_Services(db).pass_cards_in_direction(match_id,responses,direction)
+                    updated_match_cards_schemas = [db_match_card_2_match_card_schema(card) for card in updated_match_cards]
+                    updated_match_cards = [mc.model_dump(mode="json") for mc in updated_match_cards_schemas]
+
+                    payload = {
+                            "type": typeEvent,
+                            "updated_match_cards": updated_match_cards,
+                            "updated_secret": None,
+                            "discarded_card_event": None,
+                            "updated_set": None,
+                            "message": f"{typeEvent} was succesfull"
+                        }
                 case Card_event.POINT_YOUR_SUSPICIONS.value:
                     print("Resolviendo el Point your suspicions...")
                     responses = event_payload.get('responses', [])
@@ -337,6 +357,84 @@ class EventService:
                             "target_player_id": most_voted_player,
                     }
             
+                    
+                # Casos Simples
+                case t if t in (set_models.SetType.HERCULE_POIROT.value, 
+                                set_models.SetType.MISS_MARPLE.value, 
+                                set_models.SetType.PARKER_PYNE.value):
+                    try:
+                        if typeEvent in (set_models.SetType.HERCULE_POIROT.value, set_models.SetType.MISS_MARPLE.value):
+                            target_secret = secret_service.Secrets_Services(db).update_secret(secret_models.Secret_action.REVEAL, 
+                                                                        uuid.UUID(event_payload["target_secret_id"]), 
+                                                                        uuid.UUID(event_payload["target_player_id"]))
+                            match_secret_out = db_match_secret_2_match_secret_schema(target_secret)
+                            
+                        if typeEvent == (set_models.SetType.PARKER_PYNE.value):
+                            target_secret = secret_service.Secrets_Services(db).update_secret(secret_models.Secret_action.HIDE, 
+                                                                        uuid.UUID(event_payload["target_secret_id"]), 
+                                                                        uuid.UUID(event_payload["target_player_id"]))                     
+                            match_secret_out = db_match_secret_2_match_secret_schema(target_secret)              
+
+                        payload = match_secret_out.model_dump(mode='json')
+                        payload["type"] = typeEvent
+                        
+                    except Exception as e:
+                        raise e
+                case t if t in (set_models.SetType.TOMMY_BERESFORD.value,
+                                set_models.SetType.TUPPENCE_BERESFORD.value,
+                                set_models.SetType.MR_SATTERTHWAITE.value):
+                    payload = {"target_player_id" : event_payload["target_player_id"]}
+                    payload["type"] = typeEvent
+
+                case set_models.SetType.TWO_BERESFORD.value:
+                    payload = {"target_player_id" : event_payload["target_player_id"]}
+                
+                case set_models.SetType.ADRIADNE_OLIVER.value:
+                    payload = {"target_player_id" : event_payload["target_player_id"]}
+                    payload["type"] = typeEvent
+
+                case set_models.SetType.LADY_EILEEN.value:
+                    accion_set = {
+                        "target_player_id" : event_payload["target_player_id"],        
+                        }
+                    payload = {"accion_set" : accion_set, "type" : typeEvent }
+                    
+                    if event_payload["is_create_set"] == True:
+                        #Crear Set
+                        data = event_payload["set_data"]
+                        set_data = {
+                            "type" : set_models.SetType.LADY_EILEEN,
+                            "card_ids": [uuid.UUID(card_id) for card_id in data["card_ids"]],
+                            "player_id": player_id,
+                            "target_player_id": uuid.UUID(data["target_player_id"]),
+                            "target_secret_id": None,
+                            "match_id": match_id      
+                        }
+                        match_set = set_services.SetService(db).create_set(set_data)
+                        # Eliminar cartas
+                        match_set_out =  db_match_set_2_match_set_schema(match_set)
+                        create_payload = match_set_out.model_dump(mode='json')
+                        card_service = services_cards.Cards_Services(db)
+                        for card in set_data["card_ids"]:
+                            to_eliminate = True
+                            eliminate = card_service.discard_card(card, to_eliminate)  
+                        create_payload.update({"deleted_cards": data["card_ids"]})                        
+                        payload["data_set"] = create_payload
+                        
+                    elif event_payload["is_create_set"] == False:
+                        # Bajar una carta
+                        match_set_id = uuid.UUID(event_payload("set_id"))
+                        match_set = set_services.SetService(db).get_match_set(match_set_id, match_id)
+                        card_service = services_cards.Cards_Services(db)
+                        match_set_out = db_match_set_2_match_set_schema(match_set)
+                        update_payload = match_set_out.model_dump(mode='json')                        
+                        #Eliminamos la carta
+                        to_eliminate = True
+                        eliminate = card_service.discard_card(match_card_id, to_eliminate)
+                        update_payload.update({"deleted_cards": [str(uuid) for uuid in data["card_ids"]]})                        
+                        payload["data_set"] = update_payload                            
+                    
+                
             return payload
         except Exception as e:
             raise e
