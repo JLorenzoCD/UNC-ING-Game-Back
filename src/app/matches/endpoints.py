@@ -402,7 +402,7 @@ async def put_down_a_detective(match_id: UUID, set_id:UUID, setIn:set_schemas.Ad
         # ---- Verificaciones y Bajar carta al Set ----
         match_card_ids: List[UUID] = setIn.card_ids
         set_service = set_services.SetService(db)
-        set_service.add_card_verification(match_card_ids, match_id, set_id, setIn.target_player_id, setIn.target_secret_id)
+        set_service.add_card_verification(match_card_ids, set_id, setIn.target_player_id, setIn.target_secret_id)
         
         match_set = set_service.get_match_set(set_id, match_id)
         card_name = set_service._get_card_names(match_card_ids)[0]
@@ -433,7 +433,14 @@ async def put_down_a_detective(match_id: UUID, set_id:UUID, setIn:set_schemas.Ad
     
         # Caso Oliver 
         if card_name == SetType.ADRIADNE_OLIVER.value:
-            set_payload = set_services.SetService(db).create_set_payload(match_id, set_in_complete, is_Oliver=True)
+            set_in_Oliver = set_schemas.SetIn(
+                type=SetType.ADRIADNE_OLIVER,
+                card_ids=setIn.card_ids,
+                player_id=setIn.player_id,
+                target_player_id=setIn.target_player_id,
+                target_secret_id=setIn.target_secret_id
+            )
+            set_payload = set_services.SetService(db).create_set_payload(match_id, set_in_Oliver, is_Oliver=True)
             new_event = services_event.EventService(db).create_event(
                 match_id,
                 setIn.player_id,
