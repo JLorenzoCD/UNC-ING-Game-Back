@@ -257,9 +257,11 @@ class EventService:
                 case Card_event.DELAY_THE_MURDERER_ESCAPE.value:
                     if len(event_payload["cards_ids"])>5:
                         raise ValueError("Se pasaron mas de 5 cartas para retrasar")
-
+                    
+                    event.match_card_id = None
+                    db.commit()
                     updated_match_cards=services_cards.Cards_Services(db).delay_the_murderer_escape_event(event_payload["cards_ids"])
-
+                    services_cards.Cards_Services(db).discard_card(match_card_id, True)
                     #convertimos a schema para que sean serializables
                     updated_match_cards_schemas = [db_match_card_2_match_card_schema(card) for card in updated_match_cards]
 
