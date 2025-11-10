@@ -55,10 +55,13 @@ async def event_resolver_loop():
                                     "players_ids":[event.player_id,event.payload['target_player_id']]
                                 }
                             else:
+                                    ids=[]
+                                    for mp in services_match.MatchService(db).get_players_from_match(event.match_id):
+                                        ids.append(mp.player_id)
                                     payload = {
                                     "event_type": event.event_type,
                                     "event_id": event.id,
-                                    "players_ids":services_match.MatchService(db).get_players_from_match(event.match_id)
+                                    "players_ids":ids
                                 }
                             await manager.specificBroadcast(
                                 make_ws_message(WSEvent.PENDING_TARGET_RESPONSE, payload),
