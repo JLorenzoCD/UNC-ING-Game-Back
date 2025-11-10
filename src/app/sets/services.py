@@ -184,7 +184,7 @@ class SetService:
         
         if not card_ids:
             raise InvalidCardError("No hay carta de Detective para bajar")
-        if len(card_ids) < 2:
+        if len(card_ids) > 2:
             raise InvalidCardError("Solo se debe mandar una carta")
         
         for card_id in card_ids:
