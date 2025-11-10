@@ -321,6 +321,23 @@ class EventService:
                             "updated_set": None,
                             "message": f"{typeEvent} was succesfull"
                         }
+                case Card_event.DEAD_CARD_FOLLY.value:
+                    print("Resolviendo el Dead Card Folly...")
+                    responses = event_payload.get('responses', [])
+                    direction = event_payload.get('direction')
+
+                    updated_match_cards = services_cards.Cards_Services(db).pass_cards_in_direction(match_id,responses,direction)
+                    updated_match_cards_schemas = [db_match_card_2_match_card_schema(card) for card in updated_match_cards]
+                    updated_match_cards = [mc.model_dump(mode="json") for mc in updated_match_cards_schemas]
+
+                    payload = {
+                            "type": typeEvent,
+                            "updated_match_cards": updated_match_cards,
+                            "updated_secret": None,
+                            "discarded_card_event": None,
+                            "updated_set": None,
+                            "message": f"{typeEvent} was succesfull"
+                        }
             
             return payload
         except Exception as e:
