@@ -448,7 +448,8 @@ async def time_out(match_id: UUID, player_id:UUID, db = Depends(get_db)) -> Opti
                         ).order_by(Match_Card.id).offset(3).first()
         
         if fourth_card:
-            new_card = services.PileService(db).take_cards(player_id, match_id, cards=[fourth_card.id])
+            fourth_card_id = list(set([fourth_card.id]))
+            new_card = services.PileService(db).take_cards(player_id, match_id, cards=[fourth_card_id])
             if new_card.player_id != player_id:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
