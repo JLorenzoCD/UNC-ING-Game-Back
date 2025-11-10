@@ -51,7 +51,6 @@ class MatchEventType(PyEnum):
     DISCARD_CARDS = "Discard Cards"
     TAKE_CARDS = "Take Cards"
 
-
 class Match(Base):
     """
     Representa una partida (Match).

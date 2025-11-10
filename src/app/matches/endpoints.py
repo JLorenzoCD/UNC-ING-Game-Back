@@ -10,6 +10,7 @@ from app.models.db import get_db
 from app.player.models import Player, Match_Player
 
 from app.matches import services
+from app.matches.models import MatchEventType, MatchStatus
 
 from app.cards import services as services_cards #si no le pones alias a este services se destruye todo porque pisa al services de matches
 
@@ -176,6 +177,29 @@ async def start_match(match_id: UUID, db=Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Could not start match: {str(e)}")
+
+@router.post("/{match_id}/cancel", status_code=status.HTTP_200_OK)
+async def cancel_match(match_id: UUID, owner_id: UUID, db=Depends(get_db)):
+    try:
+        cancelled_match = services.MatchService(db).cancel_match(match_id, owner_id)
+        cancelled_match.status = MatchStatus.COMPLETED
+
+        manager.close_match(match_id)
+
+        payload = cancelled_match.model_dump(mode='json')
+
+        await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, payload))
+        
+        return {"status": "Match cancelled and deleted successfully", "match_id": match_id}
+        
+    except services.MatchNotFound:
+        raise HTTPException(status_code=404, detail="Match not found")
+    except services.MatchValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
     
 @router.put("/{match_id}/pass_turn", status_code=status.HTTP_200_OK)
 async def pass_turn(match_id: UUID, db=Depends(get_db)):
