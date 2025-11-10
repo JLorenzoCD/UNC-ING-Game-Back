@@ -611,3 +611,48 @@ async def get_logs(match_id: UUID, db=Depends(get_db)) -> List[MatchLogOut]:
         raise HTTPException(status_code=500, detail=str(e))
 
     return logs
+
+@router.put("/{match_id}/quit", status_code=status.HTTP_200_OK)
+async def quit_match(match_id: UUID, player_id: UUID, db = Depends(get_db)):
+    # Verificar que el jugador existe ANTES del try-catch
+    info_player = db.query(Player).filter(Player.id == player_id).first()
+    if not info_player:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    try:
+        # Remover jugador de la partida en la base de datos
+        services.MatchService(db).quit_match(match_id, player_id)
+
+        # Remover jugador del WebSocket manager
+        try:
+            manager.quitMatch(player_id, match_id)
+        except Exception as ws_e:
+            print(f"[WS ERROR] Error removing player {player_id} from websocket match {match_id}: {ws_e}")
+            # No lanzamos excepción aquí porque el websocket puede no estar conectado
+
+        # Crear y enviar log de salida
+        try:
+            log = f"[QUIT] Jugador {info_player.name} salió de la partida"
+            id_log = services.LogService(db).create_log(match_id, log, MatchEventType.PLAYER_QUIT, info_player.id)
+            log_out = services.LogService(db).get_log_by_id(id_log).model_dump(mode='json')
+            
+            await manager.specificBroadcast(make_ws_message(WSEvent.LOG, log_out), match_id)
+        except Exception as log_e:
+            print(f"[LOG ERROR] Error creating/broadcasting quit log for player {player_id} in match {match_id}: {log_e}")
+        
+        return {"status": "success"}
+        
+    except services.MatchNotFound:
+        raise HTTPException(status_code=404, detail="Match not found")
+    except services.PlayerNotInMatch:
+        raise HTTPException(status_code=404, detail="Player not in match")
+    except SQLAlchemyError as db_e:
+        print(f"[DB ERROR] Database error in quit_match: {db_e}")
+        raise HTTPException(status_code=500, detail="Database error occurred")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[UNEXPECTED ERROR] Unexpected error in quit_match: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        
+        
