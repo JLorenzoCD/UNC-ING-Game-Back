@@ -5,9 +5,10 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from websocketManager.ws_routes import manager
 from websocketManager.ws_messages import WSEvent, make_ws_message
-from app.matches.utils import db_match_2_match_schema
+
 from app.models.db import get_db
 from app.player.models import Player, Match_Player
+
 from app.matches import services
 
 from app.cards import services as services_cards #si no le pones alias a este services se destruye todo porque pisa al services de matches
@@ -15,6 +16,9 @@ from app.cards import services as services_cards #si no le pones alias a este se
 from app.events import services as services_event
 from app.events.models import EventStatus
 
+from app.matches.models import MatchEventType
+from app.matches.utils import db_match_2_match_schema
+from app.matches.ending import handle_match_ended, MatchEndedReason
 from app.matches.schemas import (
     Cards_by_Match_Schema,
     MatchIn,
@@ -23,21 +27,34 @@ from app.matches.schemas import (
     MatchDTO,
     Players_by_Match_Schema,
     Match_number_of_Player,
+    MatchLogOut,
 )
+
+# Cards: alias the module to avoid collision with app.matches.services
+from app.cards import services as services_cards
+# keep a second name used elsewhere in the module
+card_services = services_cards
+from app.cards.services import Card_event
 from app.cards.models import Card, Match_Card
 from app.cards.utils import db_match_card_2_match_card_schema
-from app.cards.schemas import (take_Match_Cards_in, discard_Match_Cards_in, Match_Card_Schema)
-from app.cards import services as card_services
+from app.cards.schemas import (
+    take_Match_Cards_in,
+    discard_Match_Cards_in,
+    Match_Card_Schema,
+)
+
+# Sets
+from app.sets import services as set_services
 from app.sets import schemas as set_schemas
 from app.sets.schemas import MatchSetOut
-from app.sets import services as set_services
 from app.sets.models import Match_Set, SetType
 from app.sets.utils import db_match_set_2_match_set_schema
+
+# Secrets
 from app.secrets import services as secret_services
 from app.secrets import schemas as secret_schemas
 from app.secrets.models import Match_Secret, Secret_action
 from app.secrets.utils import db_match_secret_2_match_secret_schema
-from app.matches.ending import handle_match_ended,MatchEndedReason
 
 router = APIRouter(
     tags   = ["matches"],
@@ -62,10 +79,13 @@ async def create_match(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
+    # PRIMERO: Agregar el owner al match
+    manager.enterMatch(new_match.owner_id, new_match.id)
+    
+    # DESPUÉS: Enviar broadcast
     match_dict                         = new_match.model_dump(mode='json')
     match_dict["current_player_count"] = 1
     ws_message = make_ws_message(WSEvent.MATCH, match_dict)
-    manager.enterMatch(new_match.owner_id, new_match.id)
     await manager.waiting_room_broadcast(ws_message)
     
     return MatchResponse(id=new_match.id)
@@ -107,6 +127,10 @@ async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
     
     services.MatchService(db).join(match_id, player_id)
     
+    # PRIMERO: Agregar el jugador al match en el WebSocket manager
+    manager.enterMatch(player_id, match_id)
+    
+    # DESPUÉS: Enviar mensajes de broadcast
     payload = {
         "id":       info_player.id,
         "name":     info_player.name,
@@ -115,8 +139,6 @@ async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
     }
     
     await manager.specificBroadcast(make_ws_message(WSEvent.PLAYER_JOIN, payload), match_id)
-    
-    manager.enterMatch(player_id, match_id)
     
     match_service = services.MatchService(db)
     match         = match_service.get_match_by_id(match_id)
@@ -128,7 +150,13 @@ async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
     message_ws                         = make_ws_message(WSEvent.MATCH, match_dict)
     
     await manager.waiting_room_broadcast(message_ws)
-    
+    try:
+        log = f"[JOIN] Jugador {info_player.name} se unió a la partida"
+        id_log = services.LogService(db).create_log(match_id, log, MatchEventType.PLAYER_JOIN, info_player.id)
+        log_out = services.LogService(db).get_log_by_id(id_log).model_dump(mode='json')
+        await manager.specificBroadcast(make_ws_message(WSEvent.LOG, log_out), match_id)
+    except Exception as e:
+        print(f"[LOG] error creando/broadcast log de join: {e}")
     return {"match_id": match_id}
 
 @router.post("/{match_id}/start", status_code=status.HTTP_200_OK)
@@ -161,12 +189,34 @@ async def pass_turn(match_id: UUID, db=Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal error")
-    match_dict=db_match_2_match_schema(match).model_dump(mode="json")
-    msg=make_ws_message(WSEvent.TURN, match_dict)
+    
+    # Obtener el jugador actual después del cambio de turno
+    current_player_id = services.MatchService(db).get_current_player_by_match(match_id)
+    
+    match_dict = db_match_2_match_schema(match).model_dump(mode="json")
+    # Agregar el current_player_id al payload si existe
+    if current_player_id:
+        match_dict["current_player_id"] = str(current_player_id)
+    
+    msg = make_ws_message(WSEvent.TURN, match_dict)
     try:
         await manager.specificBroadcast(msg, match_id)
     except Exception as ws_err:
         print(f"[WS] pass_turn broadcast error: {ws_err}")
+    
+    # Crear log con información del jugador actual
+    try:
+        if current_player_id:
+            player_obj = services.PlayersService(db).get_player(current_player_id)
+            log = f"[TURN] Es turno de {player_obj.name}"
+            id_log = services.LogService(db).create_log(match_id, log, MatchEventType.TURN, player_obj.id)
+            log_out = services.LogService(db).get_log_by_id(id_log).model_dump(mode='json')
+            await manager.specificBroadcast(make_ws_message(WSEvent.LOG, log_out), match_id)
+        else:
+            print(f"[LOG] No se pudo obtener current_player_id para match {match_id}")
+    except Exception as e:
+        print(f"[LOG] error creando/broadcast log de turno: {e}")
+    
     return {"match_id": match_id}
 
 @router.get("/{match_id}/secrets", status_code=status.HTTP_200_OK)
@@ -236,6 +286,17 @@ async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_d
 
             await manager.specificBroadcast(make_ws_message(WSEvent.CARDS, payload), match_id)
 
+            # Agregar log para take cards
+            try:
+                player_obj = services.PlayersService(db).get_player(player_id)
+                log_message = f"[TAKE] Jugador {player_obj.name} tomó {len(taken_cards_ids)} carta(s) del mazo"
+                
+                id_log = services.LogService(db).create_log(match_id, log_message, MatchEventType.TAKE_CARDS, player_obj.id)
+                log_out = services.LogService(db).get_log_by_id(id_log).model_dump(mode='json')
+                await manager.specificBroadcast(make_ws_message(WSEvent.LOG, log_out), match_id)
+            except Exception as e:
+                print(f"[LOG] error creando/broadcast log de take: {e}")
+
             return {"status": "success", "cards_taken": len(taken_cards_ids)}
     except HTTPException as exception:
         raise exception
@@ -278,6 +339,25 @@ async def discard_card(match_id: UUID, cards: discard_Match_Cards_in, db=Depends
             ]
 
             await manager.specificBroadcast(make_ws_message(WSEvent.CARDS, payload), match_id)
+            
+            # Agregar log para discard cards
+            try:
+                player_obj = services.PlayersService(db).get_player(player_id)
+                
+                # Obtener nombres de las cartas descartadas para el log
+                card_names = []
+                for card in results:
+                    card_names.append(card[6])  # card[6] es el nombre de la carta
+                
+                cards_text = ", ".join(card_names) if len(card_names) <= 3 else f"{', '.join(card_names[:3])} y {len(card_names) - 3} más"
+                log_message = f"[DISCARD] Jugador {player_obj.name} descartó {len(discarded_cards_ids)} carta(s): {cards_text}"
+                
+                id_log = services.LogService(db).create_log(match_id, log_message, MatchEventType.DISCARD_CARDS, player_obj.id)
+                log_out = services.LogService(db).get_log_by_id(id_log).model_dump(mode='json')
+                await manager.specificBroadcast(make_ws_message(WSEvent.LOG, log_out), match_id)
+            except Exception as e:
+                print(f"[LOG] error creando/broadcast log de discard: {e}")
+            
             return {"status": "success", "cards_discarded": len(discarded_cards_ids)}
     except HTTPException as exception:
         raise exception
@@ -286,6 +366,23 @@ async def discard_card(match_id: UUID, cards: discard_Match_Cards_in, db=Depends
 async def play_set(match_id: UUID, setIn: set_schemas.SetIn, db = Depends(get_db)) -> Optional[set_schemas.MatchSetOut]:
     try:
         #  ---- Create Set y Eliminar cartas (Menos el caso Lady Eileen) ----
+        # Crear log ANTES de procesar el set
+        setType = setIn.type
+        player  = services.PlayersService(db).get_player(setIn.player_id)
+        try:
+            log = f"[SET] Jugador {player.name} jugó el set {setType.value}"
+            # Mapear SetType a MatchEventType usando el nombre
+            event_type = getattr(MatchEventType, setType.name, None)
+            if event_type:
+                id_log = services.LogService(db).create_log(match_id, log, event_type, player.id)
+                log_out = services.LogService(db).get_log_by_id(id_log).model_dump(mode='json')
+                await manager.specificBroadcast(make_ws_message(WSEvent.LOG, log_out), match_id)
+            else:
+                print(f"[LOG] Warning: No matching MatchEventType for SetType {setType.name}")
+        except Exception as e:
+            print(f"[LOG] error creando/broadcast log de set: {e}")
+
+        # Create Set
         match_card_ids: List[UUID] = setIn.card_ids
         set_service = set_services.SetService(db)
         set_service.set_verification(match_card_ids, match_id, setIn.type, setIn.target_player_id, setIn.target_secret_id)
@@ -540,10 +637,8 @@ async def put_down_a_detective(match_id: UUID, set_id:UUID, set_info:set_schemas
         raise HTTPException(status_code=404, detail=str(e))
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))        
-
-
-
+        raise HTTPException(status_code=500, detail=str(e))
+           
 
 @router.put("/{match_id}/secrets/{secret_id}", status_code=200)
 async def update_secret_in_match(match_id: UUID, secret_id:UUID, secretIn:secret_schemas.SecretUpdate, db=Depends(get_db)) -> secret_schemas.Match_Secret_Schema:
@@ -576,7 +671,6 @@ async def update_secret_in_match(match_id: UUID, secret_id:UUID, secretIn:secret
     except SQLAlchemyError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/{match_id}/sets", status_code=status.HTTP_200_OK, response_model=List[MatchSetOut])
 async def get_sets(match_id: UUID, db=Depends(get_db)):
     try:
@@ -588,11 +682,15 @@ async def get_sets(match_id: UUID, db=Depends(get_db)):
     
     return sets
 
-
 @router.post("/{match_id}/events", status_code=status.HTTP_200_OK)
-async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_payload:dict, db=Depends(get_db)):
+async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_payload:dict | None, db=Depends(get_db)):
+    print("entre al endpoint play_event")
     try:
-        typeEvent=services_cards.Cards_Services(db).get_name_event(player_id,match_id,match_card_id)
+        services_cards.Cards_Services(db).validate_card_ownership(player_id,match_id,match_card_id)
+        print("se valido bien la carta")
+        typeEvent=services_cards.Cards_Services(db).get_event_type_by_card(match_card_id)
+        print("se hizo bien el gettypeevent")
+        print(typeEvent.value)
         if services_cards.Cards_Services(db).is_instant_event(typeEvent.value):
             new_event = services_event.EventService(db).create_event(
                 match_id,
@@ -603,6 +701,10 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
                 EventStatus.RESOLVED
             )
             payload=services_event.EventService(db).resolve_event(new_event)
+            discarded_card_event = services_cards.Cards_Services(db).discard_card(match_card_id, delete=False)
+            discarded_card_event = db_match_card_2_match_card_schema(discarded_card_event).model_dump(mode="json")
+            payload["discarded_card_event"]=discarded_card_event
+            print("se descarto bien la carta")
             await manager.specificBroadcast(
                                 make_ws_message(WSEvent.CARD_EVENT, payload),
                                 match_id
@@ -615,14 +717,15 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
                 match_card_id,
                 event_payload
             )
-
+            discarded_card_event = services_cards.Cards_Services(db).discard_card(match_card_id, delete=False)
+            discarded_card_event = db_match_card_2_match_card_schema(discarded_card_event).model_dump(mode="json")
             payload = {
                 "event_id": str(new_event.id),
                 "event_type": typeEvent.value,
                 "player_id": player_id,
                 "resolve_at_utc": new_event.resolve_at.isoformat(),
                 "nsf_count": new_event.nsf_count,
-                "discarded_card": None
+                "discarded_card": discarded_card_event
             }
             await manager.specificBroadcast(
                 make_ws_message(WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
@@ -638,7 +741,8 @@ async def play_event(match_id:UUID,player_id: UUID, match_card_id:UUID, event_pa
 async def play_not_so_fast(match_id:UUID,player_id: UUID, match_card_id:UUID, event_id:UUID, nsf_count:int, db=Depends(get_db)):
     try:
         print("llegue al endpoint de la notsofast")
-        typeEvent=services_cards.Cards_Services(db).get_name_event(player_id,match_id,match_card_id)
+        services_cards.Cards_Services(db).validate_card_ownership(player_id,match_id,match_card_id)
+        typeEvent=services_cards.Cards_Services(db).get_event_type_by_card(match_card_id)
         if (typeEvent.value != "NOT SO FAST"):
             raise Exception("Carta jugada no es una not so fast")
         updated_event=services_event.EventService(db).update_event_nsf(event_id,nsf_count)
@@ -666,3 +770,127 @@ async def play_not_so_fast(match_id:UUID,player_id: UUID, match_card_id:UUID, ev
             status_code = status.HTTP_400_BAD_REQUEST,
             detail=f"Error al procesar la carta {e}"
         )
+    
+@router.post("/{match_id}/card_trade", status_code=status.HTTP_200_OK)
+async def play_card_trade(match_id: UUID, player_id: UUID, event_id:UUID, event_payload: dict, db=Depends(get_db)):
+    try:
+        services_cards.Cards_Services(db).validate_card_ownership(player_id,match_id,event_payload['target_card_id'])
+        event_update=services_event.EventService(db).update_info_event(event_id,player_id,event_payload['target_card_id'])
+        if services_event.EventService(db).is_event_ready_to_resolve(event_update):
+            payload=services_event.EventService(db).resolve_event(event_update)
+            await manager.specificBroadcast(
+                make_ws_message(WSEvent.CARD_EVENT, payload), match_id
+            )
+        return {"status": "ok","message":"CardTrade de lujo"}
+    except Exception as e:
+        print(f"Algun error en card trade error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error al procesar la carta {e}"
+        )
+
+
+@router.post("/{match_id}/point_your_suspicions", status_code=status.HTTP_200_OK)
+async def play_point_your_suspicions(match_id: UUID, player_id: UUID, event_id:UUID, event_payload: dict, db=Depends(get_db)):
+    try:
+        event_update=services_event.EventService(db).update_info_event(event_id,player_id,event_payload['target_player_id'])
+        if services_event.EventService(db).is_event_ready_to_resolve(event_update):
+            payload=services_event.EventService(db).resolve_event(event_update)
+            await manager.specificBroadcast(
+                make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload), match_id
+            )
+        return {"status": "ok","message":"Point your suspicions de lujo"}
+    except Exception as e:
+        print(f"Algun error en point your suspicions error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error al procesar la carta {e}"
+        )
+    
+@router.post("/{match_id}/dead_card_folly", status_code=status.HTTP_200_OK)
+async def play_dead_card_folly(match_id: UUID, player_id: UUID, event_id:UUID, event_payload: dict, db=Depends(get_db)):
+    try:
+        services_cards.Cards_Services(db).validate_card_ownership(player_id,match_id,event_payload['target_card_id'])
+        event_update=services_event.EventService(db).update_info_event(event_id,player_id,event_payload['target_card_id'])
+        if services_event.EventService(db).is_event_ready_to_resolve(event_update):
+            payload=services_event.EventService(db).resolve_event(event_update)
+            await manager.specificBroadcast(
+                make_ws_message(WSEvent.CARD_EVENT, payload), match_id
+            )
+        return {"status": "ok","message":"Dead card folly de lujo"}
+    except Exception as e:
+        print(f"Algun error en dead card folly error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error al procesar la carta {e}"
+        )
+    
+    
+@router.get("/{match_id}/logs", status_code=status.HTTP_200_OK, response_model=List[MatchLogOut])
+async def get_logs(match_id: UUID, db=Depends(get_db)) -> List[MatchLogOut]:
+    try:
+        logs = services.LogService(db).get_logs_by_match(match_id)
+    except SQLAlchemyError:
+        raise HTTPException(status_code=500)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return logs
+
+@router.put("/{match_id}/quit", status_code=status.HTTP_200_OK)
+async def quit_match(match_id: UUID, player_id: UUID, db = Depends(get_db)):
+    # Verificar que el jugador existe ANTES del try-catch
+    info_player = db.query(Player).filter(Player.id == player_id).first()
+    if not info_player:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    try:
+        # Remover jugador de la partida en la base de datos
+        services.MatchService(db).quit_match(match_id, player_id)
+
+        # Remover jugador del WebSocket manager
+        try:
+            manager.quitMatch(player_id, match_id)
+        except Exception as ws_e:
+            print(f"[WS ERROR] Error removing player {player_id} from websocket match {match_id}: {ws_e}")
+            # No lanzamos excepción aquí porque el websocket puede no estar conectado
+
+        # Este codigo esta repetido del join, habria que refactorizarlo en una funcion aparte.
+
+        # DESPUÉS: Enviar mensajes de broadcast
+        payload = {
+            "id":       info_player.id,
+            "name":     info_player.name,
+            "avatar":   info_player.avatar,
+            "birthday": info_player.birthday
+        }
+        
+        await manager.specificBroadcast(make_ws_message(WSEvent.PLAYER_QUIT, payload), match_id)
+        
+        match_service = services.MatchService(db)
+        match         = match_service.get_match_by_id(match_id)
+        players_count = match_service.count_players_by_match(match_id)
+        new_match     = db_match_2_match_schema(match)
+        
+        match_dict                         = new_match.model_dump(mode='json')
+        match_dict["current_player_count"] = players_count
+        message_ws                         = make_ws_message(WSEvent.MATCH, match_dict)
+        
+        await manager.waiting_room_broadcast(message_ws)
+
+        return {"status": "success"}
+        
+    except services.MatchNotFound:
+        raise HTTPException(status_code=404, detail="Match not found")
+    except services.PlayerNotInMatch:
+        raise HTTPException(status_code=404, detail="Player not in match")
+    except SQLAlchemyError as db_e:
+        print(f"[DB ERROR] Database error in quit_match: {db_e}")
+        raise HTTPException(status_code=500, detail="Database error occurred")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[UNEXPECTED ERROR] Unexpected error in quit_match: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        
+        
