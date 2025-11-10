@@ -407,6 +407,8 @@ async def put_down_a_detective(match_id: UUID, set_id:UUID, setIn:set_schemas.Ad
         set_service.add_card_verification(match_card_ids, set_id, setIn.target_player_id, setIn.target_secret_id)
         
         match_set = set_service.get_match_set(set_id, match_id)
+        match_set_out = db_match_set_2_match_set_schema(match_set)
+
         card_name = set_service._get_card_names(match_card_ids)[0]
         
         if match_set.type != SetType.LADY_EILEEN:
