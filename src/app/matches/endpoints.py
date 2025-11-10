@@ -444,7 +444,8 @@ async def time_out(match_id: UUID, player_id:UUID, db = Depends(get_db)) -> Opti
         
         fourth_card: Match_Card = db.query(Match_Card).filter(
                         Match_Card.player_id == None,
-                        Match_Card.is_discarded == False
+                        Match_Card.is_discarded == False,
+                        Match_Card.match_id == match_id
                         ).order_by(Match_Card.id).offset(3).first()
         
         if fourth_card:
