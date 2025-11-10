@@ -290,10 +290,9 @@ class EventService:
 
                 case set_models.SetType.LADY_EILEEN.value:
                     accion_set = {
-                        "target_player_id" : event_payload["target_player_id"],
-                         "type" : typeEvent         
+                        "target_player_id" : event_payload["target_player_id"],        
                         }
-                    payload = {"accion_set" : accion_set}
+                    payload = {"accion_set" : accion_set, "type" : typeEvent }
                     
                     if event_payload["is_create_set"] == True:
                         #Crear Set
