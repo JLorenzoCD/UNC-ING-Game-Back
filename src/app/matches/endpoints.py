@@ -480,6 +480,7 @@ async def put_down_a_detective(match_id: UUID, set_id:UUID, setIn:set_schemas.Ad
                                 make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload),
                                 match_id
                             )
+            
         # Caso Lady Eileen
         elif match_set.type == SetType.LADY_EILEEN:
             set_payload = set_services.SetService(db).create_set_payload(match_id, setIn, is_Oliver=False)

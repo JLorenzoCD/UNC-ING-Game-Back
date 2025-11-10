@@ -241,11 +241,11 @@ class SetService:
         # 3. Caso Especial: "TWO BERESFORD"
         beresford_detectives = ["TUPPENCE BERESFORD", "TOMMY BERESFORD"]
         
-        if card_name in beresford_detectives and setType == "TWO BERESFORD":
+        if card_name in beresford_detectives and (setType == "TWO BERESFORD" or setType in beresford_detectives):
             return None
 
         # 4. Fallo: Si ninguna de las condiciones anteriores se cumple, 
-        raise InvalidCardError(detail=f"El detective '{card_name}' no pertenece al set '{setType}'.")
+        raise InvalidCardError(f"El detective '{card_name}' no pertenece al set '{setType}'.")
     
     def get_match_set(self, set_id: UUID, match_id: UUID) -> Match_Set:
         match_set = self._db.query(Match_Set).filter(Match_Set.id == set_id, Match_Set.match_id == match_id).first()
