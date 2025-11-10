@@ -12,6 +12,7 @@ from app.cards.schemas import Match_Card_Schema
 from app.cards.utils import db_match_card_2_match_card_schema
 from app.secrets import services as secret_services
 from app.secrets.services import Secret_action
+from app.player.models import Match_Player
 
 class Card_event(Enum):
     CARDS_OFF_THE_TABLE = "CARDS OFF THE TABLE"
@@ -354,6 +355,65 @@ class Cards_Services:
             print(f"Error en swap_card_owners: {e}")
             raise e
     
+    def pass_cards_in_direction(
+        self,
+        match_id:UUID,
+        card_ids_to_pass,
+        direction# "Left" o "Right"
+    ) -> list[Match_Card]:
+        """
+        Ejecuta la lógica de "Dead Card Folly".
+        Pasa cada carta al jugador de al lado, según el orden de la mesa.
+        ¡Esta función HACE COMMIT!
+        """
+        try:
+            #orden de los jugadores
+            players_in_order = self._db.query(Match_Player).filter(
+                Match_Player.match_id == match_id
+            ).order_by(Match_Player.order).all()
+            
+            num_players = len(players_in_order)
+
+            player_target_map = {} #{ "id_P1": "id_P2", "id_P2": "id_P3", ... }
+            
+            for i in range(num_players):
+                current_player = players_in_order[i]
+                
+                if direction.lower() == "left":
+                    target_player = players_in_order[(i + 1) % num_players]
+                elif direction.lower() == "right":
+                    target_player = players_in_order[(i - 1 + num_players) % num_players]
+                else:
+                    raise ValueError(f"Dirección de pase inválida: {direction}")
+                
+                player_target_map[str(current_player.player_id)] = target_player.player_id
+     
+            cards_to_update = self._db.query(Match_Card).filter(
+                Match_Card.id.in_(card_ids_to_pass)
+            ).all()
+
+            for card in cards_to_update:
+                current_owner_id = str(card.player_id)          
+                new_owner_id = player_target_map[current_owner_id]
+                
+                print(f"Pasando carta {card.id} de {current_owner_id} a {new_owner_id}")
+                card.player_id = new_owner_id
+            
+            self._db.commit()
+            
+            for card in cards_to_update:
+                self._db.refresh(card)
+
+            return cards_to_update
+
+        except (SQLAlchemyError, ValueError) as e:
+            self._db.rollback()
+            print(f"Error en pass_cards_in_direction: {e}")
+            raise e
+        except Exception as e:
+            self._db.rollback()
+            raise e
+        
     def is_instant_event(self, event_type_str: str) -> bool:
         """
         Devuelve si un evento se aplica instantaneamente
