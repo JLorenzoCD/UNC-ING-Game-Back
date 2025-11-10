@@ -2,6 +2,8 @@ from fastapi import WebSocket,FastAPI,WebSocketDisconnect,APIRouter
 import uuid
 from typing import List, Dict, Any, Optional
 
+from app.matches.services import MatchService
+
 websocket_router = APIRouter()
 
 class ConnectionManager:
@@ -13,6 +15,11 @@ class ConnectionManager:
     async def connect(self, ws: WebSocket, player_id: uuid.UUID):
         await ws.accept()
         self.players[player_id] = ws
+
+        in_progress_matches = MatchService.get_in_progress_matches_of_player(player_id)
+        for match_id in in_progress_matches:
+            self.enterMatch(player_id, match_id)
+
         self.waiting_room.add(ws)
 
     def disconnect(self, player_id:uuid.UUID):
@@ -58,8 +65,6 @@ class ConnectionManager:
                 self.waiting_room.add(ws)
         # por si quedó la sala vacía, borramos la key (sin explotar si ya no existe)
         self.matches.pop(match_id, None)
-
-
 
     def enterMatch(self, player_id:uuid.UUID, matchID:uuid.UUID):
         ws=self.players.get(player_id)
@@ -112,7 +117,6 @@ class ConnectionManager:
         for ws in list(setws):
             await self.safe_send_message(message, ws)
             
-
 manager = ConnectionManager()
 
 #el endpoint con el parametro quedaria similar a ws://localhost:8000/ws?player_id={player_id}
