@@ -442,11 +442,7 @@ async def time_out(match_id: UUID, player_id:UUID, db = Depends(get_db)) -> Matc
                 detail=f"No se encontró la carta de descarte"
             )
         if first_card:
-            card_services.Cards_Services(db).discard_card(
-                player_id=player_id, 
-                match_id=match_id, 
-                cards=[first_card.id]
-            )
+            card_services.Cards_Services(db).discard_card(first_card.id, delete=False)
             discarded_card_schema = db_match_card_2_match_card_schema(first_card)
         
         fourth_card: Match_Card = db.query(Match_Card).filter(
@@ -455,7 +451,7 @@ async def time_out(match_id: UUID, player_id:UUID, db = Depends(get_db)) -> Matc
                         ).order_by(Match_Card.id).offset(3).first()
         
         if fourth_card:
-            services.PileService(db).take_cards(player_id, match_id, cards=[fourth_card])
+            services.PileService(db).take_cards(player_id, match_id, cards=[fourth_card.id])
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -511,8 +507,8 @@ async def time_out(match_id: UUID, player_id:UUID, db = Depends(get_db)) -> Matc
         
         return {"match_id": match_id}
     
-    except Exception:
-        raise HTTPException(status_code=400)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
   
     
