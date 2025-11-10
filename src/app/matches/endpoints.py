@@ -630,16 +630,29 @@ async def quit_match(match_id: UUID, player_id: UUID, db = Depends(get_db)):
             print(f"[WS ERROR] Error removing player {player_id} from websocket match {match_id}: {ws_e}")
             # No lanzamos excepción aquí porque el websocket puede no estar conectado
 
-        # Crear y enviar log de salida
-        try:
-            log = f"[QUIT] Jugador {info_player.name} salió de la partida"
-            id_log = services.LogService(db).create_log(match_id, log, MatchEventType.PLAYER_QUIT, info_player.id)
-            log_out = services.LogService(db).get_log_by_id(id_log).model_dump(mode='json')
-            
-            await manager.specificBroadcast(make_ws_message(WSEvent.LOG, log_out), match_id)
-        except Exception as log_e:
-            print(f"[LOG ERROR] Error creating/broadcasting quit log for player {player_id} in match {match_id}: {log_e}")
+        # Este codigo esta repetido del join, habria que refactorizarlo en una funcion aparte.
+
+        # DESPUÉS: Enviar mensajes de broadcast
+        payload = {
+            "id":       info_player.id,
+            "name":     info_player.name,
+            "avatar":   info_player.avatar,
+            "birthday": info_player.birthday
+        }
         
+        await manager.specificBroadcast(make_ws_message(WSEvent.PLAYER_QUIT, payload), match_id)
+        
+        match_service = services.MatchService(db)
+        match         = match_service.get_match_by_id(match_id)
+        players_count = match_service.count_players_by_match(match_id)
+        new_match     = db_match_2_match_schema(match)
+        
+        match_dict                         = new_match.model_dump(mode='json')
+        match_dict["current_player_count"] = players_count
+        message_ws                         = make_ws_message(WSEvent.MATCH, match_dict)
+        
+        await manager.waiting_room_broadcast(message_ws)
+
         return {"status": "success"}
         
     except services.MatchNotFound:
