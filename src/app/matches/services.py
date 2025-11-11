@@ -581,9 +581,11 @@ class PileService:
     def __init__(self, db):
         self._db = db
 
-    def take_cards(self, player_id: UUID, match_id: UUID, cards: list[UUID]) -> Match_Card:
+    def take_cards(self, player_id: UUID, match_id: UUID, cards: list[UUID]) -> Optional[Match_Card]:
         """Take cards from the pile and assign to player."""
         try:
+            if not cards:
+                return
             for card in cards:
                 match_card: Match_Card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
                 if match_card and (match_card.player_id is None and match_card.match_id == match_id):
