@@ -407,7 +407,7 @@ class MatchService:
     def _delete_match_completely(self, match_id: UUID) -> None:
         """Delete a match and all its related data from the database."""
         try:
-            self._db.query(WsEvent).filter(Match_Player.match_id == match_id).delete()
+            self._db.query(WsEvent).filter(WsEvent.match_id == match_id).delete()
 
             self._db.query(EventosDeTurno).filter(EventosDeTurno.match_id == match_id).delete()
 

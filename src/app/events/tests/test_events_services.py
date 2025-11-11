@@ -30,7 +30,7 @@ def test_create_event_cancelable(db: Session):
     
     assert new_event.status == EventStatus.PENDING.value
     assert new_event.nsf_count == 0
-    assert new_event.resolve_at > datetime.utcnow()
+    assert new_event.resolve_at > datetime.now(timezone.utc).replace(tzinfo=None)
 
 def test_create_event_instant_hachazo(db: Session):
     """
@@ -52,7 +52,7 @@ def test_create_event_instant_hachazo(db: Session):
     
 
     assert new_event.status == EventStatus.RESOLVED.value
-    assert new_event.resolve_at <= datetime.utcnow()
+    assert new_event.resolve_at <= datetime.now(timezone.utc).replace(tzinfo=None)
 
 def test_play_nsf_success(db: Session):
     """

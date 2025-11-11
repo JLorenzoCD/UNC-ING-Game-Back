@@ -1,7 +1,7 @@
 import pytest
 import uuid
 from uuid import UUID
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, Mock
 
 
 def test_quit_match_success(client):
@@ -47,7 +47,7 @@ def test_quit_match_success(client):
 
     # El segundo jugador abandona la partida (con WebSocket mockeado)
     with patch('app.matches.endpoints.manager.specificBroadcast', new_callable=AsyncMock) as mock_broadcast, \
-         patch('app.matches.endpoints.manager.quitMatch', new_callable=AsyncMock) as mock_quit:
+         patch('app.matches.endpoints.manager.quitMatch', new_callable=Mock) as mock_quit:
         response = client.put(f"/matches/{match['id']}/quit", params={"player_id": player2['id']})
     
     assert response.status_code == 200
@@ -91,7 +91,7 @@ def test_quit_match_player_not_found(client):
     # Intentar que un jugador inexistente abandone la partida
     fake_player_id = str(uuid.uuid4())
     with patch('app.matches.endpoints.manager.specificBroadcast', new_callable=AsyncMock), \
-         patch('app.matches.endpoints.manager.quitMatch', new_callable=AsyncMock):
+         patch('app.matches.endpoints.manager.quitMatch', new_callable=Mock):
         response = client.put(f"/matches/{match['id']}/quit", params={"player_id": fake_player_id})
     
     assert response.status_code == 404
@@ -131,7 +131,7 @@ def test_quit_match_player_not_in_match(client):
 
     # Intentar que el jugador externo abandone la partida
     with patch('app.matches.endpoints.manager.specificBroadcast', new_callable=AsyncMock), \
-         patch('app.matches.endpoints.manager.quitMatch', new_callable=AsyncMock):
+         patch('app.matches.endpoints.manager.quitMatch', new_callable=Mock):
         response = client.put(f"/matches/{match['id']}/quit", params={"player_id": external_player['id']})
     
     assert response.status_code == 404  # El servicio lanza HTTPException(404) para "Player not in match"
@@ -174,7 +174,7 @@ def test_quit_match_owner_can_quit(client):
 
     # El owner abandona la partida
     with patch('app.matches.endpoints.manager.specificBroadcast', new_callable=AsyncMock), \
-         patch('app.matches.endpoints.manager.quitMatch', new_callable=AsyncMock):
+         patch('app.matches.endpoints.manager.quitMatch', new_callable=Mock):
         response = client.put(f"/matches/{match['id']}/quit", params={"player_id": owner['id']})
     
     assert response.status_code == 200
@@ -203,7 +203,7 @@ def test_quit_match_invalid_match_id(client):
     # Intentar abandonar una partida inexistente
     fake_match_id = str(uuid.uuid4())
     with patch('app.matches.endpoints.manager.specificBroadcast', new_callable=AsyncMock), \
-         patch('app.matches.endpoints.manager.quitMatch', new_callable=AsyncMock):
+         patch('app.matches.endpoints.manager.quitMatch', new_callable=Mock):
         response = client.put(f"/matches/{fake_match_id}/quit", params={"player_id": player['id']})
     
     assert response.status_code == 404  # El servicio lanza HTTPException(404) para match inexistente
@@ -255,7 +255,7 @@ def test_quit_match_multiple_players(client):
 
     # Primer jugador abandona
     with patch('app.matches.endpoints.manager.specificBroadcast', new_callable=AsyncMock), \
-         patch('app.matches.endpoints.manager.quitMatch', new_callable=AsyncMock):
+         patch('app.matches.endpoints.manager.quitMatch', new_callable=Mock):
         response = client.put(f"/matches/{match['id']}/quit", params={"player_id": players[0]['id']})
     
     assert response.status_code == 200
@@ -268,7 +268,7 @@ def test_quit_match_multiple_players(client):
 
     # Segundo jugador abandona
     with patch('app.matches.endpoints.manager.specificBroadcast', new_callable=AsyncMock), \
-         patch('app.matches.endpoints.manager.quitMatch', new_callable=AsyncMock):
+         patch('app.matches.endpoints.manager.quitMatch', new_callable=Mock):
         response = client.put(f"/matches/{match['id']}/quit", params={"player_id": players[1]['id']})
     
     assert response.status_code == 200
