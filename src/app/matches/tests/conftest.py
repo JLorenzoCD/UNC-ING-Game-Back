@@ -47,10 +47,19 @@ def client(db_session):
     
     app.dependency_overrides[get_db] = override_get_db_with_session
     
+    # Also configure WebSocket manager to use test database
+    from websocketManager.ws_routes import manager
+    def test_db_session_factory():
+        return db_session
+    manager.set_db_session_factory(test_db_session_factory)
+    
     with TestClient(app) as c:
         yield c
     
     app.dependency_overrides.clear()
+    # Reset WebSocket manager to default
+    from app.models.db import session_local
+    manager.set_db_session_factory(session_local)
     
 def jsonable_encoder(obj):
     """Convierte un objeto (Pydantic model, etc.) a un dict serializable a JSON."""
@@ -109,7 +118,7 @@ def setup_match_and_players(client, db_session):
 
 
     # Agregar cartas base al sistema
-    cards = [
+    cards = [        
         Card(id=uuid.UUID("d572ba5c-20b8-4ee0-8bf5-f792887b0073"), name="NOT SO FAST", type=Card_Type.INSTANT, description="Instant card"),
         Card(id=uuid.UUID("a95eebac-9c02-4ea0-99fd-5bde7882ac79"), name="PARKER PYNE", type=Card_Type.DETECTIVE, description="Detective card"),
         Card(id=uuid.UUID("d314be48-bbd2-4093-b53f-4715515f6dd7"), name="LADY EILEEN", type=Card_Type.DETECTIVE, description="Detective card"),

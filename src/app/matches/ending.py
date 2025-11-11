@@ -7,6 +7,7 @@ from app.matches.models import Match,MatchStatus
 class MatchEndedReason(Enum):
     DECK_FINISHED = "deck_finished"
     MURDERER_REVEALED = "murderer_revealed"
+    SOCIAL_DISGRACE = "social_disgrace"
 
 async def handle_match_ended(db, manager, match_id: UUID,
                              reason: MatchEndedReason
@@ -47,6 +48,11 @@ async def handle_match_ended(db, manager, match_id: UUID,
             detailstmp=f"The murderer was revealed. {info['murderer_name']} was the murderer and {info['accomplice_name']} was his accomplice"
         else:
             detailstmp=f"The murderer was revealed. {info['murderer_name']} was the murderer"
+    elif reason==MatchEndedReason.SOCIAL_DISGRACE:
+        if info['accomplice_name']:
+            detailstmp=f"Everyone is in social disgrace! The murderer {info['murderer_name']} wins with his accomplice {info['accomplice_name']}"
+        else:
+            detailstmp=f"Everyone is in social disgrace! The murderer {info['murderer_name']} wins"
     else:
         if info['accomplice_name']:
             detailstmp=f"The murderer {info['murderer_name']} escaped!. He was helped by his accomplice {info['accomplice_name']}"
@@ -67,9 +73,9 @@ async def handle_match_ended(db, manager, match_id: UUID,
     except Exception as e:
         print(f"Error al enviar WS: {e}")
 
-    #try:
-    #    manager.close_match(match_id)
-    #except Exception as e:
-    #    print(f"Error al cerrar la partida: {e}")
-    #
+    try:
+       manager.close_match(match_id)
+    except Exception as e:
+       print(f"Error al cerrar la partida: {e}")
+    
     return payload

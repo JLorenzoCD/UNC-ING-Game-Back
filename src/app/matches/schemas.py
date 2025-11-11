@@ -3,7 +3,7 @@ from datetime import date, datetime
 from typing import Optional
 from pydantic import BaseModel, ConfigDict
 
-from app.matches.models import MatchStatus
+from app.matches.models import MatchStatus, MatchEventType
 from app.matches.dto import MatchDTO
 from app.secrets.models import Secret_Type
 from app.cards.models import Card_Type
@@ -34,6 +34,7 @@ class MatchOut(BaseModel):
     max_players:          int
     owner_id:             UUID
     current_player_order: int
+    timer_turn:           Optional[datetime]    
 
 
 class MatchResponse(BaseModel):
@@ -98,3 +99,14 @@ class Match_number_of_Player(BaseModel):
     owner_id:             UUID
     current_player_order: int
     current_player_count: int
+    timer_turn:           Optional[datetime]    
+
+class MatchLogOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
+    id:         UUID
+    match_id:   UUID
+    message:    str
+    created_at: datetime
+    player_id:  Optional[UUID]
+    event_type: MatchEventType

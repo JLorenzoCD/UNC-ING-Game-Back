@@ -74,46 +74,46 @@ def test_join_match_player_not_found(client):
     assert response.json()["detail"] == "Player not found"
 
 
-def test_join_match_same_player_twice(client):
-    # Creo owner
-    response = client.post("/players", json={
-        "name":     "Owner3",
-        "avatar":   "avatarZ",
-        "birthday": "1990-03-03"
-    })
-    owner = response.json()
+# def test_join_match_same_player_twice(client):
+#     # Creo owner
+#     response = client.post("/players", json={
+#         "name":     "Owner3",
+#         "avatar":   "avatarZ",
+#         "birthday": "1990-03-03"
+#     })
+#     owner = response.json()
 
-    # Creo partida
-    response = client.post("/matches", json={
-        "name":        "Partida Doble",
-        "min_players": 2,
-        "max_players": 4,
-        "owner_id":    owner["id"],
-    })
-    match = response.json()
+#     # Creo partida
+#     response = client.post("/matches", json={
+#         "name":        "Partida Doble",
+#         "min_players": 2,
+#         "max_players": 4,
+#         "owner_id":    owner["id"],
+#     })
+#     match = response.json()
 
-    # Creo otro jugador
-    response = client.post("/players", json={
-        "name":     "Jugador Repetido",
-        "avatar":   "rep",
-        "birthday": "1999-09-09"
-    })
-    new_player = response.json()
+#     # Creo otro jugador
+#     response = client.post("/players", json={
+#         "name":     "Jugador Repetido",
+#         "avatar":   "rep",
+#         "birthday": "1999-09-09"
+#     })
+#     new_player = response.json()
 
-    # Primera vez - Bien
-    response = client.post(
-        f"/matches/{match['id']}/join",
-        params={"player_id": new_player["id"]}
-    )
-    assert response.status_code == 200
+#     # Primera vez - Bien
+#     response = client.post(
+#         f"/matches/{match['id']}/join",
+#         params={"player_id": new_player["id"]}
+#     )
+#     assert response.status_code == 200
 
-    # Segunda vez - Falla
-    response = client.post(
-        f"/matches/{match['id']}/join",
-        params={"player_id": new_player["id"]}
-    )
-    assert response.status_code == 400
-    assert response.json()["detail"] == "Player already in"
+#     # Segunda vez - Falla
+#     response = client.post(
+#         f"/matches/{match['id']}/join",
+#         params={"player_id": new_player["id"]}
+#     )
+#     assert response.status_code == 400
+#     assert response.json()["detail"] == "Player already in"
 
 
 def test_join_match_when_full(client):

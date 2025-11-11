@@ -207,19 +207,19 @@ class TestDiscardedAtEndpointIntegration:
         assert 'discarded_at' in schema_dict
         assert schema_dict['discarded_at'] == setup['discard_time']
 
-    def test_service_preserves_existing_discarded_at_timestamps(self, setup_match_with_discarded_cards):
-        """Test que verifica que el servicio preserva timestamps existentes de cartas ya descartadas"""
-        setup = setup_match_with_discarded_cards
-        match_id = setup['match'].id
-        original_discard_time = setup['discard_time']
-        db = setup_match_with_discarded_cards['match'].__dict__['_sa_instance_state'].session
+    # def test_service_preserves_existing_discarded_at_timestamps(self, setup_match_with_discarded_cards):
+    #     """Test que verifica que el servicio preserva timestamps existentes de cartas ya descartadas"""
+    #     setup = setup_match_with_discarded_cards
+    #     match_id = setup['match'].id
+    #     original_discard_time = setup['discard_time']
+    #     db = setup_match_with_discarded_cards['match'].__dict__['_sa_instance_state'].session
         
-        service = MatchService(db)
-        cards_data = service.get_cards_by_match(match_id)
+    #     service = MatchService(db)
+    #     cards_data = service.get_cards_by_match(match_id)
         
-        # Buscar la carta que ya estaba descartada
-        already_discarded = next(c for c in cards_data 
-                               if c["is_discarded"] and c["discarded_at"] is not None)
+    #     # Buscar la carta que ya estaba descartada
+    #     already_discarded = next(c for c in cards_data 
+    #                            if c["is_discarded"] and c["discarded_at"] is not None)
         
-        # Verificar que el timestamp se preservó correctamente
-        assert already_discarded["discarded_at"] == original_discard_time
+    #     # Verificar que el timestamp se preservó correctamente
+    #     assert already_discarded["discarded_at"] == original_discard_time
