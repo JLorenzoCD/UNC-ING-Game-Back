@@ -34,6 +34,7 @@ class MatchOut(BaseModel):
     max_players:          int
     owner_id:             UUID
     current_player_order: int
+    timer_turn:           Optional[datetime]    
 
 
 class MatchResponse(BaseModel):
@@ -98,6 +99,7 @@ class Match_number_of_Player(BaseModel):
     owner_id:             UUID
     current_player_order: int
     current_player_count: int
+    timer_turn:           Optional[datetime]    
 
 class MatchLogOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

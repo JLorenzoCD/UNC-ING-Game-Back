@@ -41,7 +41,7 @@ def test_endpoint_start_match(client, db_session, num_players):
             "owner_id":    players[0]["id"],
         }
         response = client.post("/matches", json=match_post)
-        assert response.status_code == 201
+        assert response.status_code == 201, f"Error {response.status_code}: {response.text}"
         match_id   = response.json()["id"]
         match_uuid = uuid.UUID(match_id)
         

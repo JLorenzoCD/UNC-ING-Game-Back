@@ -1,11 +1,12 @@
 import random
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import DateTime
 
 from app.cards.models import Card, Match_Card
 from app.cards.schemas import Match_Card_Schema
@@ -65,9 +66,10 @@ class MatchService:
             name=match_dto.name,
             min_players=match_dto.min_players,
             max_players=match_dto.max_players,
-            owner_id=owner.id
+            owner_id=owner.id,
+            timer_turn=datetime.now(timezone.utc)
         )
-        
+        print(new_match.timer_turn)
         try:
             self._db.add(new_match)
             self._db.commit()
@@ -200,8 +202,12 @@ class MatchService:
             match.current_player_order = 1
         else:
             match.current_player_order = match.current_player_order + 1
+        
+        match.timer_turn = datetime.now(timezone.utc)
         self._db.commit()
         self._db.refresh(match)
+        
+        print(match.timer_turn)
         return match
 
     def extended_match(self, match: Match) -> match_schemas.Match_number_of_Player | None:
@@ -294,7 +300,7 @@ class MatchService:
                 Card.description
             ).join(Card, Match_Card.card_id == Card.id)\
             .filter(Match_Card.match_id == match_id)\
-            .all()
+            .order_by(Match_Card.id).all()
             
             combined: List[match_schemas.Cards_by_Match_Schema] = []
             for r in results:
@@ -625,22 +631,26 @@ class PileService:
     def __init__(self, db):
         self._db = db
 
-    def take_cards(self, player_id: UUID, match_id: UUID, cards: list[UUID]) -> None:
+    def take_cards(self, player_id: UUID, match_id: UUID, cards: list[UUID]) -> Optional[Match_Card]:
         """Take cards from the pile and assign to player."""
         try:
+            if not cards:
+                return
             for card in cards:
-                match_card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
+                match_card: Match_Card = self._db.query(Match_Card).filter(Match_Card.id == card).first()
                 if match_card and (match_card.player_id is None and match_card.match_id == match_id):
                     match_card.player_id = player_id
                     match_card.is_discarded = False
                     match_card.discarded_at = None
             self._db.commit()
+            self._db.refresh(match_card)
         except SQLAlchemyError as exception:
             self._db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
                 detail={"error": "Database error", "details": str(exception)}
             )
+        return match_card
     
     def discard_cards(self, player_id: UUID, match_id: UUID, cards: list[UUID]) -> None:
         """Discard cards from player to the pile."""
