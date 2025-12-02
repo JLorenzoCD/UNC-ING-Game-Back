@@ -43,6 +43,13 @@ uvicorn main:app --reload
 - `--reload`: reinicia el servidor automáticamente al detectar cambios en el código.  
 - La aplicación quedará disponible en: [http://127.0.0.1:8000](http://127.0.0.1:8000)
 
+### Ejecutar tests con coverage
+
+```bash
+coverage run -m pytest -v
+coverage report -m
+```
+
 ## Endpoints automáticos
 
 FastAPI genera automáticamente documentación interactiva:

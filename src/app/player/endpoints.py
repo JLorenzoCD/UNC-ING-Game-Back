@@ -1,29 +1,52 @@
-from fastapi import APIRouter, status, Depends
+from uuid import UUID
+from fastapi import APIRouter, status, Depends, HTTPException
+
 from app.models.db import get_db
 from app.player.utils import db_player_2_Player_Schema_out
 from app.player.schemas import Player_Schema_in, Player_Schema_out
-from websocketManager.ws_routes import ConnectionManager
-from app.player.models import Player
 
-player_router = APIRouter()
+# services
+from app.player.services import PlayerServices
+
+player_router = APIRouter(
+    tags=["players"],
+    prefix="/players"
+)
 
 
 @player_router.post(
-    path="/players",
+    path="/",
     status_code=status.HTTP_201_CREATED
 )
-async def create_player(
-    player_info: Player_Schema_in,
-    db = Depends(get_db)
-) -> Player_Schema_out:
-    new_player = Player(
-        name     = player_info.name,
-        avatar   = player_info.avatar,
-        birthday = player_info.birthday
-    )
-    db.add(new_player)
-    db.commit()
-    db.refresh(new_player)
+async def create_player(player_info: Player_Schema_in, db=Depends(get_db)) -> Player_Schema_out:
+    playerServices = PlayerServices(db)
+
+    try:
+        new_player = playerServices.create_player(player_info)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+
+    if new_player == None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="The player could not be created")
 
     player_info_out = db_player_2_Player_Schema_out(new_player)
     return player_info_out
+
+
+@player_router.get(
+    path="/{player_id}/validate",
+    status_code=status.HTTP_200_OK
+)
+async def validate_player(player_id: UUID, db=Depends(get_db)) -> dict:
+    try:
+        PlayerServices(db).validate_player(player_id)
+
+        return {"player_id": player_id}
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="The player is invalid")
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
