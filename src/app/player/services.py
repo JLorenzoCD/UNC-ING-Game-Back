@@ -44,10 +44,7 @@ class PlayerServices:
     def get_player(self, player_id: UUID) -> Player | None:
         """Get a player by ID."""
 
-        try:
-            player = self._db.get(Player, player_id)
-        except:
-            return None
+        player = self._db.get(Player, player_id)
 
         if not player:
             return None

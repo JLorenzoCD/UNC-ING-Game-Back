@@ -1,9 +1,11 @@
 from uuid import UUID
 from fastapi import APIRouter, status, Depends, HTTPException
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.models.db import get_db
 from app.player.utils import db_player_2_Player_Schema_out
 from app.player.schemas import Player_Schema_in, Player_Schema_out
+
 
 # services
 from app.player.services import PlayerServices
@@ -36,21 +38,24 @@ async def create_player(player_info: Player_Schema_in, db=Depends(get_db)) -> Pl
 
 
 @player_router.get(
-    path="/{player_id}/validate",
+    path="/{player_id}",
     status_code=status.HTTP_200_OK
 )
-async def validate_player(player_id: UUID, db=Depends(get_db)) -> Player_Schema_out:
+async def get_player(player_id: UUID, db=Depends(get_db)) -> Player_Schema_out:
     try:
         player = PlayerServices(db).get_player(player_id)
         if player is None:
-            raise ValueError("The player is invalid")
+            raise ValueError("Player not found")
 
         player_info_out = db_player_2_Player_Schema_out(player)
         return player_info_out
 
-    except ValueError:
+    except SQLAlchemyError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="The player is invalid")
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
