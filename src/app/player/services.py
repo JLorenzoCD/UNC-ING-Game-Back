@@ -41,16 +41,15 @@ class PlayerServices:
             self._db.rollback()
             raise  # Algún error inesperado (status=500)
 
-    def validate_player(self, player_id: UUID):
-        """
-        Verifica que el jugador existe en la bases de datos.
+    def get_player(self, player_id: UUID) -> Player | None:
+        """Get a player by ID."""
 
-        raise:
-            ValueError si el jugador no existe
-        """
-        id_player_in_db = self._db.query(Player).filter(
-            Player.id == player_id,
-        ).count()
+        try:
+            player = self._db.get(Player, player_id)
+        except:
+            return None
 
-        if id_player_in_db != 1:
-            raise ValueError("El UUID provisto no es valido.")
+        if not player:
+            return None
+
+        return player

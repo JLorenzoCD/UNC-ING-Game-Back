@@ -1,14 +1,10 @@
-"""Defines project settings"""
-
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     """Project settings definition"""
 
-    DATABASE_URL : str = "postgresql://admin:admin@localhost:5433/gameDB"
-
-    # Timezone
+    DATABASE_URL: str = "postgresql://admin:admin@localhost:5433/gameDB"
     DEFAULT_TIMEZONE: str = "Etc/UTC"
 
 

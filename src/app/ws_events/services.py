@@ -1,27 +1,43 @@
-
 from datetime import datetime
+
 from sqlalchemy import UUID
 
-from app.events.models import EventosDeTurno
 from app.ws_events.models import WsEvent
 
 
 class WsEventsService:
+    """Class WsEventsService."""
+
     def __init__(self, db):
+        """init  .
+
+        Args:
+            db: Parameter db."""
         self._db = db
 
     def create_event(self, match_id: UUID, message: str) -> WsEvent:
-        event = WsEvent(
-            match_id = match_id,
-            message  = message,
-            send_at  = datetime.now(),
-        )
+        """Create event.
+
+        Args:
+            match_id: Parameter match_id.
+            message: Parameter message.
+
+        Returns:
+            Return value."""
+        event = WsEvent(match_id=match_id, message=message, send_at=datetime.now())
         self._db.add(event)
         self._db.commit()
         self._db.refresh(event)
         return event
 
     def get_last_match_event(self, match_id: UUID) -> WsEvent | None:
+        """Get last match event.
+
+        Args:
+            match_id: Parameter match_id.
+
+        Returns:
+            Return value."""
         return (
             self._db.query(WsEvent)
             .filter(WsEvent.match_id == match_id)

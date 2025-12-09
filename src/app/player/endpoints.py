@@ -39,11 +39,15 @@ async def create_player(player_info: Player_Schema_in, db=Depends(get_db)) -> Pl
     path="/{player_id}/validate",
     status_code=status.HTTP_200_OK
 )
-async def validate_player(player_id: UUID, db=Depends(get_db)) -> dict:
+async def validate_player(player_id: UUID, db=Depends(get_db)) -> Player_Schema_out:
     try:
-        PlayerServices(db).validate_player(player_id)
+        player = PlayerServices(db).get_player(player_id)
+        if player is None:
+            raise ValueError("The player is invalid")
 
-        return {"player_id": player_id}
+        player_info_out = db_player_2_Player_Schema_out(player)
+        return player_info_out
+
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="The player is invalid")

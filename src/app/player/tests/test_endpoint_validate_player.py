@@ -1,5 +1,4 @@
 import uuid
-from fastapi.testclient import TestClient
 from datetime import date
 
 from app.player.models import Player
@@ -18,15 +17,17 @@ def test_player_is_valid_endpoint(db_session, client):
 
     # Tests
     player_id = str(new_player.id)
-    print(f"/players/{player_id}/validate")
 
     response = client.get(f"/players/{player_id}/validate")
-    print(response)
 
     assert response.status_code == 200
 
     data = response.json()
-    assert data["player_id"] == player_id
+    assert data["id"] is not None
+    assert data["id"] == player_id
+    assert data["name"] == "Lorenzo"
+    assert data["avatar"] == "Parker"
+    assert data["birthday"] == "2000-02-02"
 
 
 def test_player_not_valid_endpoint(db_session, client):

@@ -1,308 +1,199 @@
-import pytest
 import uuid
-from unittest.mock import patch, AsyncMock, MagicMock
-from datetime import datetime
+from unittest.mock import AsyncMock, patch
 
-from app.matches.models import MatchEventType, MatchStatus
-from app.matches.services import LogService
-from app.player.models import Player, Match_Player
-from app.matches.models import Match
-from websocketManager.ws_messages import WSEvent, make_ws_message
+import pytest
+
+from app.matches.models import MatchEventType
+from app.logs.service import LogService
 from app.matches.tests.conftest import setup_match_and_players
+from websocketManager.ws_messages import WSEvent, make_ws_message
 
 
 class TestLogIntegration:
     """Tests de integración para logs con endpoints y websockets"""
-    
-    def test_log_creation_on_player_join(self, client, db_session):
-        """Test que se crea un log cuando un jugador se une a una partida"""
-        # Arrange
-        setup_data = setup_match_and_players(client, db_session)
-        match_id = setup_data['match_str_id']
-        
-        # Obtener logs existentes
-        log_service = LogService(db_session)
-        initial_logs = log_service.get_logs_by_match(uuid.UUID(match_id))
-        initial_join_logs = [log for log in initial_logs if log.event_type == MatchEventType.PLAYER_JOIN]
-        
-        # Crear un tercer jugador
-        response = client.post("/players", json={
-            "name": "Player Three",
-            "avatar": "avatar3", 
-            "birthday": "2000-03-03"
-        })
-        assert response.status_code == 201
-        player3 = response.json()
-        
-        # Act - Unir el jugador a la partida
-        with patch('app.matches.endpoints.manager.specificBroadcast', new_callable=AsyncMock) as mock_broadcast:
-            response = client.post(f"/matches/{match_id}/join", params={"player_id": player3['id']})
-        
-        # Assert
-        assert response.status_code == 200
-        
-        # Verificar que se creó un nuevo log
-        logs_after = log_service.get_logs_by_match(uuid.UUID(match_id))
-        join_logs_after = [log for log in logs_after if log.event_type == MatchEventType.PLAYER_JOIN]
-        
-        # Debe haber un log nuevo de PLAYER_JOIN
-        assert len(join_logs_after) == len(initial_join_logs) + 1
-        
-        # Verificar el contenido del log más reciente
-        new_join_logs = [log for log in join_logs_after if log not in initial_join_logs]
-        assert len(new_join_logs) == 1
-        
-        new_log = new_join_logs[0]
-        assert "Player Three" in new_log.message
-        assert "se unió a la partida" in new_log.message
-        assert new_log.player_id == uuid.UUID(player3['id'])
-        
-        # Verificar que se envió el websocket
-        mock_broadcast.assert_called()
-        calls = mock_broadcast.call_args_list
-        
-        # Buscar la llamada del log
-        log_ws_call = None
-        for call in calls:
-            message = call[0][0]  # Primer argumento
-            if '"event": "new_log"' in message:
-                log_ws_call = call
-                break
-        
-        assert log_ws_call is not None
-        assert uuid.UUID(match_id) in [call[0][1] for call in calls]  # match_id en alguna llamada
-    
-    def test_log_creation_on_turn_pass(self, client, db_session):
-        """Test que se verifica el comportamiento del endpoint de pass_turn con logs"""
-        # Arrange
-        setup_data = setup_match_and_players(client, db_session)
-        match_id = setup_data['match_str_id']
-        
-        # Iniciar la partida para poder pasar turnos
-        with patch('app.matches.endpoints.manager.waiting_room_broadcast', new_callable=AsyncMock):
-            with patch('app.matches.endpoints.manager.specificBroadcast', new_callable=AsyncMock):
-                response = client.post(f"/matches/{match_id}/start")
-                assert response.status_code == 200
-        
-        # Act - Pasar turno
-        with patch('app.matches.endpoints.manager.specificBroadcast', new_callable=AsyncMock) as mock_broadcast:
-            response = client.put(f"/matches/{match_id}/pass_turn")
-        
-        # Assert
-        assert response.status_code == 200
-        
-        # Verificar que el endpoint funciona correctamente
-        # Nota: El log de turno actualmente no se crea debido a que el código busca
-        # 'current_player_id' pero el schema tiene 'current_player_order'
-        log_service = LogService(db_session)
-        logs = log_service.get_logs_by_match(uuid.UUID(match_id))
-        
-        # El endpoint debe funcionar aunque no cree logs
-        turn_logs = [log for log in logs if log.event_type == MatchEventType.TURN]
-        # No verificamos que se cree el log porque hay un bug en el código existente
-        # que no está dentro del alcance de este task
-        
-        # Verificar que se llamó al websocket manager
-        mock_broadcast.assert_called()
-    
-    def test_log_creation_on_set_play(self, client, db_session):
-        """Test que se crea un log cuando se juega un set"""
-        # Arrange
-        setup_data = setup_match_and_players(client, db_session)
-        match_id = setup_data['match_str_id']
-        owner_id = setup_data['owner_str_id']
-        
-        # Iniciar partida
-        with patch('app.matches.endpoints.manager.waiting_room_broadcast', new_callable=AsyncMock):
-            with patch('app.matches.endpoints.manager.specificBroadcast', new_callable=AsyncMock):
-                response = client.post(f"/matches/{match_id}/start")
-                assert response.status_code == 200
-        
-        # Obtener cartas del jugador
-        response = client.get(f"/matches/{match_id}/cards")
-        cards = response.json()
-        player_cards = [card for card in cards if card['player_id'] == owner_id]
-        
-        if len(player_cards) >= 3:
-            # Act - Jugar set
-            set_data = {
-                "player_id": owner_id,
-                "cards_ids": [card['id'] for card in player_cards[:3]],
-                "type": "HERCULE_POIROT"
-            }
-            
-            with patch('app.matches.endpoints.manager.specificBroadcast', new_callable=AsyncMock) as mock_broadcast:
-                response = client.post(f"/matches/{match_id}/sets", json=set_data)
-            
-            # Assert (solo si el set fue exitoso)
-            if response.status_code == 200:
-                # Verificar log de set
-                log_service = LogService(db_session)
-                logs = log_service.get_logs_by_match(uuid.UUID(match_id))
-                
-                set_logs = [log for log in logs if log.event_type == MatchEventType.HERCULE_POIROT]
-                assert len(set_logs) >= 1
-                
-                latest_set_log = set_logs[-1]
-                assert "[SET]" in latest_set_log.message
-                assert "jugo el evento" in latest_set_log.message
-                assert "HERCULE_POIROT" in latest_set_log.message
-    
+
     def test_log_creation_on_event_play(self, client, db_session):
         """Test que se verifica el comportamiento del endpoint de eventos con logs"""
-        # Arrange
         setup_data = setup_match_and_players(client, db_session)
-        match_id = setup_data['match_str_id']
-        owner_id = setup_data['owner_str_id']
-        player2_id = setup_data['player2_str_id']
-        
-        # En lugar de probar el endpoint completo (que tiene errores en el código existente),
-        # probamos directamente que el LogService puede crear logs de eventos
+        match_id = setup_data["match_str_id"]
+        owner_id = setup_data["owner_str_id"]
+        setup_data["player2_str_id"]
         log_service = LogService(db_session)
-        
-        # Act - Simular creación de log de evento
         log_id = log_service.create_log(
             uuid.UUID(match_id),
             "[EVENTO] Jugador Owner Player jugo el evento CARDS_OFF_THE_TABLE",
             MatchEventType.CARDS_OFF_THE_TABLE,
-            uuid.UUID(owner_id)
+            uuid.UUID(owner_id),
         )
-        
-        # Assert
         assert log_id is not None
-        
-        # Verificar que se creó el log correctamente
         logs = log_service.get_logs_by_match(uuid.UUID(match_id))
-        event_logs = [log for log in logs if log.event_type == MatchEventType.CARDS_OFF_THE_TABLE]
-        
+        event_logs = [
+            log for log in logs if log.event_type == MatchEventType.CARDS_OFF_THE_TABLE
+        ]
         assert len(event_logs) >= 1
         latest_event_log = event_logs[-1]
         assert "[EVENTO]" in latest_event_log.message
         assert "jugo el evento" in latest_event_log.message
         assert "CARDS_OFF_THE_TABLE" in latest_event_log.message
-    
-    def test_websocket_message_format_for_logs(self, db_session):
-        """Test que los mensajes de websocket para logs tienen el formato correcto"""
-        # Arrange
-        log_service = LogService(db_session)
-        match_id = uuid.uuid4()
-        player_id = uuid.uuid4()
-        message = "Test log message"
-        event_type = MatchEventType.PLAYER_JOIN
-        
-        # Act
-        log_id = log_service.create_log(match_id, message, event_type, player_id)
-        log_out = log_service.get_log_by_id(log_id)
-        
-        # Simular la creación del mensaje websocket
-        ws_message_str = make_ws_message(WSEvent.LOG, log_out.model_dump(mode='json'))
-        
-        # Assert
-        assert isinstance(ws_message_str, str)
-        assert '"event": "new_log"' in ws_message_str
-        assert '"payload":' in ws_message_str
-        assert message in ws_message_str
-        assert event_type.value in ws_message_str
-        assert str(log_id) in ws_message_str
-    
-    def test_multiple_logs_same_match(self, client, db_session):
-        """Test múltiples logs en la misma partida mantienen orden y separación"""
-        # Arrange
+
+    def test_log_creation_on_player_join(self, client, db_session):
+        """Test que se crea un log cuando un jugador se une a una partida"""
         setup_data = setup_match_and_players(client, db_session)
-        match_id = setup_data['match_str_id']
-        
-        # Crear otro match para comparación
-        response = client.post("/players", json={
-            "name": "Another Owner",
-            "avatar": "avatar4",
-            "birthday": "2000-04-04"
-        })
-        another_owner = response.json()
-        
-        response = client.post("/matches", json={
-            "name": "Another Match",
-            "min_players": 2,
-            "max_players": 4,
-            "owner_id": another_owner['id']
-        })
-        another_match = response.json()
-        another_match_id = another_match['id']
-        
-        # Act - Crear varios logs en diferentes partidas
-        with patch('app.matches.endpoints.manager.enterMatch'):
-            with patch('app.matches.endpoints.manager.waiting_room_broadcast', new_callable=AsyncMock):
-                # Logs en primera partida
-                response = client.post("/players", json={"name": "P1", "avatar": "a1", "birthday": "2000-01-01"})
-                p1 = response.json()
-                
-                with patch('app.matches.endpoints.manager.specificBroadcast', new_callable=AsyncMock):
-                    client.post(f"/matches/{match_id}/join", params={"player_id": p1['id']})
-                
-                # Logs en segunda partida  
-                response = client.post("/players", json={"name": "P2", "avatar": "a2", "birthday": "2000-02-02"})
-                p2 = response.json()
-                
-                with patch('app.matches.endpoints.manager.specificBroadcast', new_callable=AsyncMock):
-                    client.post(f"/matches/{another_match_id}/join", params={"player_id": p2['id']})
-        
-        # Assert
+        match_id = setup_data["match_str_id"]
         log_service = LogService(db_session)
-        
-        match1_logs = log_service.get_logs_by_match(uuid.UUID(match_id))
-        match2_logs = log_service.get_logs_by_match(uuid.UUID(another_match_id))
-        
-        # Verificar separación
-        assert len(match1_logs) >= 1
-        assert len(match2_logs) >= 1
-        
-        # Verificar que los logs están en la partida correcta
-        for log in match1_logs:
-            assert log.match_id == uuid.UUID(match_id)
-        
-        for log in match2_logs:
-            assert log.match_id == uuid.UUID(another_match_id)
-    
+        initial_logs = log_service.get_logs_by_match(uuid.UUID(match_id))
+        initial_join_logs = [
+            log for log in initial_logs if log.event_type == MatchEventType.PLAYER_JOIN
+        ]
+        response = client.post(
+            "/players",
+            json={
+                "name": "Player Three",
+                "avatar": "avatar3",
+                "birthday": "2000-03-03",
+            },
+        )
+        assert response.status_code == 201
+        player3 = response.json()
+        with patch(
+            "app.matches.endpoints.manager.specificBroadcast", new_callable=AsyncMock
+        ) as mock_broadcast:
+            response = client.post(
+                f"/matches/{match_id}/join", params={"player_id": player3["id"]}
+            )
+        assert response.status_code == 200
+        logs_after = log_service.get_logs_by_match(uuid.UUID(match_id))
+        join_logs_after = [
+            log for log in logs_after if log.event_type == MatchEventType.PLAYER_JOIN
+        ]
+        assert len(join_logs_after) == len(initial_join_logs) + 1
+        new_join_logs = [log for log in join_logs_after if log not in initial_join_logs]
+        assert len(new_join_logs) == 1
+        new_log = new_join_logs[0]
+        assert "Player Three" in new_log.message
+        assert "se unió a la partida" in new_log.message
+        assert new_log.player_id == uuid.UUID(player3["id"])
+        mock_broadcast.assert_called()
+        calls = mock_broadcast.call_args_list
+        log_ws_call = None
+        for call in calls:
+            message = call[0][0]
+            if '"event": "new_log"' in message:
+                log_ws_call = call
+                break
+        assert log_ws_call is not None
+        assert uuid.UUID(match_id) in [call[0][1] for call in calls]
+
+    def test_log_creation_on_set_play(self, client, db_session):
+        """Test que se crea un log cuando se juega un set"""
+        setup_data = setup_match_and_players(client, db_session)
+        match_id = setup_data["match_str_id"]
+        owner_id = setup_data["owner_str_id"]
+        with patch(
+            "app.matches.endpoints.manager.waiting_room_broadcast",
+            new_callable=AsyncMock,
+        ):
+            with patch(
+                "app.matches.endpoints.manager.specificBroadcast",
+                new_callable=AsyncMock,
+            ):
+                response = client.post(f"/matches/{match_id}/start")
+                assert response.status_code == 200
+        response = client.get(f"/matches/{match_id}/cards")
+        cards = response.json()
+        player_cards = [card for card in cards if card["player_id"] == owner_id]
+        if len(player_cards) >= 3:
+            set_data = {
+                "player_id": owner_id,
+                "cards_ids": [card["id"] for card in player_cards[:3]],
+                "type": "HERCULE_POIROT",
+            }
+            with patch(
+                "app.matches.endpoints.manager.specificBroadcast",
+                new_callable=AsyncMock,
+            ) as mock_broadcast:
+                response = client.post(f"/matches/{match_id}/sets", json=set_data)
+            if response.status_code == 200:
+                log_service = LogService(db_session)
+                logs = log_service.get_logs_by_match(uuid.UUID(match_id))
+                set_logs = [
+                    log
+                    for log in logs
+                    if log.event_type == MatchEventType.HERCULE_POIROT
+                ]
+                assert len(set_logs) >= 1
+                latest_set_log = set_logs[-1]
+                assert "[SET]" in latest_set_log.message
+                assert "jugo el evento" in latest_set_log.message
+                assert "HERCULE_POIROT" in latest_set_log.message
+
+    def test_log_creation_on_turn_pass(self, client, db_session):
+        """Test que se verifica el comportamiento del endpoint de pass_turn con logs"""
+        setup_data = setup_match_and_players(client, db_session)
+        match_id = setup_data["match_str_id"]
+        with patch(
+            "app.matches.endpoints.manager.waiting_room_broadcast",
+            new_callable=AsyncMock,
+        ):
+            with patch(
+                "app.matches.endpoints.manager.specificBroadcast",
+                new_callable=AsyncMock,
+            ):
+                response = client.post(f"/matches/{match_id}/start")
+                assert response.status_code == 200
+        with patch(
+            "app.matches.endpoints.manager.specificBroadcast", new_callable=AsyncMock
+        ) as mock_broadcast:
+            response = client.put(f"/matches/{match_id}/pass_turn")
+        assert response.status_code == 200
+        log_service = LogService(db_session)
+        logs = log_service.get_logs_by_match(uuid.UUID(match_id))
+        turn_logs = [log for log in logs if log.event_type == MatchEventType.TURN]
+        mock_broadcast.assert_called()
+
     def test_log_error_handling_in_endpoints(self, client, db_session):
         """Test que los errores en logs no afectan el flujo principal de endpoints"""
-        # Arrange
         setup_data = setup_match_and_players(client, db_session)
-        match_id = setup_data['match_str_id']
-        
-        # Act - Simular error en creación de log durante join
-        with patch('app.matches.endpoints.services.LogService.create_log', side_effect=Exception("Log error")):
-            with patch('app.matches.endpoints.manager.specificBroadcast', new_callable=AsyncMock):
-                response = client.post("/players", json={
-                    "name": "Test Player",
-                    "avatar": "test_avatar", 
-                    "birthday": "2000-01-01"
-                })
+        match_id = setup_data["match_str_id"]
+        with patch(
+            "app.matches.endpoints.LogService.create_log",
+            side_effect=Exception("Log error"),
+        ):
+            with patch(
+                "app.matches.endpoints.manager.specificBroadcast",
+                new_callable=AsyncMock,
+            ):
+                response = client.post(
+                    "/players",
+                    json={
+                        "name": "Test Player",
+                        "avatar": "test_avatar",
+                        "birthday": "2000-01-01",
+                    },
+                )
                 test_player = response.json()
-                
-                # El endpoint debería seguir funcionando a pesar del error en log
-                response = client.post(f"/matches/{match_id}/join", params={"player_id": test_player['id']})
-        
-        # Assert - El join debería haber sido exitoso
+                response = client.post(
+                    f"/matches/{match_id}/join", params={"player_id": test_player["id"]}
+                )
         assert response.status_code == 200
-        
-        # Verificar que el jugador se unió a pesar del error en log
         response = client.get(f"/matches/{match_id}")
         match_data = response.json()
-        assert match_data['current_player_count'] == 3  # Owner + Player2 + Test Player
-    
-    @pytest.mark.parametrize("event_type,expected_message_part", [
-        (MatchEventType.PLAYER_JOIN, "se unió a la partida"),
-        (MatchEventType.TURN, "[TURN]"),
-        (MatchEventType.HERCULE_POIROT, "[SET]"),
-        (MatchEventType.CARDS_OFF_THE_TABLE, "[EVENTO]"),
-    ])
+        assert match_data["current_player_count"] == 3
+
+    @pytest.mark.parametrize(
+        "event_type,expected_message_part",
+        [
+            (MatchEventType.PLAYER_JOIN, "se unió a la partida"),
+            (MatchEventType.TURN, "[TURN]"),
+            (MatchEventType.HERCULE_POIROT, "[SET]"),
+            (MatchEventType.CARDS_OFF_THE_TABLE, "[EVENTO]"),
+        ],
+    )
     def test_log_message_formats(self, db_session, event_type, expected_message_part):
         """Test que los mensajes de log tienen el formato esperado para cada tipo de evento"""
-        # Arrange
         log_service = LogService(db_session)
         match_id = uuid.uuid4()
         player_id = uuid.uuid4()
-        
-        # Simular mensaje según el tipo de evento
         if event_type == MatchEventType.PLAYER_JOIN:
             message = "[JOIN] Jugador Test Player se unió a la partida"
         elif event_type == MatchEventType.TURN:
@@ -313,11 +204,88 @@ class TestLogIntegration:
             message = "[EVENTO] Jugador Test Player jugo el evento CARDS_OFF_THE_TABLE"
         else:
             message = f"Test message for {event_type.value}"
-        
-        # Act
         log_id = log_service.create_log(match_id, message, event_type, player_id)
         log_out = log_service.get_log_by_id(log_id)
-        
-        # Assert
         assert expected_message_part in log_out.message
         assert log_out.event_type == event_type
+
+    def test_multiple_logs_same_match(self, client, db_session):
+        """Test múltiples logs en la misma partida mantienen orden y separación"""
+        setup_data = setup_match_and_players(client, db_session)
+        match_id = setup_data["match_str_id"]
+        response = client.post(
+            "/players",
+            json={
+                "name": "Another Owner",
+                "avatar": "avatar4",
+                "birthday": "2000-04-04",
+            },
+        )
+        another_owner = response.json()
+        response = client.post(
+            "/matches",
+            json={
+                "name": "Another Match",
+                "min_players": 2,
+                "max_players": 4,
+                "owner_id": another_owner["id"],
+            },
+        )
+        another_match = response.json()
+        another_match_id = another_match["id"]
+        with patch("app.matches.endpoints.manager.enterMatch"):
+            with patch(
+                "app.matches.endpoints.manager.waiting_room_broadcast",
+                new_callable=AsyncMock,
+            ):
+                response = client.post(
+                    "/players",
+                    json={"name": "P1", "avatar": "a1", "birthday": "2000-01-01"},
+                )
+                p1 = response.json()
+                with patch(
+                    "app.matches.endpoints.manager.specificBroadcast",
+                    new_callable=AsyncMock,
+                ):
+                    client.post(
+                        f"/matches/{match_id}/join", params={"player_id": p1["id"]}
+                    )
+                response = client.post(
+                    "/players",
+                    json={"name": "P2", "avatar": "a2", "birthday": "2000-02-02"},
+                )
+                p2 = response.json()
+                with patch(
+                    "app.matches.endpoints.manager.specificBroadcast",
+                    new_callable=AsyncMock,
+                ):
+                    client.post(
+                        f"/matches/{another_match_id}/join",
+                        params={"player_id": p2["id"]},
+                    )
+        log_service = LogService(db_session)
+        match1_logs = log_service.get_logs_by_match(uuid.UUID(match_id))
+        match2_logs = log_service.get_logs_by_match(uuid.UUID(another_match_id))
+        assert len(match1_logs) >= 1
+        assert len(match2_logs) >= 1
+        for log in match1_logs:
+            assert log.match_id == uuid.UUID(match_id)
+        for log in match2_logs:
+            assert log.match_id == uuid.UUID(another_match_id)
+
+    def test_websocket_message_format_for_logs(self, db_session):
+        """Test que los mensajes de websocket para logs tienen el formato correcto"""
+        log_service = LogService(db_session)
+        match_id = uuid.uuid4()
+        player_id = uuid.uuid4()
+        message = "Test log message"
+        event_type = MatchEventType.PLAYER_JOIN
+        log_id = log_service.create_log(match_id, message, event_type, player_id)
+        log_out = log_service.get_log_by_id(log_id)
+        ws_message_str = make_ws_message(WSEvent.LOG, log_out.model_dump(mode="json"))
+        assert isinstance(ws_message_str, str)
+        assert '"event": "new_log"' in ws_message_str
+        assert '"payload":' in ws_message_str
+        assert message in ws_message_str
+        assert event_type.value in ws_message_str
+        assert str(log_id) in ws_message_str

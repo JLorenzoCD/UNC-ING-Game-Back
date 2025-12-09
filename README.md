@@ -40,7 +40,7 @@ Para iniciar el servidor en modo desarrollo, ejecuta:
 uvicorn main:app --reload
 ```
 
-- `--reload`: reinicia el servidor automáticamente al detectar cambios en el código.  
+- `--reload`: reinicia el servidor automáticamente al detectar cambios en el código.
 - La aplicación quedará disponible en: [http://127.0.0.1:8000](http://127.0.0.1:8000)
 
 ### Ejecutar tests con coverage
@@ -54,7 +54,7 @@ coverage report -m
 
 FastAPI genera automáticamente documentación interactiva:
 
-- Swagger UI: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)  
+- Swagger UI: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - ReDoc: [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
 
 ## Documentación de la API
