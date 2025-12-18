@@ -194,17 +194,7 @@ async def discard_card(
                     else f"{', '.join(card_names[:3])} y {len(card_names) - 3} más"
                 )
                 log_message = f"[DISCARD] Jugador {player_obj.name} descartó {len(discarded_cards_ids)} carta(s): {cards_text}"
-                id_log = LogService(db).create_log(
-                    match_id, log_message, MatchEventType.DISCARD_CARDS, player_obj.id
-                )
-                log_out = (
-                    LogService(db)
-                    .get_log_by_id(id_log)
-                    .model_dump(mode="json")
-                )
-                await manager.specificBroadcast(
-                    make_ws_message(WSEvent.LOG, log_out), match_id
-                )
+                await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.DISCARD_CARDS, player_obj.id)
             except Exception as e:
                 print(f"[LOG] error creando/broadcast log de discard: {e}")
             return {"status": "success", "cards_discarded": len(discarded_cards_ids)}
@@ -377,12 +367,9 @@ async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
     message_ws = make_ws_message(WSEvent.MATCH, match_dict)
     await manager.waiting_room_broadcast(message_ws)
     try:
-        log = f"[JOIN] Jugador {info_player.name} se unió a la partida"
-        id_log = LogService(db).create_log(
-            match_id, log, MatchEventType.PLAYER_JOIN, info_player.id
-        )
-        log_out = LogService(db).get_log_by_id(id_log).model_dump(mode="json")
-        await manager.specificBroadcast(make_ws_message(WSEvent.LOG, log_out), match_id)
+        log_message = f"[JOIN] Jugador {info_player.name} se unió a la partida"
+
+        await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.PLAYER_JOIN, info_player.id)
     except Exception as e:
         print(f"[LOG] error creando/broadcast log de join: {e}")
     return {"match_id": match_id}
@@ -417,16 +404,9 @@ async def pass_turn(match_id: UUID, db=Depends(get_db)):
     try:
         if current_player_id:
             player_obj = PlayerServices(db).get_player(current_player_id)
-            log = f"[TURN] Es turno de {player_obj.name}"
-            id_log = LogService(db).create_log(
-                match_id, log, MatchEventType.TURN, player_obj.id
-            )
-            log_out = (
-                LogService(db).get_log_by_id(id_log).model_dump(mode="json")
-            )
-            await manager.specificBroadcast(
-                make_ws_message(WSEvent.LOG, log_out), match_id
-            )
+            log_message = f"[TURN] Es turno de {player_obj.name}"
+
+            await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.TURN, player_obj.id)
         else:
             print(
                 f"[LOG] No se pudo obtener current_player_id para match {match_id}")
@@ -535,15 +515,11 @@ async def play_event(
 
         player_obj = PlayerServices(db).get_player(player_id)
         try:
-            log = f"[EVENTO] Jugador {player_obj.name} jugó el evento {typeEvent.value}"
+            log_message = f"[EVENTO] Jugador {player_obj.name} jugó el evento {typeEvent.value}"
             # Mapear Card_event a MatchEventType usando el nombre
             event_type = getattr(MatchEventType, typeEvent.name, None)
             if event_type:
-                id_log = LogService(db).create_log(
-                    match_id, log, event_type, player_obj.id)
-                log_out = LogService(db).get_log_by_id(
-                    id_log).model_dump(mode='json')
-                await manager.specificBroadcast(make_ws_message(WSEvent.LOG, log_out), match_id)
+                await LogService(db).create_and_propagate_log(match_id, log_message, event_type, player_obj.id)
             else:
                 print(
                     f"[LOG] Warning: No matching MatchEventType for Card_event {typeEvent.name}")
@@ -735,20 +711,10 @@ async def play_set(
         setType = setIn.type
         player = PlayerServices(db).get_player(setIn.player_id)
         try:
-            log = f"[SET] Jugador {player.name} jugó el set {setType.value}"
+            log_message = f"[SET] Jugador {player.name} jugó el set {setType.value}"
             event_type = getattr(MatchEventType, setType.name, None)
             if event_type:
-                id_log = LogService(db).create_log(
-                    match_id, log, event_type, player.id
-                )
-                log_out = (
-                    LogService(db)
-                    .get_log_by_id(id_log)
-                    .model_dump(mode="json")
-                )
-                await manager.specificBroadcast(
-                    make_ws_message(WSEvent.LOG, log_out), match_id
-                )
+                await LogService(db).create_and_propagate_log(match_id, log_message, event_type, player.id)
             else:
                 print(
                     f"[LOG] Warning: No matching MatchEventType for SetType {setType.name}"
@@ -1206,16 +1172,9 @@ async def start_match(match_id: UUID, db=Depends(get_db)):
     try:
         if current_player_id:
             player_obj = PlayerServices(db).get_player(current_player_id)
-            log = f"[TURN] Es turno de {player_obj.name}"
-            id_log = LogService(db).create_log(
-                match_id, log, MatchEventType.TURN, player_obj.id
-            )
-            log_out = (
-                LogService(db).get_log_by_id(id_log).model_dump(mode="json")
-            )
-            await manager.specificBroadcast(
-                make_ws_message(WSEvent.LOG, log_out), match_id
-            )
+            log_message = f"[TURN] Es turno de {player_obj.name}"
+
+            await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.TURN, player_obj.id)
         else:
             print(
                 f"[LOG] No se pudo obtener current_player_id para match {match_id}")
@@ -1304,17 +1263,8 @@ async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_d
             try:
                 player_obj = PlayerServices(db).get_player(player_id)
                 log_message = f"[TAKE] Jugador {player_obj.name} tomó {len(taken_cards_ids)} carta(s) del mazo"
-                id_log = LogService(db).create_log(
-                    match_id, log_message, MatchEventType.TAKE_CARDS, player_obj.id
-                )
-                log_out = (
-                    LogService(db)
-                    .get_log_by_id(id_log)
-                    .model_dump(mode="json")
-                )
-                await manager.specificBroadcast(
-                    make_ws_message(WSEvent.LOG, log_out), match_id
-                )
+
+                await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.TAKE_CARDS, player_obj.id)
             except Exception as e:
                 print(f"[LOG] error creando/broadcast log de take: {e}")
             return {"status": "success", "cards_taken": len(taken_cards_ids)}
@@ -1433,18 +1383,9 @@ async def time_out(
         try:
             if current_player_id:
                 player_obj = PlayerServices(db).get_player(current_player_id)
-                log = f"[TURN] Es turno de {player_obj.name}"
-                id_log = LogService(db).create_log(
-                    match_id, log, MatchEventType.TURN, player_obj.id
-                )
-                log_out = (
-                    LogService(db)
-                    .get_log_by_id(id_log)
-                    .model_dump(mode="json")
-                )
-                await manager.specificBroadcast(
-                    make_ws_message(WSEvent.LOG, log_out), match_id
-                )
+                log_message = f"[TURN] Es turno de {player_obj.name}"
+
+                await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.TURN, player_obj.id)
             else:
                 print(
                     f"[LOG] No se pudo obtener current_player_id para match {match_id}"
