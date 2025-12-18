@@ -19,7 +19,8 @@ engine = create_engine(
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+TestingSessionLocal = sessionmaker(
+    autocommit=False, autoflush=False, bind=engine)
 
 
 @pytest.fixture
@@ -86,7 +87,8 @@ def setup_match_and_players(client, db_session):
     """Configuración común: crea match, players y cartas"""
     response = client.post(
         "/players",
-        json={"name": "Owner Player", "avatar": "avatar1", "birthday": "2000-01-01"},
+        json={"name": "Owner Player", "avatar": "avatar1",
+              "birthday": "2000-01-01"},
     )
     assert response.status_code == 201
     owner = response.json()
@@ -103,7 +105,8 @@ def setup_match_and_players(client, db_session):
     match_id = uuid.UUID(match["id"])
     response = client.post(
         "/players",
-        json={"name": "Player Two", "avatar": "avatar2", "birthday": "2000-02-02"},
+        json={"name": "Player Two", "avatar": "avatar2",
+              "birthday": "2000-02-02"},
     )
     assert response.status_code == 201
     player2 = response.json()
@@ -251,7 +254,8 @@ def setup_match_and_players(client, db_session):
             type=Secret_Type.ACCOMPLICE,
             content="You are the Accomplice!",
         ),
-        Secret(id=uuid.uuid4(), type=Secret_Type.INNOCENT, content="You are Innocent!"),
+        Secret(id=uuid.uuid4(), type=Secret_Type.INNOCENT,
+               content="You are Innocent!"),
     ]
     if not db_session.query(Secret).first():
         db_session.add_all(secrets)
