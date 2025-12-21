@@ -1130,6 +1130,14 @@ async def quit_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
         match_dict["current_player_count"] = players_count
         message_ws = make_ws_message(WSEvent.MATCH, match_dict)
         await manager.waiting_room_broadcast(message_ws)
+
+        try:
+            log_message = f"[QUIT] Jugador {info_player.name} se fue de la partida."
+
+            await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.PLAYER_QUIT, info_player.id)
+        except Exception as e:
+            print(f"[LOG] error creando/broadcast log de quit: {e}")
+
         return {"status": "success"}
     except services.MatchNotFound:
         raise HTTPException(status_code=404, detail="Match not found")
@@ -1168,8 +1176,11 @@ async def start_match(match_id: UUID, db=Depends(get_db)):
     except Exception as e:
         raise HTTPException(
             status_code=400, detail=f"Could not start match: {str(e)}")
-    current_player_id = TurnService(db).get_current_player_by_match(match_id)
+
     try:
+        current_player_id = TurnService(
+            db).get_current_player_by_match(match_id)
+
         if current_player_id:
             player_obj = PlayerServices(db).get_player(current_player_id)
             log_message = f"[TURN] Es turno de {player_obj.name}"
@@ -1347,7 +1358,7 @@ async def time_out(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"No se encontró la cuarta carta",
             )
-        print(fourth_card)
+
         ids = list(set([first_card.id, fourth_card.id]))
         results = services.MatchService(
             db).get_extended_cards_by_match(match_id, ids)
@@ -1383,7 +1394,7 @@ async def time_out(
         try:
             if current_player_id:
                 player_obj = PlayerServices(db).get_player(current_player_id)
-                log_message = f"[TURN] Es turno de {player_obj.name}"
+                log_message = f"[TIMEOUT] Ocurrió un timeout, ahora es turno de {player_obj.name}"
 
                 await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.TURN, player_obj.id)
             else:
