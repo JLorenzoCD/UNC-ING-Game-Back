@@ -46,9 +46,9 @@ def test_init_base_cards(db_session):
     assert Card_Type.EVENT in card_types
     assert Card_Type.DEVIOUS in card_types
     card_names = [c.name for c in cards]
-    assert "NOT_SO_FAST" in card_names
-    assert "HERCULE_POIROT" in card_names
-    assert "MISS_MARPLE" in card_names
+    assert "NOT SO FAST" in card_names
+    assert "HERCULE POIROT" in card_names
+    assert "MISS MARPLE" in card_names
     service.init_base_cards()
     assert db_session.query(Card).count() == len(cards)
 
