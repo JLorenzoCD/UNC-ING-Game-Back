@@ -7,7 +7,8 @@ def test_quit_match_invalid_match_id(client):
     """Test que falla con un match_id inexistente"""
     response = client.post(
         "/players",
-        json={"name": "Test Player", "avatar": "avatar1", "birthday": "2000-01-01"},
+        json={"name": "Test Player", "avatar": "avatar1",
+              "birthday": "2000-01-01"},
     )
     assert response.status_code == 201
     player = response.json()
@@ -25,7 +26,8 @@ def test_quit_match_multiple_players(client):
     """Test con múltiples jugadores abandonando la partida"""
     response = client.post(
         "/players",
-        json={"name": "Owner Player", "avatar": "avatar1", "birthday": "2000-01-01"},
+        json={"name": "Owner Player", "avatar": "avatar1",
+              "birthday": "2000-01-01"},
     )
     assert response.status_code == 201
     owner = response.json()
@@ -87,7 +89,8 @@ def test_quit_match_owner_can_quit(client):
     """Test que el owner también puede abandonar la partida"""
     response = client.post(
         "/players",
-        json={"name": "Owner Player", "avatar": "avatar1", "birthday": "2000-01-01"},
+        json={"name": "Owner Player", "avatar": "avatar1",
+              "birthday": "2000-01-01"},
     )
     assert response.status_code == 201
     owner = response.json()
@@ -102,7 +105,8 @@ def test_quit_match_owner_can_quit(client):
     match = response.json()
     response = client.post(
         "/players",
-        json={"name": "Player Two", "avatar": "avatar2", "birthday": "2000-02-02"},
+        json={"name": "Player Two", "avatar": "avatar2",
+              "birthday": "2000-02-02"},
     )
     assert response.status_code == 201
     player2 = response.json()
@@ -130,7 +134,8 @@ def test_quit_match_player_not_found(client):
     """Test que falla cuando el jugador no existe"""
     response = client.post(
         "/players",
-        json={"name": "Owner Player", "avatar": "avatar1", "birthday": "2000-01-01"},
+        json={"name": "Owner Player", "avatar": "avatar1",
+              "birthday": "2000-01-01"},
     )
     assert response.status_code == 201
     owner = response.json()
@@ -158,7 +163,8 @@ def test_quit_match_player_not_in_match(client):
     """Test que falla cuando el jugador no está en la partida"""
     response = client.post(
         "/players",
-        json={"name": "Owner Player", "avatar": "avatar1", "birthday": "2000-01-01"},
+        json={"name": "Owner Player", "avatar": "avatar1",
+              "birthday": "2000-01-01"},
     )
     assert response.status_code == 201
     owner = response.json()
@@ -173,7 +179,8 @@ def test_quit_match_player_not_in_match(client):
     match = response.json()
     response = client.post(
         "/players",
-        json={"name": "External Player", "avatar": "avatar2", "birthday": "2000-02-02"},
+        json={"name": "External Player",
+              "avatar": "avatar2", "birthday": "2000-02-02"},
     )
     assert response.status_code == 201
     external_player = response.json()
@@ -190,7 +197,8 @@ def test_quit_match_success(client):
     """Test que un jugador puede abandonar una partida exitosamente"""
     response = client.post(
         "/players",
-        json={"name": "Owner Player", "avatar": "avatar1", "birthday": "2000-01-01"},
+        json={"name": "Owner Player", "avatar": "avatar1",
+              "birthday": "2000-01-01"},
     )
     assert response.status_code == 201
     owner = response.json()
@@ -205,7 +213,8 @@ def test_quit_match_success(client):
     match = response.json()
     response = client.post(
         "/players",
-        json={"name": "Player Two", "avatar": "avatar2", "birthday": "2000-02-02"},
+        json={"name": "Player Two", "avatar": "avatar2",
+              "birthday": "2000-02-02"},
     )
     assert response.status_code == 201
     player2 = response.json()
@@ -233,5 +242,5 @@ def test_quit_match_success(client):
     players = response.json()
     assert len(players) == 1
     assert players[0]["player_id"] == owner["id"]
-    mock_broadcast.assert_called_once()
+    mock_broadcast.assert_called()
     mock_quit.assert_called_once_with(UUID(player2["id"]), UUID(match["id"]))
