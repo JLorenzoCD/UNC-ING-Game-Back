@@ -767,19 +767,6 @@ async def play_set(
     Returns:
         Return value."""
     try:
-        setType = setIn.type
-        player = PlayerServices(db).get_player(setIn.player_id)
-        try:
-            log_message = f"[SET] Jugador {player.name} jugó el set {setType.value}"
-            event_type = getattr(MatchEventType, setType.name, None)
-            if event_type:
-                await LogService(db).create_and_propagate_log(match_id, log_message, event_type, player.id)
-            else:
-                print(
-                    f"[LOG] Warning: No matching MatchEventType for SetType {setType.name}"
-                )
-        except Exception as e:
-            print(f"[LOG] error creando/broadcast log de set: {e}")
         match_card_ids: List[UUID] = setIn.card_ids
         set_service = set_services.SetService(db)
         set_service.set_verification(
@@ -876,6 +863,26 @@ async def play_set(
                 make_ws_message(
                     WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
             )
+
+        try:
+            setType = setIn.type
+            player = PlayerServices(db).get_player(setIn.player_id)
+
+            msg_nsf = "y puedes jugar una carta 'NOT SO FAST...' para cancelarlo"
+            if setType == SetType.TWO_BERESFORD:
+                msg_nsf = " y no puede ser cancelada con una 'NOT SO FAST...'"
+
+            log_message = f"[SET] Jugador '{player.name}' jugó el set '{setType.value}'{msg_nsf}"
+            event_type = getattr(MatchEventType, setType.name, None)
+            if event_type:
+                await LogService(db).create_and_propagate_log(match_id, log_message, event_type, player.id)
+            else:
+                print(
+                    f"[LOG] Warning: No matching MatchEventType for SetType {setType.name}"
+                )
+        except Exception as e:
+            print(f"[LOG] error creando/broadcast log de play_set: {e}")
+
         return match_set
     except (
         set_services.InvalidCardError,
@@ -1031,6 +1038,7 @@ async def put_down_a_detective(
         match_set = set_service.get_match_set(set_id, match_id)
         match_set_out = db_match_set_2_match_set_schema(match_set)
         card_name = set_service._get_card_names(match_card_ids)[0]
+
         if (
             match_set.type != SetType.LADY_EILEEN
             or card_name == SetType.ADRIADNE_OLIVER.value
@@ -1041,6 +1049,7 @@ async def put_down_a_detective(
                 match_set = set_service.update_setType(
                     set_id, SetType.TWO_BERESFORD)
                 match_set_out = db_match_set_2_match_set_schema(match_set)
+
             payload = match_set_out.model_dump(mode="json")
             PileService(db).discard_cards(
                 None, match_id, set_info.card_ids, delete=True
@@ -1049,6 +1058,7 @@ async def put_down_a_detective(
                 {"deleted_cards": [str(uuid) for uuid in match_card_ids]})
             ws_msj = make_ws_message(WSEvent.SET, payload)
             await manager.specificBroadcast(ws_msj, match_id)
+
         set_type = match_set.type
         set_in_complete = set_schemas.SetIn(
             type=set_type,
@@ -1158,7 +1168,11 @@ async def put_down_a_detective(
             setType = set_to_play.type
             player = PlayerServices(db).get_player(set_to_play.player_id)
 
-            log_message = f"[SET] Jugador {player.name} bajo un detective, ejecutando el evento de set de '{new_event.event_type}'"
+            msg_nsf = "y puedes jugar una carta 'NOT SO FAST...' para cancelarlo"
+            if set_to_play.type == SetType.TWO_BERESFORD:
+                msg_nsf = " y no puede ser cancelada con una 'NOT SO FAST...'"
+
+            log_message = f"[SET] Jugador {player.name} bajo un detective, ejecutando el evento de set de '{new_event.event_type}'{msg_nsf}"
             event_type = getattr(MatchEventType, setType.name, None)
             if event_type:
                 await LogService(db).create_and_propagate_log(match_id, log_message, event_type, player.id)
@@ -1167,7 +1181,8 @@ async def put_down_a_detective(
                     f"[LOG] Warning: No matching MatchEventType for SetType {setType.name}"
                 )
         except Exception as e:
-            print(f"[LOG] error creando/broadcast log de set: {e}")
+            print(
+                f"[LOG] error creando/broadcast log de put_down_a_detective: {e}")
 
         return match_set
     except (
