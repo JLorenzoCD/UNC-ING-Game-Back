@@ -438,19 +438,30 @@ async def play_card_trade(
         event_update = services_event.EventService(db).update_info_event(
             event_id, player_id, event_payload["target_card_id"]
         )
+
+        try:
+            player = PlayerServices(db).get_player(player_id)
+            log_message = f"[EVENT] El jugador '{player.name}' selecciono una carta para intercambiar'"
+
+            await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.CARD_TRADE, player.id)
+        except Exception as e:
+            print(
+                f"[LOG] error creando/broadcast log de play_card_trade: {e}")
+
         if services_event.EventService(db).is_event_ready_to_resolve(event_update):
             payload = services_event.EventService(
                 db).resolve_event(event_update)
             await manager.specificBroadcast(
                 make_ws_message(WSEvent.CARD_EVENT, payload), match_id
             )
-        return {"status": "ok", "message": "CardTrade de lujo"}
     except Exception as e:
         print(f"Algun error en card trade error: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Error al procesar la carta {e}",
         )
+
+    return {"status": "ok", "message": "CardTrade de lujo"}
 
 
 @router.post("/{match_id}/dead_card_folly", status_code=status.HTTP_200_OK)
@@ -476,6 +487,16 @@ async def play_dead_card_folly(
         event_update = services_event.EventService(db).update_info_event(
             event_id, player_id, event_payload["target_card_id"]
         )
+
+        try:
+            player = PlayerServices(db).get_player(player_id)
+            log_message = f"[EVENT] El jugador '{player.name}' selecciono una carta para intercambiar'"
+
+            await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.DEAD_CARD_FOLLY, player.id)
+        except Exception as e:
+            print(
+                f"[LOG] error creando/broadcast log de play_dead_card_folly: {e}")
+
         if services_event.EventService(db).is_event_ready_to_resolve(event_update):
             payload = services_event.EventService(
                 db).resolve_event(event_update)
@@ -613,7 +634,6 @@ async def play_not_so_fast(
         nsf_count: Parameter nsf_count.
         db: Parameter db."""
     try:
-        print("llegue al endpoint de la notsofast")
         services_cards.Cards_Services(db).validate_card_ownership(
             player_id, match_id, match_card_id
         )
@@ -625,6 +645,16 @@ async def play_not_so_fast(
         updated_event = services_event.EventService(db).update_event_nsf(
             event_id, nsf_count
         )
+
+        try:
+            player = PlayerServices(db).get_player(player_id)
+            log_message = f"[EVENT] El jugador '{player.name}' jugo una carta 'NOT SO FAST...'"
+
+            await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.NOT_SO_FAST, player.id)
+        except Exception as e:
+            print(
+                f"[LOG] error creando/broadcast log de play_not_so_fast: {e}")
+
         PileService(db).discard_cards(
             player_id, match_id, [match_card_id], delete=False
         )
@@ -633,6 +663,7 @@ async def play_not_so_fast(
         )
         discarded_card_event = db_match_card_2_match_card_schema(
             discarded_card)
+
         payload = {
             "event_id": str(updated_event.id),
             "event_type": typeEvent.value,
@@ -641,12 +672,11 @@ async def play_not_so_fast(
             "nsf_count": updated_event.nsf_count,
             "discarded_card": discarded_card_event.model_dump(mode="json"),
         }
-        print("a punto de enviar el otro cancellation window open")
         await manager.specificBroadcast(
             make_ws_message(WSEvent.CANCELLATION_WINDOW_OPEN,
                             payload), match_id
         )
-        return {"status": "ok", "message": "Cancelaste la accion"}
+
     except ValueError as e:
         print(f"alguien ya cancelo la accion error: {e}")
         return {"status": "failed", "message": "Alguien ya canceló la accion "}
@@ -656,6 +686,8 @@ async def play_not_so_fast(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Error al procesar la carta {e}",
         )
+
+    return {"status": "ok", "message": "Cancelaste la accion"}
 
 
 @router.post("/{match_id}/point_your_suspicions", status_code=status.HTTP_200_OK)
@@ -678,6 +710,19 @@ async def play_point_your_suspicions(
         event_update = services_event.EventService(db).update_info_event(
             event_id, player_id, event_payload["target_player_id"]
         )
+
+        try:
+            player = PlayerServices(db).get_player(player_id)
+            player_seleccionado = PlayerServices(db).get_player(
+                event_payload["target_player_id"])
+
+            log_message = f"[EVENT] El jugador '{player.name}' sospecha del jugador '{player_seleccionado.name}'"
+
+            await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.POINT_YOUR_SUSPICIONS, player.id)
+        except Exception as e:
+            print(
+                f"[LOG] error creando/broadcast log de play_point_your_suspicions: {e}")
+
         if services_event.EventService(db).is_event_ready_to_resolve(event_update):
             payload = services_event.EventService(
                 db).resolve_event(event_update)
@@ -685,13 +730,14 @@ async def play_point_your_suspicions(
                 make_ws_message(WSEvent.PLAYER_SECRET_REVEAL,
                                 payload), match_id
             )
-        return {"status": "ok", "message": "Point your suspicions de lujo"}
     except Exception as e:
         print(f"Algun error en point your suspicions error: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Error al procesar la carta {e}",
         )
+
+    return {"status": "ok", "message": "Point your suspicions de lujo"}
 
 
 @router.post("/{match_id}/sets", status_code=status.HTTP_201_CREATED)
@@ -751,7 +797,7 @@ async def play_set(
                 {"deleted_cards": [str(uuid) for uuid in match_card_ids]})
             ws_msj = make_ws_message(WSEvent.SET, payload)
             await manager.specificBroadcast(ws_msj, match_id)
-        print(setIn.type)
+
         if setIn.type == SetType.TWO_BERESFORD:
             set_payload = set_services.SetService(db).create_set_payload(
                 match_id, setIn, is_Oliver=False
@@ -916,6 +962,22 @@ async def play_set_stolen(
             ws_msj = make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload)
             await manager.specificBroadcast(ws_msj, match_id)
         match_set_out = db_match_set_2_match_set_schema(match_set)
+
+        try:
+            player = PlayerServices(db).get_player(match_set_out.player_id)
+
+            setType = match_set_out.type
+            log_message = f"[SET] Jugador {player.name} jugó el set {setType.value}"
+            event_type = getattr(MatchEventType, setType.name, None)
+            if event_type:
+                await LogService(db).create_and_propagate_log(match_id, log_message, event_type, player.id)
+            else:
+                print(
+                    f"[LOG] Warning: No matching MatchEventType for SetType {setType.name}"
+                )
+        except Exception as e:
+            print(f"[LOG] error creando/broadcast log de set robado: {e}")
+
         return match_set_out
     except (
         set_services.InvalidCardError,
@@ -1077,6 +1139,23 @@ async def put_down_a_detective(
                 make_ws_message(
                     WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
             )
+
+        try:
+            set_to_play = set_service.get_match_set(set_id, match_id)
+            setType = set_to_play.type
+            player = PlayerServices(db).get_player(set_to_play.player_id)
+
+            log_message = f"[SET] Jugador {player.name} bajo un detective al set {setType.value} para volver a jugarlo"
+            event_type = getattr(MatchEventType, setType.name, None)
+            if event_type:
+                await LogService(db).create_and_propagate_log(match_id, log_message, event_type, player.id)
+            else:
+                print(
+                    f"[LOG] Warning: No matching MatchEventType for SetType {setType.name}"
+                )
+        except Exception as e:
+            print(f"[LOG] error creando/broadcast log de set: {e}")
+
         return match_set
     except (
         set_services.InvalidCardError,
@@ -1429,15 +1508,20 @@ async def update_secret_in_match(
         secret_service = secret_services.Secrets_Services(db)
         secret_service.secret_update_verification(
             match_id, secret_id, secretIn)
+
+        match_secret_old = secret_service.get_match_secret_by_id(secret_id)
+
         match_secret: Match_Secret = secret_service.update_secret(
             secretIn.action, secret_id, secretIn.target_player_id
         )
         match_secret_out: secret_schemas.Match_Secret_Schema = (
             db_match_secret_2_match_secret_schema(match_secret)
         )
+
         payload = match_secret_out.model_dump(mode="json")
         msj_ws = make_ws_message(WSEvent.SECRET, payload)
         await manager.specificBroadcast(msj_ws, match_id)
+
         if (
             secretIn.action == Secret_action.REVEAL
             and match_secret_out.is_revealed == True
@@ -1454,6 +1538,21 @@ async def update_secret_in_match(
                     )
             except Exception as e:
                 raise HTTPException(status_code=400, detail=str(e))
+
+        try:
+            secret_update_type_msg = "revelo"
+
+            if secretIn.action.value == "hide_secret":
+                secret_update_type_msg = "oculto"
+            elif secretIn.action.value == "steal_secret":
+                secret_update_type_msg = "robo"
+
+            player = PlayerServices(db).get_player(match_secret_old.player_id)
+            log_message = f"[SECRET] Jugador {player.name} {secret_update_type_msg} un secreto"
+            await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.UPDATE_SECRET, player.id)
+        except Exception as e:
+            print(f"[LOG] error creando/broadcast log de secret: {e}")
+
         return match_secret_out
     except secret_services.SecretNotFound as e:
         raise HTTPException(status_code=400, detail=str(e))

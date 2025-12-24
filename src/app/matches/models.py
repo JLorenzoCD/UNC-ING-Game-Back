@@ -47,6 +47,7 @@ class MatchEventType(PyEnum):
     SOCIAL_FAUX_PAS = "Social Faux Pas"
     DISCARD_CARDS = "Discard Cards"
     TAKE_CARDS = "Take Cards"
+    UPDATE_SECRET = "Update Secret"
 
 
 class Match(Base):
