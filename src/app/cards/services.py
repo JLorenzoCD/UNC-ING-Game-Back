@@ -93,7 +93,8 @@ class Cards_Services:
         self._db.commit()
         for card in target_cards:
             if not card.is_discarded:
-                raise ValueError(f"La carta {card.id} no se descartó correctamente")
+                raise ValueError(
+                    f"La carta {card.id} no se descartó correctamente")
         return {"discarded_instant_cards": target_cards}
 
     def delay_the_murderer_escape_event(self, cards_ids: list[int]):
@@ -108,7 +109,8 @@ class Cards_Services:
             )
             self._db.commit()
             updated_cards = (
-                self._db.query(Match_Card).filter(Match_Card.id.in_(cards_ids)).all()
+                self._db.query(Match_Card).filter(
+                    Match_Card.id.in_(cards_ids)).all()
             )
             return updated_cards
         except SQLAlchemyError as e:
@@ -146,7 +148,8 @@ class Cards_Services:
                 None, match_id, card_ids
             )
             discarded_cards = (
-                self._db.query(Match_Card).filter(Match_Card.id.in_(card_ids)).all()
+                self._db.query(Match_Card).filter(
+                    Match_Card.id.in_(card_ids)).all()
             )
             result = [
                 db_match_card_2_match_card_schema(card) for card in discarded_cards
@@ -243,6 +246,7 @@ class Cards_Services:
                 {"type": "DEVIOUS", "name": "BLACKMAILED", "quantity": 1},
                 {"type": "DEVIOUS", "name": "SOCIAL FAUX PAS", "quantity": 3},
             ]
+
         shuffle_cards = []
         for card_info in all_cards:
             card_base = (
@@ -252,12 +256,14 @@ class Cards_Services:
             )
             if not card_base:
                 continue
+
             for _ in range(card_info["quantity"]):
-                match_card = Match_Card(match_id=match_id, card_id=card_base.id)
+                match_card = Match_Card(
+                    match_id=match_id, card_id=card_base.id)
                 shuffle_cards.append(match_card)
+
         random.shuffle(shuffle_cards)
-        random.shuffle(shuffle_cards)
-        random.shuffle(shuffle_cards)
+
         for cards in shuffle_cards:
             self._db.add(cards)
         self._db.commit()
@@ -337,7 +343,8 @@ class Cards_Services:
                         (i - 1 + num_players) % num_players
                     ]
                 else:
-                    raise ValueError(f"Dirección de pase inválida: {direction}")
+                    raise ValueError(
+                        f"Dirección de pase inválida: {direction}")
                 player_target_map[str(current_player.player_id)] = (
                     target_player.player_id
                 )
@@ -349,7 +356,8 @@ class Cards_Services:
             for card in cards_to_update:
                 current_owner_id = str(card.player_id)
                 new_owner_id = player_target_map[current_owner_id]
-                print(f"Pasando carta {card.id} de {current_owner_id} a {new_owner_id}")
+                print(
+                    f"Pasando carta {card.id} de {current_owner_id} a {new_owner_id}")
                 card.player_id = new_owner_id
             self._db.commit()
             for card in cards_to_update:
