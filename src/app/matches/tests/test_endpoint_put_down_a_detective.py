@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, Mock
 from uuid import UUID
 
 import pytest
@@ -15,7 +15,8 @@ def create_existing_set(
     db_session, set_type: SetType, match_id: UUID, player_id: UUID
 ) -> UUID:
     """Helper para crear un Match_Set ya existente en la BBDD."""
-    match_set = Match_Set(type=set_type, match_id=match_id, player_id=player_id)
+    match_set = Match_Set(
+        type=set_type, match_id=match_id, player_id=player_id)
     db_session.add(match_set)
     db_session.commit()
     db_session.refresh(match_set)
@@ -128,7 +129,7 @@ def test_put_down_a_detective(
     Verifica que añadir una carta a un set existente (PUT) funciona,
     manejando la lógica de descarte y los casos especiales.
     """
-    with patch("app.matches.endpoints.manager") as mock_manager:
+    with patch("app.matches.endpoints.manager") as mock_manager, patch("app.matches.endpoints.LogService.create_and_propagate_log", new_callable=Mock):
         mock_manager.specificBroadcast = AsyncMock()
         mock_manager.waiting_room_broadcast = AsyncMock()
         setup_data = setup_match_and_players(client, db_session)
@@ -137,7 +138,8 @@ def test_put_down_a_detective(
         owner_id = setup_data["owner_id"]
         player2_id = setup_data["player2_id"]
         secret_base = (
-            db_session.query(Secret).filter(Secret.type == Secret_Type.INNOCENT).first()
+            db_session.query(Secret).filter(
+                Secret.type == Secret_Type.INNOCENT).first()
         )
         secret_ids_owner = create_match_secrets(
             db_session, secret_base, match_id, [owner_id], True
@@ -145,7 +147,8 @@ def test_put_down_a_detective(
         secret_ids_player2 = create_match_secrets(
             db_session, secret_base, match_id, [player2_id], False
         )
-        set_id = create_existing_set(db_session, initial_set_type, match_id, owner_id)
+        set_id = create_existing_set(
+            db_session, initial_set_type, match_id, owner_id)
         str_set_id = str(set_id)
         card_ids_in_hand = create_match_cards_for_set(
             db_session, [card_to_play_name], match_id, owner_id
