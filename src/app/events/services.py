@@ -96,8 +96,6 @@ class EventService:
         """
         Handler de eventos. Contiene toda la logica que tenia antes el endpoint. Full BaseDatos, nada de ws
         """
-        for prop, valor in vars(event).items():
-            print(prop, valor)
         db = self._db
         match_id = event.match_id
         player_id = event.player_id
@@ -176,7 +174,8 @@ class EventService:
                     }
                 case Card_event.DELAY_THE_MURDERER_ESCAPE.value:
                     if len(event_payload["cards_ids"]) > 5:
-                        raise ValueError("Se pasaron mas de 5 cartas para retrasar")
+                        raise ValueError(
+                            "Se pasaron mas de 5 cartas para retrasar")
                     event.match_card_id = None
                     db.commit()
                     updated_match_cards = services_cards.Cards_Services(
@@ -233,7 +232,6 @@ class EventService:
                     except Exception as e:
                         raise e
                 case Card_event.CARD_TRADE.value:
-                    print("Resolviendo el Card Trade...")
                     responses = event_payload.get("responses", [])
                     if len(responses) != 2:
                         raise ValueError(
@@ -244,7 +242,6 @@ class EventService:
                     updated_match_cards = services_cards.Cards_Services(
                         db
                     ).swap_cards_owners(match_card_id1, match_card_id2)
-                    print(f"Intercambiando {match_card_id1} por {match_card_id2}")
                     updated_match_cards_schemas = [
                         db_match_card_2_match_card_schema(card)
                         for card in updated_match_cards
@@ -328,15 +325,19 @@ class EventService:
                     set_models.SetType.TUPPENCE_BERESFORD.value,
                     set_models.SetType.MR_SATTERTHWAITE.value,
                 ):
-                    payload = {"target_player_id": event_payload["target_player_id"]}
+                    payload = {
+                        "target_player_id": event_payload["target_player_id"]}
                     payload["type"] = typeEvent
                 case set_models.SetType.TWO_BERESFORD.value:
-                    payload = {"target_player_id": event_payload["target_player_id"]}
+                    payload = {
+                        "target_player_id": event_payload["target_player_id"]}
                 case set_models.SetType.ADRIADNE_OLIVER.value:
-                    payload = {"target_player_id": event_payload["target_player_id"]}
+                    payload = {
+                        "target_player_id": event_payload["target_player_id"]}
                     payload["type"] = typeEvent
                 case set_models.SetType.LADY_EILEEN.value:
-                    accion_set = {"target_player_id": event_payload["target_player_id"]}
+                    accion_set = {
+                        "target_player_id": event_payload["target_player_id"]}
                     payload = {"accion_set": accion_set, "type": typeEvent}
                     if event_payload["is_create_set"] == True:
                         data = event_payload["set_data"]
@@ -350,26 +351,31 @@ class EventService:
                             "target_secret_id": None,
                             "match_id": match_id,
                         }
-                        match_set = set_services.SetService(db).create_set(set_data)
-                        match_set_out = db_match_set_2_match_set_schema(match_set)
+                        match_set = set_services.SetService(
+                            db).create_set(set_data)
+                        match_set_out = db_match_set_2_match_set_schema(
+                            match_set)
                         create_payload = match_set_out.model_dump(mode="json")
                         PileService(db).discard_cards(
                             None, match_id, set_data["card_ids"], delete=True
                         )
-                        create_payload.update({"deleted_cards": data["card_ids"]})
+                        create_payload.update(
+                            {"deleted_cards": data["card_ids"]})
                         payload["data_set"] = create_payload
                     elif event_payload["is_create_set"] == False:
                         match_set_id = uuid.UUID(event_payload["set_id"])
                         match_set = set_services.SetService(db).get_match_set(
                             match_set_id, match_id
                         )
-                        match_set_out = db_match_set_2_match_set_schema(match_set)
+                        match_set_out = db_match_set_2_match_set_schema(
+                            match_set)
                         update_payload = match_set_out.model_dump(mode="json")
                         PileService(db).discard_cards(
                             None, match_id, [match_card_id], delete=True
                         )
                         update_payload.update(
-                            {"deleted_cards": [str(uuid) for uuid in data["card_ids"]]}
+                            {"deleted_cards": [str(uuid)
+                                               for uuid in data["card_ids"]]}
                         )
                         payload["data_set"] = update_payload
             return payload
@@ -381,7 +387,8 @@ class EventService:
         Actualiza el evento aumentandole +1 a la nsf_count y actualizando el resolve_at_time
         """
         try:
-            new_resolve_time = datetime.now(timezone.utc) + timedelta(seconds=7)
+            new_resolve_time = datetime.now(
+                timezone.utc) + timedelta(seconds=7)
             update_count = (
                 self._db.query(EventosDeTurno)
                 .filter(

@@ -356,8 +356,6 @@ class Cards_Services:
             for card in cards_to_update:
                 current_owner_id = str(card.player_id)
                 new_owner_id = player_target_map[current_owner_id]
-                print(
-                    f"Pasando carta {card.id} de {current_owner_id} a {new_owner_id}")
                 card.player_id = new_owner_id
             self._db.commit()
             for card in cards_to_update:
@@ -390,9 +388,6 @@ class Cards_Services:
                 raise ValueError(
                     "Una de las cartas no tiene dueño (ej: está en el mazo o descarte)."
                 )
-            print(
-                f"Swap: P1 ({card1.player_id}) -> Card2, P2 ({card2.player_id}) -> Card1"
-            )
             owner1_id = card1.player_id
             owner2_id = card2.player_id
             card1.player_id = owner2_id

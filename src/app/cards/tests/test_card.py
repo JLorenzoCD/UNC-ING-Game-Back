@@ -2,8 +2,6 @@ from app.cards.models import Card, Card_Type
 from app.cards.schemas import Card_Schema
 from app.cards.utils import db_card_2_card_schema
 
-print("Test module loaded successfully!")
-
 
 def test_create_card(db):
     """Test create card.

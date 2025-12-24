@@ -56,5 +56,5 @@ class TurnService:
         match.timer_turn = datetime.now(timezone.utc)
         self._db.commit()
         self._db.refresh(match)
-        print(match.timer_turn)
+
         return match

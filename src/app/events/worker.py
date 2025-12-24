@@ -18,6 +18,10 @@ from app.sets.models import SetType
 from websocketManager.ws_messages import WSEvent, make_ws_message
 from websocketManager.ws_routes import manager
 
+from app.logs.service import LogService
+from app.matches.models import MatchEventType
+from app.piles.service import PileService
+
 
 async def event_resolver_loop():
     """
@@ -25,6 +29,7 @@ async def event_resolver_loop():
     Revisa la BBDD cada segundo y resuelve eventos pendientes.
     """
     print("Iniciando Worker de Resolución de Eventos...")
+
     while True:
         await asyncio.sleep(1)
         db: Session = session_local()
@@ -89,7 +94,7 @@ async def event_resolver_loop():
                                     if (
                                         result_payload.get("type")
                                         == Card_event.EARLY_TRAIN_TO_PADDINGTON.value
-                                        and match_services.PileService(
+                                        and PileService(
                                             db
                                         ).get_count_cards_pile(event.match_id)
                                         <= 0
@@ -106,7 +111,8 @@ async def event_resolver_loop():
                                     SetType.PARKER_PYNE.value,
                                 ):
                                     await manager.specificBroadcast(
-                                        make_ws_message(WSEvent.SECRET, result_payload),
+                                        make_ws_message(
+                                            WSEvent.SECRET, result_payload),
                                         event.match_id,
                                     )
                                     try:
@@ -164,6 +170,14 @@ async def event_resolver_loop():
                                         ),
                                         event.match_id,
                                     )
+
+                        try:
+                            log_message = f"[EVENT] El evento '{event.event_type.capitalize()}' no fue cancelado"
+                            await LogService(db).create_and_propagate_log(event.match_id, log_message, MatchEventType.NOT_SO_FAST, event.player_id)
+                        except Exception as e:
+                            print(
+                                f"[LOG] error creando/broadcast log de worker-played: {e}")
+
                     except Exception as e:
                         db.rollback()
                         print("Ejecucion del evento fallo")
@@ -184,7 +198,7 @@ async def event_resolver_loop():
                     db.commit()
                     payload = {}
                     if event.event_type in [e.value for e in Card_event]:
-                        match_services.PileService(db).discard_cards(
+                        PileService(db).discard_cards(
                             None, event.match_id, [event.match_card_id], delete=False
                         )
                         discarded_card = (
@@ -209,10 +223,18 @@ async def event_resolver_loop():
                             "event_type": event.event_type,
                             "message": "Event was cancelled by Not So Fast",
                         }
+
                     await manager.specificBroadcast(
                         make_ws_message(WSEvent.EVENT_CANCELLED, payload),
                         event.match_id,
                     )
+
+                    try:
+                        log_message = f"[EVENT] El evento '{event.event_type.capitalize()}' fue cancelado por una carta 'NOT SO FAST...'"
+                        await LogService(db).create_and_propagate_log(event.match_id, log_message, MatchEventType.NOT_SO_FAST, event.player_id)
+                    except Exception as e:
+                        print(
+                            f"[LOG] error creando/broadcast log de worker-canceled: {e}")
         except Exception as e:
             print(f"Error crítico en el bucle de resolución: {e}")
             db.rollback()

@@ -183,6 +183,7 @@ async def discard_card(
             await manager.specificBroadcast(
                 make_ws_message(WSEvent.CARDS, payload), match_id
             )
+
             try:
                 player_obj = PlayerServices(db).get_player(player_id)
                 card_names = []
@@ -197,6 +198,7 @@ async def discard_card(
                 await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.DISCARD_CARDS, player_obj.id)
             except Exception as e:
                 print(f"[LOG] error creando/broadcast log de discard: {e}")
+
             return {"status": "success", "cards_discarded": len(discarded_cards_ids)}
     except HTTPException as exception:
         raise exception
@@ -534,28 +536,12 @@ async def play_event(
         typeEvent = services_cards.Cards_Services(
             db).get_event_type_by_card(match_card_id)
 
-        player_obj = PlayerServices(db).get_player(player_id)
-        try:
-            log_message = f"[EVENTO] Jugador {player_obj.name} jugó el evento {typeEvent.value}"
-            # Mapear Card_event a MatchEventType usando el nombre
-            event_type = getattr(MatchEventType, typeEvent.name, None)
-            if event_type:
-                await LogService(db).create_and_propagate_log(match_id, log_message, event_type, player_obj.id)
-            else:
-                print(
-                    f"[LOG] Warning: No matching MatchEventType for Card_event {typeEvent.name}")
-        except Exception as e:
-            print(f"[LOG] error creando/broadcast log de evento: {e}")
-
         services_cards.Cards_Services(db).validate_card_ownership(
             player_id, match_id, match_card_id
         )
-        print("se valido bien la carta")
         typeEvent = services_cards.Cards_Services(db).get_event_type_by_card(
             match_card_id
         )
-        print("se hizo bien el gettypeevent")
-        print(typeEvent.value)
         if services_cards.Cards_Services(db).is_instant_event(typeEvent.value):
             new_event = services_event.EventService(db).create_event(
                 match_id,
@@ -577,10 +563,22 @@ async def play_event(
                 discarded_card
             ).model_dump(mode="json")
             payload["discarded_card_event"] = discarded_card_event
-            print("se descarto bien la carta")
+
             await manager.specificBroadcast(
                 make_ws_message(WSEvent.CARD_EVENT, payload), match_id
             )
+
+            try:
+                player_obj = PlayerServices(db).get_player(player_id)
+                log_message = f"[EVENTO] Jugador {player_obj.name} jugó el evento {typeEvent.value} y no puede ser cancelada con una 'NOT SO FAST...'"
+                event_type = getattr(MatchEventType, typeEvent.name, None)
+                if event_type:
+                    await LogService(db).create_and_propagate_log(match_id, log_message, event_type, player_obj.id)
+                else:
+                    print(
+                        f"[LOG] Warning: No matching MatchEventType for Card_event {typeEvent.name}")
+            except Exception as e:
+                print(f"[LOG] error creando/broadcast log de evento: {e}")
         else:
             new_event = services_event.EventService(db).create_event(
                 match_id, player_id, typeEvent.value, match_card_id, event_payload
@@ -595,6 +593,7 @@ async def play_event(
             discarded_card_event = db_match_card_2_match_card_schema(
                 discarded_card
             ).model_dump(mode="json")
+
             payload = {
                 "event_id": str(new_event.id),
                 "event_type": typeEvent.value,
@@ -607,6 +606,20 @@ async def play_event(
                 make_ws_message(
                     WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
             )
+
+            try:
+                player_obj = PlayerServices(db).get_player(player_id)
+                log_message = f"[EVENTO] Jugador {player_obj.name} jugó el evento {typeEvent.value}, puedes jugar una carta 'NOT SO FAST...' para cancelarlo"
+                # Mapear Card_event a MatchEventType usando el nombre
+                event_type = getattr(MatchEventType, typeEvent.name, None)
+                if event_type:
+                    await LogService(db).create_and_propagate_log(match_id, log_message, event_type, player_obj.id)
+                else:
+                    print(
+                        f"[LOG] Warning: No matching MatchEventType for Card_event {typeEvent.name}")
+            except Exception as e:
+                print(f"[LOG] error creando/broadcast log de evento: {e}")
+
         return {"status": "event_created", "event_id": new_event.id}
     except Exception as e:
         raise HTTPException(
@@ -1145,7 +1158,7 @@ async def put_down_a_detective(
             setType = set_to_play.type
             player = PlayerServices(db).get_player(set_to_play.player_id)
 
-            log_message = f"[SET] Jugador {player.name} bajo un detective al set {setType.value} para volver a jugarlo"
+            log_message = f"[SET] Jugador {player.name} bajo un detective, ejecutando el evento de set de '{new_event.event_type}'"
             event_type = getattr(MatchEventType, setType.name, None)
             if event_type:
                 await LogService(db).create_and_propagate_log(match_id, log_message, event_type, player.id)

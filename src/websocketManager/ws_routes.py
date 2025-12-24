@@ -59,7 +59,8 @@ class ConnectionManager:
         await ws.accept()
         old_ws = self.players.get(player_id)
         if old_ws:
-            print(f"[WS] Desconectando WebSocket anterior para jugador {player_id}")
+            print(
+                f"[WS] Desconectando WebSocket anterior para jugador {player_id}")
             try:
                 await old_ws.close()
             except Exception:
@@ -75,7 +76,8 @@ class ConnectionManager:
             )
             if in_progress_matches:
                 for match_id in in_progress_matches:
-                    last_event = WsEventsService(db).get_last_match_event(match_id)
+                    last_event = WsEventsService(
+                        db).get_last_match_event(match_id)
                     self.enterMatch(player_id, match_id)
                     if last_event:
                         await self.safe_send_message(last_event.message, ws)

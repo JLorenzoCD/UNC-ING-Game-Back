@@ -47,19 +47,23 @@ class MatchService:
     def _delete_match_completely(self, match_id: UUID) -> None:
         """Delete a match and all its related data from the database."""
         try:
-            self._db.query(WsEvent).filter(WsEvent.match_id == match_id).delete()
+            self._db.query(WsEvent).filter(
+                WsEvent.match_id == match_id).delete()
             self._db.query(EventosDeTurno).filter(
                 EventosDeTurno.match_id == match_id
             ).delete()
             self._db.query(Match_Secret).filter(
                 Match_Secret.match_id == match_id
             ).delete()
-            self._db.query(Match_Card).filter(Match_Card.match_id == match_id).delete()
-            self._db.query(Match_Set).filter(Match_Set.match_id == match_id).delete()
+            self._db.query(Match_Card).filter(
+                Match_Card.match_id == match_id).delete()
+            self._db.query(Match_Set).filter(
+                Match_Set.match_id == match_id).delete()
             self._db.query(Match_Player).filter(
                 Match_Player.match_id == match_id
             ).delete()
-            self._db.query(MatchLogs).filter(MatchLogs.match_id == match_id).delete()
+            self._db.query(MatchLogs).filter(
+                MatchLogs.match_id == match_id).delete()
             self._db.query(Match).filter(Match.id == match_id).delete()
             self._db.commit()
         except SQLAlchemyError as exception:
@@ -116,7 +120,7 @@ class MatchService:
             owner_id=owner.id,
             timer_turn=datetime.now(timezone.utc),
         )
-        print(new_match.timer_turn)
+
         try:
             self._db.add(new_match)
             self._db.commit()
@@ -125,7 +129,8 @@ class MatchService:
             self._db.rollback()
             raise
         try:
-            match_player = Match_Player(match_id=new_match.id, player_id=owner.id)
+            match_player = Match_Player(
+                match_id=new_match.id, player_id=owner.id)
             self._db.add(match_player)
             self._db.commit()
             self._db.refresh(match_player)
@@ -223,7 +228,8 @@ class MatchService:
     def get_match_by_id(self, match_id: UUID) -> Match | None:
         """Get a match by its ID."""
         try:
-            match: Match = self._db.query(Match).filter(Match.id == match_id).first()
+            match: Match = self._db.query(Match).filter(
+                Match.id == match_id).first()
             if not match:
                 raise Exception("Match not Found")
         except Exception:
@@ -284,7 +290,8 @@ class MatchService:
     def get_players_from_match(self, match_id: UUID):
         """Get all players from a match."""
         return (
-            self._db.query(Match_Player).filter(Match_Player.match_id == match_id).all()
+            self._db.query(Match_Player).filter(
+                Match_Player.match_id == match_id).all()
         )
 
     def get_secrets_by_match(self, match_id: UUID):
