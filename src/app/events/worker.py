@@ -97,7 +97,7 @@ async def event_resolver_loop():
                                         and PileService(
                                             db
                                         ).get_count_cards_pile(event.match_id)
-                                        <= 0
+                                        <= 3
                                     ):
                                         await handle_match_ended(
                                             db,
