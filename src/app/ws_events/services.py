@@ -32,7 +32,7 @@ class WsEventsService:
         return event
 
     def get_last_match_event_no_log(self, match_id: UUID) -> WsEvent | None:
-        """Get last match event.
+        """Get last match event. When last_event.message.event != "new_log"
 
         Args:
             match_id: Parameter match_id.
