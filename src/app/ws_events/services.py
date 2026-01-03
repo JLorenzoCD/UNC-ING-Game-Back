@@ -24,12 +24,14 @@ class WsEventsService:
 
         Returns:
             Return value."""
-        event = WsEvent(match_id=match_id, message=message, send_at=datetime.now())
+        event = WsEvent(match_id=match_id, message=message,
+                        send_at=datetime.now())
         self._db.add(event)
         self._db.commit()
         self._db.refresh(event)
         return event
 
+    def get_last_match_event_no_log(self, match_id: UUID) -> WsEvent | None:
     def get_last_match_event(self, match_id: UUID) -> WsEvent | None:
         """Get last match event.
 

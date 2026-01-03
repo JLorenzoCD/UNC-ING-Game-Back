@@ -160,7 +160,7 @@ async def test_last_event_message_arrives_on_reconnection(
     )
     mock_last_event = Mock()
     mock_last_event.message = expected_message
-    mock_ws_events_service.return_value.get_last_match_event.return_value = (
+    mock_ws_events_service.return_value.get_last_match_event_no_log.return_value = (
         mock_last_event
     )
     manager = ConnectionManager()
@@ -191,7 +191,7 @@ async def test_no_last_event_no_message_sent(
     mock_match_service.return_value.get_active_matches_ids_player.return_value = [
         match_id
     ]
-    mock_ws_events_service.return_value.get_last_match_event.return_value = None
+    mock_ws_events_service.return_value.get_last_match_event_no_log.return_value = None
     manager = ConnectionManager()
     ws = FakeWebSocket()
     player_id = uuid.uuid4()
@@ -223,7 +223,7 @@ async def test_reconnection_sends_last_event_immediately(
     ]
     mock_last_event = Mock()
     mock_last_event.message = '{"event": "test", "payload": {"test": true}}'
-    mock_ws_events_service.return_value.get_last_match_event.return_value = (
+    mock_ws_events_service.return_value.get_last_match_event_no_log.return_value = (
         mock_last_event
     )
     manager = ConnectionManager()

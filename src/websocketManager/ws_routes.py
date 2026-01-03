@@ -77,7 +77,7 @@ class ConnectionManager:
             if in_progress_matches:
                 for match_id in in_progress_matches:
                     last_event = WsEventsService(
-                        db).get_last_match_event(match_id)
+                        db).get_last_match_event_no_log(match_id)
                     self.enterMatch(player_id, match_id)
                     if last_event:
                         await self.safe_send_message(last_event.message, ws)
