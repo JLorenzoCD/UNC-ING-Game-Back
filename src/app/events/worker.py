@@ -156,17 +156,20 @@ async def event_resolver_loop():
                                     await manager.specificBroadcast(
                                         data_set_payload, event.match_id
                                     )
+
                                     data_accion = result_payload["accion_set"]
                                     await manager.specificBroadcast(
                                         make_ws_message(
-                                            WSEvent.PLAYER_SECRET_REVEAL, data_accion
+                                            WSEvent.PLAYER_SECRET_REVEAL, {
+                                                "target_player_id": [data_accion["target_player_id"]]}
                                         ),
                                         event.match_id,
                                     )
                                 else:
                                     await manager.specificBroadcast(
                                         make_ws_message(
-                                            WSEvent.PLAYER_SECRET_REVEAL, result_payload
+                                            WSEvent.PLAYER_SECRET_REVEAL, {
+                                                "target_player_id": [result_payload["target_player_id"]]}
                                         ),
                                         event.match_id,
                                     )

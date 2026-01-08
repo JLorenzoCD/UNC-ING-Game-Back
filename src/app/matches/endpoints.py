@@ -453,9 +453,29 @@ async def play_card_trade(
         if services_event.EventService(db).is_event_ready_to_resolve(event_update):
             payload = services_event.EventService(
                 db).resolve_event(event_update)
+
             await manager.specificBroadcast(
                 make_ws_message(WSEvent.CARD_EVENT, payload), match_id
             )
+
+            devious_card_targets_players = services_event.EventService(
+                db).get_players_target_devious_card(event_update)
+            if len(devious_card_targets_players) >= 1:
+                await manager.specificBroadcast(
+                    make_ws_message(
+                        WSEvent.PLAYER_SECRET_REVEAL, {
+                            "target_player_id": devious_card_targets_players}
+                    ),
+                    match_id,
+                )
+                try:
+                    log_message = f"[EVENT] Se ha/n recibido alguna carta 'DEVIOUS', el jugador/es tendrá/n que revelar un secreto propio."
+
+                    await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.CARD_TRADE, player.id)
+                except Exception as e:
+                    print(
+                        f"[LOG] error creando/broadcast log de play_card_trade: {e}")
+
     except Exception as e:
         print(f"Algun error en card trade error: {e}")
         raise HTTPException(
@@ -505,6 +525,26 @@ async def play_dead_card_folly(
             await manager.specificBroadcast(
                 make_ws_message(WSEvent.CARD_EVENT, payload), match_id
             )
+
+            devious_card_targets_players = services_event.EventService(
+                db).get_players_target_devious_card(event_update)
+            if len(devious_card_targets_players) >= 1:
+                await manager.specificBroadcast(
+                    make_ws_message(
+                        WSEvent.PLAYER_SECRET_REVEAL, {
+                            "target_player_id": devious_card_targets_players}
+                    ),
+                    match_id,
+                )
+
+                try:
+                    log_message = f"[EVENT] Se ha/n recibido alguna carta 'DEVIOUS', el jugador/es tendrá/n que revelar un secreto propio."
+
+                    await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.DEAD_CARD_FOLLY, player.id)
+                except Exception as e:
+                    print(
+                        f"[LOG] error creando/broadcast log de play_dead_card_folly: {e}")
+
         return {"status": "ok", "message": "Dead card folly de lujo"}
     except Exception as e:
         print(f"Algun error en dead card folly error: {e}")
@@ -740,8 +780,11 @@ async def play_point_your_suspicions(
             payload = services_event.EventService(
                 db).resolve_event(event_update)
             await manager.specificBroadcast(
-                make_ws_message(WSEvent.PLAYER_SECRET_REVEAL,
-                                payload), match_id
+                make_ws_message(
+                    WSEvent.PLAYER_SECRET_REVEAL,
+                    {"target_player_id": [payload["target_player_id"]]},
+                ),
+                match_id
             )
     except Exception as e:
         print(f"Algun error en point your suspicions error: {e}")
@@ -812,8 +855,11 @@ async def play_set(
             )
             payload = services_event.EventService(db).resolve_event(new_event)
             await manager.specificBroadcast(
-                make_ws_message(WSEvent.PLAYER_SECRET_REVEAL,
-                                payload), match_id
+                make_ws_message(
+                    WSEvent.PLAYER_SECRET_REVEAL,
+                    {"target_player_id": [payload["target_player_id"]]},
+                ),
+                match_id,
             )
         elif setIn.type == SetType.LADY_EILEEN:
             set_payload = set_services.SetService(db).create_set_payload(
@@ -978,7 +1024,7 @@ async def play_set_stolen(
             ws_msj = make_ws_message(WSEvent.SECRET, payload)
             await manager.specificBroadcast(ws_msj, match_id)
         else:
-            payload = {"target_player_id": target_player}
+            payload = {"target_player_id": [target_player]}
             ws_msj = make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload)
             await manager.specificBroadcast(ws_msj, match_id)
         match_set_out = db_match_set_2_match_set_schema(match_set)
@@ -1111,8 +1157,11 @@ async def put_down_a_detective(
             )
             payload = services_event.EventService(db).resolve_event(new_event)
             await manager.specificBroadcast(
-                make_ws_message(WSEvent.PLAYER_SECRET_REVEAL,
-                                payload), match_id
+                make_ws_message(
+                    WSEvent.PLAYER_SECRET_REVEAL,
+                    {"target_player_id": [payload["target_player_id"]]},
+                ),
+                match_id,
             )
         elif match_set.type == SetType.LADY_EILEEN:
             set_payload = set_services.SetService(db).create_set_payload(

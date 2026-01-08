@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.cards.models import Card, Card_Type, Match_Card
 from app.cards import services as services_cards
 from app.cards.services import Card_event
 from app.cards.utils import db_match_card_2_match_card_schema
@@ -450,3 +451,43 @@ class EventService:
             self._db.rollback()
             print(f"Error al actualizar info del evento: {e}")
             raise e
+
+    def get_players_target_devious_card(self, event: EventosDeTurno) -> list[uuid.UUID]:
+        """
+        Verifica si es un evento de tipo "Card trade" o "Dead card folly" se
+        intercambiaron cartas "devious" y retorna los target_players_id en una lista
+        """
+
+        event_type = event.event_type
+        if event_type != Card_event.CARD_TRADE.value and event_type != Card_event.DEAD_CARD_FOLLY.value:
+            raise Exception(
+                "Error (get_players_target_devious_card): Este método es solo para eventos en el cual se intercambian cartas.")
+
+        responses = event.payload.get("responses", [])
+        all_devious_cards = self._db.query(Card).filter(
+            Card.type == Card_Type.DEVIOUS,
+        ).all()
+        if len(responses) < 2:
+            raise Exception(
+                "Error (get_players_target_devious_card): Debe de haber mas de 2 cartas intercambiadas.")
+
+        if all_devious_cards is None:
+            return []
+
+        response_ids = [uuid.UUID(res_id) if isinstance(
+            res_id, str) else res_id for res_id in responses]
+        devious_ids = map(
+            lambda devious_card: devious_card.id, all_devious_cards)
+
+        devious_cards_in_trade = self._db.query(Match_Card).filter(
+            Match_Card.match_id == event.match_id,
+            Match_Card.id.in_(response_ids),
+            Match_Card.card_id.in_(devious_ids),
+        ).all()
+        if devious_cards_in_trade is None:
+            return []
+
+        targets_players_is = list(map(
+            lambda devious_card: devious_card.player_id, devious_cards_in_trade))
+
+        return targets_players_is
