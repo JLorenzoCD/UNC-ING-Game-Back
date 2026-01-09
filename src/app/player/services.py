@@ -6,6 +6,18 @@ from app.player.models import Player
 from sqlalchemy.exc import IntegrityError, DataError
 
 
+class PlayerAlreadyExists(Exception):
+    pass
+
+
+class InvalidPlayerData(Exception):
+    pass
+
+
+class PlayerNotFound(Exception):
+    pass
+
+
 class PlayerServices:
     def __init__(self, db):
         self._db = db
@@ -28,25 +40,30 @@ class PlayerServices:
             return new_player
 
         # Captura errores de integridad (NOT NULL, claves duplicadas)
-        except IntegrityError as e:
+        except IntegrityError:
             self._db.rollback()
-            return None
+            raise PlayerAlreadyExists()
 
         # Captura errores de tipo de datos (ej. formato de fecha incorrecto)
-        except DataError as e:
+        except DataError:
             self._db.rollback()
-            return None
+            raise InvalidPlayerData()
 
         except Exception as e:
             self._db.rollback()
-            raise  # Algún error inesperado (status=500)
+            raise e  # Algún error inesperado (status=500)
 
     def get_player(self, player_id: UUID) -> Player | None:
         """Get a player by ID."""
 
-        player = self._db.get(Player, player_id)
+        try:
+            player = self._db.get(Player, player_id)
+        except DataError:
+            raise InvalidPlayerData()
+        except Exception as e:
+            raise e  # Algún error inesperado (status=500)
 
         if not player:
-            return None
+            raise PlayerNotFound()
 
         return player
