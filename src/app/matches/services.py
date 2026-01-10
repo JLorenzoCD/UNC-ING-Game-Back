@@ -231,9 +231,10 @@ class MatchService:
             match: Match = self._db.query(Match).filter(
                 Match.id == match_id).first()
             if not match:
-                raise Exception("Match not Found")
+                raise MatchNotFound()
         except Exception:
             raise
+
         return match
 
     def get_ongoing_matches_of_player(self, player_id: UUID) -> List[UUID]:
@@ -244,6 +245,7 @@ class MatchService:
 
         Returns:
             Return value."""
+
         try:
             match_players = (
                 self._db.query(Match_Player)
