@@ -1,5 +1,5 @@
 from uuid import UUID
-from fastapi import APIRouter, status, Depends, HTTPException
+from fastapi import APIRouter, status, Depends
 
 from app.models.db import get_db
 from app.player.utils import db_player_2_Player_Schema_out
@@ -7,7 +7,7 @@ from app.player.schemas import Player_Schema_in, Player_Schema_out
 
 
 # services
-from app.player.services import PlayerServices, PlayerAlreadyExists, InvalidPlayerData, PlayerNotFound
+from app.player.services import PlayerServices
 
 player_router = APIRouter(
     tags=["players"],
@@ -20,19 +20,8 @@ player_router = APIRouter(
     status_code=status.HTTP_201_CREATED
 )
 async def create_player(player_info: Player_Schema_in, db=Depends(get_db)) -> Player_Schema_out:
-    playerServices = PlayerServices(db)
 
-    try:
-        new_player = playerServices.create_player(player_info)
-    except PlayerAlreadyExists:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Player already exists")
-    except InvalidPlayerData:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid player data")
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+    new_player = PlayerServices(db).create_player(player_info)
 
     player_info_out = db_player_2_Player_Schema_out(new_player)
     return player_info_out
@@ -43,17 +32,8 @@ async def create_player(player_info: Player_Schema_in, db=Depends(get_db)) -> Pl
     status_code=status.HTTP_200_OK
 )
 async def get_player(player_id: UUID, db=Depends(get_db)) -> Player_Schema_out:
-    try:
-        player = PlayerServices(db).get_player(player_id)
-    except InvalidPlayerData:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid player data")
-    except PlayerNotFound:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
+
+    player = PlayerServices(db).get_player(player_id)
 
     player_info_out = db_player_2_Player_Schema_out(player)
     return player_info_out

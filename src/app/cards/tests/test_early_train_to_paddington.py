@@ -8,6 +8,8 @@ from app.cards.models import Card, Card_Type, Match_Card
 from app.cards.schemas import Match_Card_Schema
 from app.matches.models import Match
 
+from app.cards.exceptions import InvalidCardData
+
 
 class TestEarlyTrainToPaddingtonEvent:
     """Tests unitarios para el evento Early Train to Paddington"""
@@ -55,7 +57,8 @@ class TestEarlyTrainToPaddingtonEvent:
             from app.cards.services import Cards_Services
 
             cards_service = Cards_Services(db)
-            result = cards_service.early_train_to_paddington_event(match.id, card_ids)
+            result = cards_service.early_train_to_paddington_event(
+                match.id, card_ids)
             assert len(result) == 6
             mock_pile_instance.discard_cards.assert_called_once_with(
                 None, match.id, card_ids
@@ -77,7 +80,8 @@ class TestEarlyTrainToPaddingtonEvent:
         card_ids = [match_card.id for match_card in match_cards]
         mock_pile_instance = MagicMock()
         mock_pile_service.return_value = mock_pile_instance
-        mock_pile_instance.discard_cards.side_effect = SQLAlchemyError("DB Error")
+        mock_pile_instance.discard_cards.side_effect = SQLAlchemyError(
+            "DB Error")
         from app.cards.services import Cards_Services
 
         cards_service = Cards_Services(db)
@@ -101,7 +105,7 @@ class TestEarlyTrainToPaddingtonEvent:
 
         cards_service = Cards_Services(db)
         with pytest.raises(
-            ValueError, match="Se requiere al menos una carta para descartar"
+            InvalidCardData, match="Se requiere al menos una carta para descartar"
         ):
             cards_service.early_train_to_paddington_event(match.id, [])
 
@@ -128,10 +132,11 @@ class TestEarlyTrainToPaddingtonEvent:
 
         cards_service = Cards_Services(db)
         with pytest.raises(
-            ValueError,
+            InvalidCardData,
             match="Una o más cartas no son válidas o no pertenecen a esta partida",
         ):
-            cards_service.early_train_to_paddington_event(match.id, invalid_card_ids)
+            cards_service.early_train_to_paddington_event(
+                match.id, invalid_card_ids)
 
     @patch("app.piles.service.PileService")
     def test_early_train_to_paddington_max_cards(self, mock_pile_service, db):
@@ -153,7 +158,8 @@ class TestEarlyTrainToPaddingtonEvent:
         from app.cards.services import Cards_Services
 
         cards_service = Cards_Services(db)
-        result = cards_service.early_train_to_paddington_event(match.id, card_ids)
+        result = cards_service.early_train_to_paddington_event(
+            match.id, card_ids)
         assert len(result) == 6
         assert all((isinstance(card, Match_Card_Schema) for card in result))
         result_ids = [card.id for card in result]
@@ -175,7 +181,7 @@ class TestEarlyTrainToPaddingtonEvent:
 
         cards_service = Cards_Services(db)
         with pytest.raises(
-            ValueError, match="Se requiere al menos una carta para descartar"
+            InvalidCardData, match="Se requiere al menos una carta para descartar"
         ):
             cards_service.early_train_to_paddington_event(match.id, None)
 
@@ -198,10 +204,11 @@ class TestEarlyTrainToPaddingtonEvent:
 
         cards_service = Cards_Services(db)
         with pytest.raises(
-            ValueError,
+            InvalidCardData,
             match="Una o más cartas no son válidas o no pertenecen a esta partida",
         ):
-            cards_service.early_train_to_paddington_event(match.id, mixed_card_ids)
+            cards_service.early_train_to_paddington_event(
+                match.id, mixed_card_ids)
 
     @patch("app.piles.service.PileService")
     def test_early_train_to_paddington_rollback_on_error(self, mock_pile_service, db):
@@ -219,13 +226,15 @@ class TestEarlyTrainToPaddingtonEvent:
         card_ids = [match_card.id for match_card in match_cards]
         mock_pile_instance = MagicMock()
         mock_pile_service.return_value = mock_pile_instance
-        mock_pile_instance.discard_cards.side_effect = Exception("Generic error")
+        mock_pile_instance.discard_cards.side_effect = Exception(
+            "Generic error")
         with patch.object(db, "rollback") as mock_rollback:
             from app.cards.services import Cards_Services
 
             cards_service = Cards_Services(db)
             with pytest.raises(Exception):
-                cards_service.early_train_to_paddington_event(match.id, card_ids)
+                cards_service.early_train_to_paddington_event(
+                    match.id, card_ids)
             mock_rollback.assert_called_once()
 
     @patch("app.piles.service.PileService")
@@ -248,7 +257,8 @@ class TestEarlyTrainToPaddingtonEvent:
         from app.cards.services import Cards_Services
 
         cards_service = Cards_Services(db)
-        result = cards_service.early_train_to_paddington_event(match.id, card_ids)
+        result = cards_service.early_train_to_paddington_event(
+            match.id, card_ids)
         assert len(result) == 1
         assert isinstance(result[0], Match_Card_Schema)
         assert result[0].id == card_ids[0]
@@ -273,7 +283,8 @@ class TestEarlyTrainToPaddingtonEvent:
         from app.cards.services import Cards_Services
 
         cards_service = Cards_Services(db)
-        result = cards_service.early_train_to_paddington_event(match.id, card_ids)
+        result = cards_service.early_train_to_paddington_event(
+            match.id, card_ids)
         assert len(result) == 3
         assert all((isinstance(card, Match_Card_Schema) for card in result))
         mock_pile_instance.discard_cards.assert_called_once_with(
@@ -300,7 +311,8 @@ class TestEarlyTrainToPaddingtonEvent:
 
         cards_service = Cards_Services(db)
         with pytest.raises(
-            ValueError,
+            InvalidCardData,
             match="Una o más cartas no son válidas o no pertenecen a esta partida",
         ):
-            cards_service.early_train_to_paddington_event(wrong_match_id, card_ids)
+            cards_service.early_train_to_paddington_event(
+                wrong_match_id, card_ids)

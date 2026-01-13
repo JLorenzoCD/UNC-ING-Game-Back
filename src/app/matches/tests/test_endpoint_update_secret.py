@@ -16,7 +16,8 @@ def create_match_cards_for_set(
     for name in card_names:
         card = db_session.query(Card).filter(Card.name == name).first()
         assert card is not None, f"Card with name '{name}' not found in test setup."
-        match_card = Match_Card(card_id=card.id, match_id=match_id, player_id=player_id)
+        match_card = Match_Card(
+            card_id=card.id, match_id=match_id, player_id=player_id)
         db_session.add(match_card)
         db_session.commit()
         db_session.refresh(match_card)
@@ -68,7 +69,8 @@ def test__hide_reveal_secret(db_session, client, action, expected_state):
         owner_id = setup_data["owner_id"]
         player2_id = setup_data["player2_id"]
         secret_base = (
-            db_session.query(Secret).filter(Secret.type == Secret_Type.INNOCENT).first()
+            db_session.query(Secret).filter(
+                Secret.type == Secret_Type.INNOCENT).first()
         )
         match_secret_ids = create_match_secrets(
             db_session,
@@ -113,7 +115,8 @@ def test__multi_action_secret(db_session, client, action1, expected_state, actio
         owner_id = setup_data["owner_id"]
         player2_id = setup_data["player2_id"]
         secret_base = (
-            db_session.query(Secret).filter(Secret.type == Secret_Type.INNOCENT).first()
+            db_session.query(Secret).filter(
+                Secret.type == Secret_Type.INNOCENT).first()
         )
         match_secret_ids = create_match_secrets(
             db_session,
@@ -167,10 +170,12 @@ def test_hide_reveal_secret_invalid(db_session, client, action, expected_state):
         owner_id = setup_data["owner_id"]
         player2_id = setup_data["player2_id"]
         secret_base = (
-            db_session.query(Secret).filter(Secret.type == Secret_Type.INNOCENT).first()
+            db_session.query(Secret).filter(
+                Secret.type == Secret_Type.INNOCENT).first()
         )
         match_secret_ids = create_match_secrets(
-            db_session, secret_base, expected_state, match_id, [owner_id, player2_id]
+            db_session, secret_base, expected_state, match_id, [
+                owner_id, player2_id]
         )
         target_secret_id: UUID = match_secret_ids[1]
         str_secret_id = str(target_secret_id)
@@ -179,7 +184,7 @@ def test_hide_reveal_secret_invalid(db_session, client, action, expected_state):
             f"/matches/{match_str_id}/secrets/{str_secret_id}",
             json=jsonable_encoder(set_data),
         )
-        assert response.status_code == 404
+        assert response.status_code == 400
         assert f"Secret is already {action}" in response.json()["detail"]
 
 
@@ -198,14 +203,16 @@ def test_steal_secret(db_session, client):
         owner_id = setup_data["owner_id"]
         player2_id = setup_data["player2_id"]
         secret_base = (
-            db_session.query(Secret).filter(Secret.type == Secret_Type.INNOCENT).first()
+            db_session.query(Secret).filter(
+                Secret.type == Secret_Type.INNOCENT).first()
         )
         match_secret_ids = create_match_secrets(
             db_session, secret_base, True, match_id, [owner_id, player2_id]
         )
         target_secret_id: UUID = match_secret_ids[1]
         str_secret_id = str(target_secret_id)
-        set_data = {"target_player_id": owner_id, "action": Secret_action.STEAL}
+        set_data = {"target_player_id": owner_id,
+                    "action": Secret_action.STEAL}
         response = client.put(
             f"/matches/{match_str_id}/secrets/{str_secret_id}",
             json=jsonable_encoder(set_data),
@@ -234,20 +241,23 @@ def test_steal_secret_invalid_players(db_session, client):
         player2_id = setup_data["player2_id"]
         fake_player = uuid4()
         secret_base = (
-            db_session.query(Secret).filter(Secret.type == Secret_Type.INNOCENT).first()
+            db_session.query(Secret).filter(
+                Secret.type == Secret_Type.INNOCENT).first()
         )
         match_secret_ids = create_match_secrets(
             db_session, secret_base, True, match_id, [owner_id, player2_id]
         )
         target_secret_id: UUID = match_secret_ids[1]
         str_secret_id = str(target_secret_id)
-        set_data = {"target_player_id": fake_player, "action": Secret_action.STEAL}
+        set_data = {"target_player_id": fake_player,
+                    "action": Secret_action.STEAL}
         response = client.put(
             f"/matches/{match_str_id}/secrets/{str_secret_id}",
             json=jsonable_encoder(set_data),
         )
         assert (
-            response.status_code == 404
+            response.status_code == 400
         ), f"Error {response.status_code}: {response.text}"
         response.json()
-        assert f"Players are not in the same match" in response.json()["detail"]
+        assert f"Players are not in the same match" in response.json()[
+            "detail"]

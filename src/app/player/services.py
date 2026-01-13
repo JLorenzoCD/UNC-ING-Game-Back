@@ -5,17 +5,7 @@ from app.player.models import Player, Match_Player
 
 from sqlalchemy.exc import IntegrityError, DataError
 
-
-class PlayerAlreadyExists(Exception):
-    pass
-
-
-class InvalidPlayerData(Exception):
-    pass
-
-
-class PlayerNotFound(Exception):
-    pass
+from app.player.exceptions import PlayerAlreadyExists, InvalidPlayerData, PlayerNotFound, PlayerNotFoundInMatch
 
 
 class PlayerServices:
@@ -84,6 +74,6 @@ class PlayerServices:
             raise e  # Algún error inesperado (status=500)
 
         if not player:
-            raise PlayerNotFound()
+            raise PlayerNotFoundInMatch()
 
         return player

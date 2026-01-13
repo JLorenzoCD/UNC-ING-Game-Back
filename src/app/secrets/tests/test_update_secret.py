@@ -5,8 +5,10 @@ import pytest
 from app.matches.schemas import MatchOut
 from app.matches.lifecycle_service import MatchLifecycleService
 from app.secrets.models import Match_Secret, Secret_action
-from app.secrets.services import SecretNotFound, Secrets_Services
+from app.secrets.services import Secrets_Services
 from app.secrets.tests.conftest import setup_match_and_players
+from app.secrets.exceptions import SecretNotFound, SecretInvalidAction
+from app.player.exceptions import InvalidPlayerData
 
 
 def test_update_secret(db_session, client):
@@ -43,12 +45,13 @@ def test_update_secret(db_session, client):
     secret_service.update_secret(Secret_action.REVEAL, secret_to_test.id)
     db_session.refresh(secret_to_test)
     assert secret_to_test.is_revealed is True
-    secret_service.update_secret(Secret_action.STEAL, secret_to_test.id, player2_id)
+    secret_service.update_secret(
+        Secret_action.STEAL, secret_to_test.id, player2_id)
     db_session.refresh(secret_to_test)
     assert secret_to_test.player_id == player2_id
-    with pytest.raises(ValueError, match="Invalid action"):
+    with pytest.raises(SecretInvalidAction, match="Invalid action"):
         secret_service.update_secret("invalid_action", secret_to_test.id)
-    with pytest.raises(ValueError, match="Player ID is required for steal action"):
+    with pytest.raises(InvalidPlayerData, match="Player ID is required for steal action"):
         secret_service.update_secret(Secret_action.STEAL, secret_to_test.id)
     with pytest.raises(SecretNotFound, match="Secret not found"):
         secret_service.update_secret(Secret_action.REVEAL, secret_not_found)

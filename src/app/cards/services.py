@@ -12,9 +12,7 @@ from app.player.models import Match_Player
 from app.secrets import services as secret_services
 from app.secrets.services import Secret_action
 
-
-class InvalidCardData(Exception):
-    pass
+from app.cards.exceptions import InvalidCardData, CardNotFound, CardInvalidAction
 
 
 class Card_event(Enum):
@@ -97,7 +95,7 @@ class Cards_Services:
         self._db.commit()
         for card in target_cards:
             if not card.is_discarded:
-                raise ValueError(
+                raise Exception(
                     f"La carta {card.id} no se descartó correctamente")
         return {"discarded_instant_cards": target_cards}
 
@@ -137,7 +135,8 @@ class Cards_Services:
         from app.piles.service import PileService
 
         if not card_ids:
-            raise ValueError("Se requiere al menos una carta para descartar")
+            raise InvalidCardData(
+                "Se requiere al menos una carta para descartar")
         try:
             existing_cards = (
                 self._db.query(Match_Card)
@@ -145,7 +144,7 @@ class Cards_Services:
                 .all()
             )
             if len(existing_cards) != len(card_ids):
-                raise ValueError(
+                raise InvalidCardData(
                     "Una o más cartas no son válidas o no pertenecen a esta partida"
                 )
 
@@ -192,7 +191,7 @@ class Cards_Services:
             .scalar()
         )
         if not card_name:
-            raise ValueError(
+            raise CardNotFound(
                 "No se pudo encontrar el nombre de la carta (logic error)."
             )
         return Card_event(card_name)
@@ -318,7 +317,7 @@ class Cards_Services:
             if taken_card:
                 self._db.refresh(taken_card)
             else:
-                raise ValueError("carta incorrecta")
+                raise CardInvalidAction("carta incorrecta")
         except SQLAlchemyError as e:
             raise e
         return taken_card
@@ -349,7 +348,7 @@ class Cards_Services:
                         (i - 1 + num_players) % num_players
                     ]
                 else:
-                    raise ValueError(
+                    raise InvalidCardData(
                         f"Dirección de pase inválida: {direction}")
                 player_target_map[str(current_player.player_id)] = (
                     target_player.player_id
@@ -367,7 +366,7 @@ class Cards_Services:
             for card in cards_to_update:
                 self._db.refresh(card)
             return cards_to_update
-        except (SQLAlchemyError, ValueError) as e:
+        except (SQLAlchemyError, InvalidCardData) as e:
             self._db.rollback()
             print(f"Error en pass_cards_in_direction: {e}")
             raise e
@@ -387,11 +386,11 @@ class Cards_Services:
             card1 = self._db.get(Match_Card, match_card_id1)
             card2 = self._db.get(Match_Card, match_card_id2)
             if not card1 or not card2:
-                raise ValueError(
+                raise CardNotFound(
                     "Una o ambas cartas para el intercambio no fueron encontradas."
                 )
             if not card1.player_id or not card2.player_id:
-                raise ValueError(
+                raise CardInvalidAction(
                     "Una de las cartas no tiene dueño (ej: está en el mazo o descarte)."
                 )
             owner1_id = card1.player_id
@@ -404,7 +403,7 @@ class Cards_Services:
             return [card1, card2]
         except Exception as e:
             print(f"Error en swap_card_owners: {e}")
-            raise e
+            raise
 
     def get_player_cards_in_hand(self, player_id: UUID, match_id: UUID) -> list[Match_Card]:
         try:
@@ -428,7 +427,7 @@ class Cards_Services:
     ) -> bool:
         """
         Verifica que la carta pertenece al jugador, está en la partida
-        y no está descartada. Devuelve True o levanta un valueError.
+        y no está descartada. Devuelve True o levanta un CardNotFound.
         """
         card_exists = (
             self._db.query(Match_Card)
@@ -442,7 +441,7 @@ class Cards_Services:
             > 0
         )
         if not card_exists:
-            raise ValueError(
+            raise CardNotFound(
                 "La carta no existe, no pertenece al jugador o ya fue descartada."
             )
         return True

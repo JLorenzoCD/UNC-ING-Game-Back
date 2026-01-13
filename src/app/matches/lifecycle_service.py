@@ -1,6 +1,6 @@
 import random
 from collections import defaultdict
-from datetime import date, datetime, timezone
+from datetime import date
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -15,6 +15,11 @@ from app.player.models import Match_Player, Player
 from app.secrets.models import Match_Secret, Secret, Secret_Type
 from app.secrets.services import Secrets_Services
 
+from app.player.exceptions import PlayerNotFoundInMatch
+
+from app.matches.exceptions import MatchValidationError
+from app.matches.services import MatchService
+
 
 class MatchLifecycleService:
     """Service for match lifecycle operations (start, cancel, join, quit)."""
@@ -28,7 +33,6 @@ class MatchLifecycleService:
 
     def assign_player_order(self, match_id: UUID) -> None:
         """Assign player order based on birthday proximity to September 15."""
-        from app.matches.services import MatchService
 
         match_players: list[Match_Player] = MatchService(
             self._db
@@ -79,7 +83,7 @@ class MatchLifecycleService:
         for i, player in enumerate(match_players):
             if i < len(not_so_fast_cards):
                 not_so_fast_cards[i].player_id = player.player_id
-        remaining_not_so_fast = not_so_fast_cards[len(match_players) :]
+        remaining_not_so_fast = not_so_fast_cards[len(match_players):]
         other_cards.extend(remaining_not_so_fast)
         random.shuffle(other_cards)
         card_index = 0
@@ -96,10 +100,12 @@ class MatchLifecycleService:
     ) -> None:
         """Deal secrets to players according to game rules."""
         murderer_secret = (
-            self._db.query(Secret).filter(Secret.type == Secret_Type.MURDERER).first()
+            self._db.query(Secret).filter(
+                Secret.type == Secret_Type.MURDERER).first()
         )
         accomplice_secret = (
-            self._db.query(Secret).filter(Secret.type == Secret_Type.ACCOMPLICE).first()
+            self._db.query(Secret).filter(
+                Secret.type == Secret_Type.ACCOMPLICE).first()
         )
         innocent_secret_ids = [
             s.id
@@ -148,12 +154,12 @@ class MatchLifecycleService:
 
     def join(self, match_id: UUID, player_id: UUID):
         """Add a player to a match."""
-        from app.matches.services import MatchService
 
         match = self._db.query(Match).filter(Match.id == match_id).first()
         if not match:
             raise HTTPException(status_code=404, detail="Match not found")
-        current_players = MatchService(self._db).count_players_by_match(match_id)
+        current_players = MatchService(
+            self._db).count_players_by_match(match_id)
         if current_players >= match.max_players:
             raise HTTPException(status_code=400, detail="Match is full")
         already_joined = (
@@ -165,7 +171,8 @@ class MatchLifecycleService:
         )
         if already_joined:
             raise HTTPException(status_code=400, detail="Player already in")
-        match_player = Match_Player(match_id=match_id, player_id=player_id, order=0)
+        match_player = Match_Player(
+            match_id=match_id, player_id=player_id, order=0)
         self._db.add(match_player)
         self._db.commit()
         self._db.refresh(match_player)
@@ -179,7 +186,6 @@ class MatchLifecycleService:
 
         Returns:
             Return value."""
-        from app.matches.services import PlayerNotInMatch
 
         match_player = (
             self._db.query(Match_Player)
@@ -189,7 +195,7 @@ class MatchLifecycleService:
             .first()
         )
         if not match_player:
-            raise PlayerNotInMatch()
+            raise PlayerNotFoundInMatch()
         try:
             self._db.delete(match_player)
             self._db.commit()
@@ -199,7 +205,6 @@ class MatchLifecycleService:
 
     def start_game(self, match_id: UUID) -> MatchOut:
         """Start a match if conditions are met."""
-        from app.matches.services import MatchService, MatchValidationError
 
         match_service = MatchService(self._db)
         match = match_service.get_match_by_id(match_id)
@@ -209,8 +214,10 @@ class MatchLifecycleService:
         len_match_players = len(match_players)
         if len_match_players >= match.min_players:
             if match.status == MatchStatus.WAITING:
-                match_service.update_status_match(match_id, MatchStatus.IN_PROGRESS)
-                Cards_Services(self._db).init_match_cards(match_id, len(match_players))
+                match_service.update_status_match(
+                    match_id, MatchStatus.IN_PROGRESS)
+                Cards_Services(self._db).init_match_cards(
+                    match_id, len(match_players))
                 Secrets_Services(self._db).init_match_secrets(
                     len(match_players), match_id
                 )
@@ -232,6 +239,8 @@ class MatchLifecycleService:
                     raise exception
                 return db_match_2_match_schema(match)
             else:
-                raise MatchValidationError("Match is not in a valid state to start")
+                raise MatchValidationError(
+                    "Match is not in a valid state to start")
         else:
-            raise MatchValidationError("Match is not in a valid state to start")
+            raise MatchValidationError(
+                "Match is not in a valid state to start")

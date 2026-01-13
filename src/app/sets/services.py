@@ -11,33 +11,7 @@ from app.sets.models import Match_Set, SetType
 from app.sets.schemas import MatchSetOut, SetIn
 from app.sets.utils import db_match_set_2_match_set_schema
 
-
-class InvalidCardError(Exception):
-    """Class InvalidCardError."""
-
-    pass
-
-
-class InvalidMatchIdError(Exception):
-    """Class InvalidMatchIdError."""
-
-    pass
-
-
-class InvalidSetError(Exception):
-    """Class InvalidSetError."""
-
-    pass
-
-
-class TargetSecretError(Exception):
-    """Class TargetSecretError."""
-
-    pass
-
-
-class SetUpdateError(Exception):
-    """Lanzado cuando la actualización del Set falla."""
+from app.sets.exceptions import InvalidCardError, InvalidMatchIdError, InvalidSetError, TargetSecretError, SetUpdateError
 
 
 class SetService:
@@ -55,7 +29,8 @@ class SetService:
         Devuelve los nombres de las cartas asociadas a una lista de Match_Card IDs
         """
         match_cards = (
-            self._db.query(Match_Card).filter(Match_Card.id.in_(card_ids)).all()
+            self._db.query(Match_Card).filter(
+                Match_Card.id.in_(card_ids)).all()
         )
         if not match_cards:
             raise InvalidSetError(
@@ -65,7 +40,8 @@ class SetService:
         for mc in match_cards:
             card = self._db.query(Card).filter(Card.id == mc.card_id).first()
             if not card:
-                raise InvalidSetError(f"No se encontró la carta con id {mc.card_id}")
+                raise InvalidSetError(
+                    f"No se encontró la carta con id {mc.card_id}")
             card_names.append(card.name)
         return card_names
 
@@ -118,9 +94,11 @@ class SetService:
         }
         if set_type not in set_rules:
             raise InvalidSetError(f"Tipo de set {set_type} no soportado")
-        safe_counter = Counter({name: card_counts.get(name, 0) for name in card_counts})
+        safe_counter = Counter({name: card_counts.get(name, 0)
+                               for name in card_counts})
         if not set_rules[set_type](safe_counter):
-            raise InvalidSetError("Combinación inválida de cartas para el tipo de set")
+            raise InvalidSetError(
+                "Combinación inválida de cartas para el tipo de set")
         return True
 
     def add_card_verification(
@@ -143,12 +121,15 @@ class SetService:
             raise InvalidCardError("Solo se debe mandar una carta")
         for card_id in card_ids:
             match_card = (
-                self._db.query(Match_Card).filter(Match_Card.id == card_id).first()
+                self._db.query(Match_Card).filter(
+                    Match_Card.id == card_id).first()
             )
             if not match_card:
-                raise InvalidCardError(f"No se encontró la carta con id {card_id}")
+                raise InvalidCardError(
+                    f"No se encontró la carta con id {card_id}")
         detective = self._get_card_names(card_ids)
-        match_set = self._db.query(Match_Set).filter(Match_Set.id == set_id).first()
+        match_set = self._db.query(Match_Set).filter(
+            Match_Set.id == set_id).first()
         if not match_set:
             raise InvalidSetError(f"No se encontró el set con id {set_id}")
         for name in detective:
@@ -226,7 +207,8 @@ class SetService:
         except SQLAlchemyError:
             self._db.rollback()
             raise
-        match_set_out = MatchSetOut(
+
+        return MatchSetOut(
             id=new_set.id,
             type=new_set.type,
             player_id=new_set.player_id,
@@ -234,7 +216,6 @@ class SetService:
             quin_play=new_set.quin_play,
             quin_count=quins_count,
         )
-        return match_set_out
 
     def create_set_payload(self, match_id: UUID, setIn: SetIn, is_Oliver: bool):
         """Create set payload.
@@ -318,13 +299,17 @@ class SetService:
             Return value."""
         for card_id in card_ids:
             match_card = (
-                self._db.query(Match_Card).filter(Match_Card.id == card_id).first()
+                self._db.query(Match_Card).filter(
+                    Match_Card.id == card_id).first()
             )
             if not match_card:
-                raise InvalidCardError(f"No se encontró la carta con id {card_id}")
+                raise InvalidCardError(
+                    f"No se encontró la carta con id {card_id}")
             if match_card.match_id != match_id:
-                raise InvalidMatchIdError("La carta no pertenece a esta Partida.")
-            card = self._db.query(Card).filter(Card.id == match_card.card_id).first()
+                raise InvalidMatchIdError(
+                    "La carta no pertenece a esta Partida.")
+            card = self._db.query(Card).filter(
+                Card.id == match_card.card_id).first()
             if card.type != Card_Type.DETECTIVE:
                 raise InvalidCardError(
                     "Sólo las cartas de detective pueden formar un Set."
@@ -366,7 +351,8 @@ class SetService:
 
         Returns:
             Return value."""
-        match_set = self._db.query(Match_Set).filter(Match_Set.id == set_id).first()
+        match_set = self._db.query(Match_Set).filter(
+            Match_Set.id == set_id).first()
         if not match_set:
             raise InvalidSetError(f"No se encontró el set con id {set_id}")
         match_set.player_id = new_player_id
@@ -384,7 +370,8 @@ class SetService:
         Lanza InvalidSetError si no se encuentra.
         Lanza SetUpdateError si la actualización falla.
         """
-        match_set = self._db.query(Match_Set).filter(Match_Set.id == set_id).first()
+        match_set = self._db.query(Match_Set).filter(
+            Match_Set.id == set_id).first()
         if not match_set:
             raise InvalidSetError(f"No se encontró el set con ID: {set_id}")
         try:
@@ -393,7 +380,8 @@ class SetService:
             self._db.refresh(match_set)
         except SQLAlchemyError as e:
             self._db.rollback()
-            raise SetUpdateError(f"Error de base de datos al actualizar el set: {e}")
+            raise SetUpdateError(
+                f"Error de base de datos al actualizar el set: {e}")
         if match_set.type != now_setType:
             raise SetUpdateError(
                 "Verificación fallida: El tipo del set no coincide post-actualización."
@@ -409,6 +397,7 @@ class SetService:
         Returns:
             List of MatchSetOut schemas."""
         match_sets = (
-            self._db.query(Match_Set).filter(Match_Set.match_id == match_id).all()
+            self._db.query(Match_Set).filter(
+                Match_Set.match_id == match_id).all()
         )
         return [db_match_set_2_match_set_schema(match_set) for match_set in match_sets]

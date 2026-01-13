@@ -8,11 +8,9 @@ from app.player.models import Match_Player, Player
 from app.secrets.models import Match_Secret, Secret, Secret_action, Secret_Type
 from app.secrets.schemas import SecretUpdate
 
-
-class SecretNotFound(Exception):
-    """Class SecretNotFound."""
-
-    pass
+from app.secrets.exceptions import SecretNotFound, SecretInvalidAction
+from app.matches.exceptions import MatchInvalidAction, MatchValidationError
+from app.player.exceptions import InvalidPlayerData
 
 
 class Secrets_Services:
@@ -121,7 +119,8 @@ class Secrets_Services:
             .scalar()
         )
         if murderer_player_id is None:
-            raise ValueError("Murderer not assigned or match not started")
+            raise MatchInvalidAction(
+                "Murderer not assigned or match not started")
         return murderer_player_id
 
     def get_murderer_name(self, match_id: UUID) -> str:
@@ -155,7 +154,8 @@ class Secrets_Services:
         Returns:
             Return value."""
         return (
-            self._db.query(Match_Secret).filter(Match_Secret.match_id == match_id).all()
+            self._db.query(Match_Secret).filter(
+                Match_Secret.match_id == match_id).all()
         )
 
     def hide_secret(self, match_secret_id: UUID):
@@ -171,7 +171,8 @@ class Secrets_Services:
         if not match_secret:
             raise SecretNotFound("Secret not found")
         if not match_secret.is_revealed:
-            raise ValueError(f"Secret is already {Secret_action.HIDE}")
+            raise SecretInvalidAction(
+                f"Secret is already {Secret_action.HIDE}")
         match_secret.is_revealed = False
         try:
             self._db.commit()
@@ -209,15 +210,17 @@ class Secrets_Services:
                 all_secrets.append({"type": "INNOCENT", "quantity": quantity})
                 all_secrets.append({"type": "ACCOMPLICE", "quantity": 1})
             case _:
-                raise ValueError("Invalid number of players")
+                raise MatchValidationError("Invalid number of players")
         for secret_info in all_secrets:
             secret_base = (
-                self._db.query(Secret).filter_by(type=secret_info["type"]).first()
+                self._db.query(Secret).filter_by(
+                    type=secret_info["type"]).first()
             )
             if not secret_base:
                 continue
             for _ in range(secret_info["quantity"]):
-                match_secret = Match_Secret(secret_id=secret_base.id, match_id=match_id)
+                match_secret = Match_Secret(
+                    secret_id=secret_base.id, match_id=match_id)
                 self._db.add(match_secret)
         self._db.commit()
 
@@ -233,7 +236,7 @@ class Secrets_Services:
         accomplice_id = None
         try:
             murderer_id = self.get_murderer_id(match_id)
-        except ValueError:
+        except MatchInvalidAction:
             return False
         try:
             accomplice_id = self.get_accomplice_id(match_id)
@@ -309,7 +312,8 @@ class Secrets_Services:
         if not match_secret:
             raise SecretNotFound("Secret not found")
         if match_secret.is_revealed:
-            raise ValueError(f"Secret is already {Secret_action.REVEAL}")
+            raise SecretInvalidAction(
+                f"Secret is already {Secret_action.REVEAL}")
         match_secret.is_revealed = True
         try:
             self._db.commit()
@@ -383,7 +387,7 @@ class Secrets_Services:
             .first()
         )
         if not owner_player or not stealing_player:
-            raise ValueError("Players are not in the same match")
+            raise MatchInvalidAction("Players are not in the same match")
         match_secret.player_id = player_id
         try:
             self._db.commit()
@@ -410,10 +414,11 @@ class Secrets_Services:
             self.hide_secret(match_secret_id)
         elif action == Secret_action.STEAL:
             if not player_id:
-                raise ValueError("Player ID is required for steal action")
+                raise InvalidPlayerData(
+                    "Player ID is required for steal action")
             self.steal_secret(match_secret_id, player_id)
         else:
-            raise ValueError("Invalid action")
+            raise SecretInvalidAction("Invalid action")
         match_secret = (
             self._db.query(Match_Secret)
             .filter(Match_Secret.id == match_secret_id)

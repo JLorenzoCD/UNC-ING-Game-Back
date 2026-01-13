@@ -16,21 +16,7 @@ from app.secrets.models import Match_Secret
 from app.sets.models import Match_Set
 from app.ws_events.models import WsEvent
 
-
-class OwnerNotFound(Exception):
-    """Raised when the match owner is not found."""
-
-
-class MatchNotFound(Exception):
-    """Raised when a match is not found."""
-
-
-class MatchValidationError(Exception):
-    """Raised when match validation fails."""
-
-
-class PlayerNotInMatch(Exception):
-    """Raised when a player is not in the specified match."""
+from app.matches.exceptions import MatchNotFound, MatchValidationError, OwnerNotFound, PlayersInMatchNotFound
 
 
 class MatchService:
@@ -80,12 +66,9 @@ class MatchService:
 
         Returns:
             Return value."""
-        try:
-            match: Match = self.get_match_by_id(match_id)
-        except Exception:
-            raise MatchNotFound()
-        if not match:
-            raise MatchNotFound()
+
+        match: Match = self.get_match_by_id(match_id)
+
         if match.owner_id != owner_id:
             raise MatchValidationError(
                 "Solo el propietario de la partida puede cancelarla."
@@ -227,13 +210,11 @@ class MatchService:
 
     def get_match_by_id(self, match_id: UUID) -> Match | None:
         """Get a match by its ID."""
-        try:
-            match: Match = self._db.query(Match).filter(
-                Match.id == match_id).first()
-            if not match:
-                raise MatchNotFound()
-        except Exception:
-            raise
+        match: Match = self._db.query(Match).filter(
+            Match.id == match_id).first()
+
+        if not match:
+            raise MatchNotFound()
 
         return match
 
@@ -267,11 +248,13 @@ class MatchService:
         self, match_id: UUID
     ) -> List[match_schemas.Players_by_Match_Schema]:
         """Get all players in a match."""
+
+        match = self._db.query(Match).filter(Match.id == match_id).first()
+        if not match:
+            raise MatchNotFound()
+
+        result = []
         try:
-            match = self._db.query(Match).filter(Match.id == match_id).first()
-            if not match:
-                raise Exception("Partida no encontrada")
-            result = []
             for mp in match.match_players:
                 result.append(
                     {
@@ -285,8 +268,11 @@ class MatchService:
                         "birthday": mp.player.birthday,
                     }
                 )
+        except SQLAlchemyError:
+            raise PlayersInMatchNotFound()
         except Exception:
             raise
+
         return result
 
     def get_players_from_match(self, match_id: UUID):

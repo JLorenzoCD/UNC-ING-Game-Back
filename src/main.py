@@ -12,6 +12,12 @@ from app.models.db import Base, engine
 from app.player.endpoints import player_router
 from websocketManager.ws_routes import websocket_router
 
+from app.player.handlers import register_player_exception_handlers
+from app.matches.handlers import register_match_exception_handlers
+from app.sets.handlers import register_sets_exception_handlers
+from app.secrets.handlers import register_secrets_exception_handlers
+from handlers import register_common_handlers
+
 
 def init_data_total():
     """Init data total."""
@@ -34,6 +40,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+# Manejo de errores puntuales (¡siempre encima del general!)
+register_player_exception_handlers(app)
+register_match_exception_handlers(app)
+register_sets_exception_handlers(app)
+register_secrets_exception_handlers(app)
+
+# Manejo de errores general
+register_common_handlers(app)
+
+# Middlewares
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
@@ -41,6 +58,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Routers
 app.include_router(websocket_router)
 app.include_router(player_router)
 app.include_router(matches_router)

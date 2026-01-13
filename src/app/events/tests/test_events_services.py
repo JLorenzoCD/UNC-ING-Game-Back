@@ -4,9 +4,11 @@ from uuid import UUID, uuid4
 import pytest
 from sqlalchemy.orm import Session
 
-from app.cards.services import Card_event, Cards_Services
+from app.cards.services import Card_event
 from app.events.models import EventStatus
 from app.events.services import EventService
+
+from app.events.exceptions import EventNotFound
 
 
 def test_add_response_to_event(db: Session):
@@ -62,7 +64,8 @@ def test_create_event_cancelable(db: Session):
     )
     assert new_event.status == EventStatus.PENDING.value
     assert new_event.nsf_count == 0
-    assert new_event.resolve_at > datetime.now(timezone.utc).replace(tzinfo=None)
+    assert new_event.resolve_at > datetime.now(
+        timezone.utc).replace(tzinfo=None)
 
 
 def test_create_event_instant_hachazo(db: Session):
@@ -82,7 +85,8 @@ def test_create_event_instant_hachazo(db: Session):
         status=EventStatus.RESOLVED,
     )
     assert new_event.status == EventStatus.RESOLVED.value
-    assert new_event.resolve_at <= datetime.now(timezone.utc).replace(tzinfo=None)
+    assert new_event.resolve_at <= datetime.now(
+        timezone.utc).replace(tzinfo=None)
 
 
 def test_is_event_ready_to_resolve(db: Session):
@@ -122,7 +126,7 @@ def test_play_nsf_race_condition_fails(db: Session):
         event_payload={},
     )
     event_service.update_event_nsf(event_id=event.id, nsf_count=0)
-    with pytest.raises(ValueError, match="alguien ya jugo not so fast"):
+    with pytest.raises(EventNotFound, match="alguien ya jugo not so fast"):
         event_service.update_event_nsf(event_id=event.id, nsf_count=0)
 
 
@@ -141,6 +145,7 @@ def test_play_nsf_success(db: Session):
     )
     assert event.nsf_count == 0
     original_resolve_at = event.resolve_at
-    updated_event = event_service.update_event_nsf(event_id=event.id, nsf_count=0)
+    updated_event = event_service.update_event_nsf(
+        event_id=event.id, nsf_count=0)
     assert updated_event.nsf_count == 1
     assert updated_event.resolve_at > original_resolve_at
