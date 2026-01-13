@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime, timezone
 
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.cards import services as card_services
@@ -201,9 +201,11 @@ async def event_resolver_loop():
                     db.commit()
                     payload = {}
                     if event.event_type in [e.value for e in Card_event]:
+
                         PileService(db).discard_cards(
                             None, event.match_id, [event.match_card_id], delete=False
                         )
+
                         discarded_card = (
                             db.query(Match_Card)
                             .filter(Match_Card.id == event.match_card_id)

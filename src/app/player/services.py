@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from app.player.schemas import Player_Schema_in
-from app.player.models import Player
+from app.player.models import Player, Match_Player
 
 from sqlalchemy.exc import IntegrityError, DataError
 
@@ -58,6 +58,26 @@ class PlayerServices:
 
         try:
             player = self._db.get(Player, player_id)
+        except DataError:
+            raise InvalidPlayerData()
+        except Exception as e:
+            raise e  # Algún error inesperado (status=500)
+
+        if not player:
+            raise PlayerNotFound()
+
+        return player
+
+    def get_player_in_match(self, player_id: UUID, match_id: UUID) -> Player | None:
+
+        try:
+            player = (
+                self._db.query(Match_Player)
+                .filter(
+                    Match_Player.match_id == match_id, Match_Player.player_id == player_id
+                )
+                .first()
+            )
         except DataError:
             raise InvalidPlayerData()
         except Exception as e:

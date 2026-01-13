@@ -165,7 +165,7 @@ class TestTakeCardsEndpoint:
         response = client.put(
             f"/matches/{setup_data['match_str_id']}/cards/take", json=request_data
         )
-        assert response.status_code == 404
+        assert response.status_code == 401
 
     def test_take_cards_success(self, client, db_session):
         """Test tomar cartas exitosamente"""
@@ -301,7 +301,7 @@ class TestDiscardCardsEndpoint:
         response = client.put(
             f"/matches/{setup_data['match_str_id']}/cards/discard", json=request_data
         )
-        assert response.status_code == 404
+        assert response.status_code == 401
 
     def test_discard_cards_sets_discarded_at(self, client, db_session):
         """Test que verifica que se establece el campo discarded_at"""

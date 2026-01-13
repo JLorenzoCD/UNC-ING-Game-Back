@@ -23,7 +23,8 @@ class PileService:
         try:
             for card in cards:
                 match_card = (
-                    self._db.query(Match_Card).filter(Match_Card.id == card).first()
+                    self._db.query(Match_Card).filter(
+                        Match_Card.id == card).first()
                 )
                 if match_card and match_card.match_id == match_id:
                     if player_id is None or match_card.player_id == player_id:
@@ -34,12 +35,9 @@ class PileService:
                         else:
                             self._db.delete(match_card)
             self._db.commit()
-        except SQLAlchemyError as exception:
+        except SQLAlchemyError:
             self._db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail={"error": "Database error", "details": str(exception)},
-            )
+            raise
 
     def get_count_cards_pile(self, match_id: UUID) -> int:
         """Get the count of available cards in the pile."""
@@ -62,7 +60,8 @@ class PileService:
                 return
             for card in cards:
                 match_card: Match_Card = (
-                    self._db.query(Match_Card).filter(Match_Card.id == card).first()
+                    self._db.query(Match_Card).filter(
+                        Match_Card.id == card).first()
                 )
                 if match_card and (
                     match_card.player_id is None and match_card.match_id == match_id
@@ -72,10 +71,8 @@ class PileService:
                     match_card.discarded_at = None
             self._db.commit()
             self._db.refresh(match_card)
-        except SQLAlchemyError as exception:
+        except SQLAlchemyError:
             self._db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail={"error": "Database error", "details": str(exception)},
-            )
+            raise
+
         return match_card

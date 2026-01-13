@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from uuid import UUID
 
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, DataError
 
 from app.cards.models import Card, Card_Type, Match_Card
 from app.cards.schemas import Match_Card_Schema
@@ -11,6 +11,10 @@ from app.cards.utils import db_match_card_2_match_card_schema
 from app.player.models import Match_Player
 from app.secrets import services as secret_services
 from app.secrets.services import Secret_action
+
+
+class InvalidCardData(Exception):
+    pass
 
 
 class Card_event(Enum):
@@ -144,9 +148,11 @@ class Cards_Services:
                 raise ValueError(
                     "Una o más cartas no son válidas o no pertenecen a esta partida"
                 )
+
             PileService(self._db).discard_cards(
                 None, match_id, card_ids
             )
+
             discarded_cards = (
                 self._db.query(Match_Card).filter(
                     Match_Card.id.in_(card_ids)).all()
@@ -399,6 +405,23 @@ class Cards_Services:
         except Exception as e:
             print(f"Error en swap_card_owners: {e}")
             raise e
+
+    def get_player_cards_in_hand(self, player_id: UUID, match_id: UUID) -> list[Match_Card]:
+        try:
+            player_cards_in_hand = (
+                self._db.query(Match_Card)
+                .filter(
+                    Match_Card.match_id == match_id,
+                    Match_Card.player_id == player_id,
+                    Match_Card.is_discarded == False,
+                ).all()
+            )
+        except DataError:
+            raise InvalidCardData()
+        except Exception as e:
+            raise e  # Algún error inesperado (status=500)
+
+        return player_cards_in_hand
 
     def validate_card_ownership(
         self, player_id: UUID, match_id: UUID, match_card_id: UUID

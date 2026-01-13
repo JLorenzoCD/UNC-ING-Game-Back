@@ -34,7 +34,7 @@ from app.matches.schemas import (
 from app.matches.utils import db_match_2_match_schema
 from app.models.db import get_db
 from app.player.models import Match_Player, Player
-from app.player.services import PlayerServices
+from app.player.services import PlayerServices, PlayerNotFound, InvalidPlayerData
 from app.secrets import schemas as secret_schemas
 from app.secrets import services as secret_services
 from app.secrets.models import Match_Secret, Secret_action
@@ -87,14 +87,6 @@ async def get_match_by_match_ID(match_id: UUID, db=Depends(get_db)):
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=MatchResponse)
 async def create_match(match_in: MatchIn, db=Depends(get_db)) -> MatchResponse:
-    """Create match.
-
-    Args:
-        match_in: Parameter match_in.
-        db: Parameter db.
-
-    Returns:
-        Return value."""
 
     if (
         len(services.MatchService(db).get_ongoing_matches_of_player(match_in.owner_id))
@@ -107,19 +99,25 @@ async def create_match(match_in: MatchIn, db=Depends(get_db)) -> MatchResponse:
     try:
         match_dto = match_in.to_dto()
         new_match = services.MatchService(db).create(match_dto)
+
     except services.OwnerNotFound:
-        raise HTTPException(status_code=404, detail="Owner not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found")
     except services.MatchValidationError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except SQLAlchemyError as e:
         raise HTTPException(
-            status_code=500, detail="Internal server error. " + str(e))
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error. " + str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
     manager.enterMatch(new_match.owner_id, new_match.id)
+
     match_dict = new_match.model_dump(mode="json")
     match_dict["current_player_count"] = 1
+
     ws_message = make_ws_message(WSEvent.MATCH, match_dict)
     await manager.waiting_room_broadcast(ws_message)
 
@@ -131,20 +129,19 @@ async def create_match(match_in: MatchIn, db=Depends(get_db)) -> MatchResponse:
 
 @router.post("/{match_id}/join", status_code=status.HTTP_200_OK)
 async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
-    """Join match.
 
-    Args:
-        match_id: Parameter match_id.
-        player_id: Parameter player_id.
-        db: Parameter db."""
     info_player = db.query(Player).filter(Player.id == player_id).first()
     if not info_player:
-        raise HTTPException(status_code=404, detail="Player not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
+
     if len(services.MatchService(db).get_ongoing_matches_of_player(player_id)) > 0:
         raise HTTPException(
-            status_code=400, detail="Player is already in an ongoing match"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Player is already in an ongoing match"
         )
+
     MatchLifecycleService(db).join(match_id, player_id)
+
     manager.enterMatch(player_id, match_id)
     payload = {
         "id": info_player.id,
@@ -155,6 +152,7 @@ async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
     await manager.specificBroadcast(
         make_ws_message(WSEvent.PLAYER_JOIN, payload), match_id
     )
+
     match_service = services.MatchService(db)
     match = match_service.get_match_by_id(match_id)
     players_count = match_service.count_players_by_match(match_id)
@@ -163,34 +161,35 @@ async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
     match_dict["current_player_count"] = players_count
     message_ws = make_ws_message(WSEvent.MATCH, match_dict)
     await manager.waiting_room_broadcast(message_ws)
+
     try:
         log_message = f"[JOIN] Jugador {info_player.name} se unió a la partida"
 
         await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.PLAYER_JOIN, info_player.id)
     except Exception as e:
         print(f"[LOG] error creando/broadcast log de join: {e}")
+
     return {"match_id": match_id}
 
 
 @router.put("/{match_id}/quit", status_code=status.HTTP_200_OK)
 async def quit_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
-    """Quit match.
 
-    Args:
-        match_id: Parameter match_id.
-        player_id: Parameter player_id.
-        db: Parameter db."""
     info_player = db.query(Player).filter(Player.id == player_id).first()
     if not info_player:
-        raise HTTPException(status_code=404, detail="Player not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Player not found")
+
     try:
         MatchLifecycleService(db).quit_match(match_id, player_id)
+
         try:
             manager.quitMatch(player_id, match_id)
         except Exception as ws_e:
             print(
                 f"[WS ERROR] Error removing player {player_id} from websocket match {match_id}: {ws_e}"
             )
+
         payload = {
             "id": info_player.id,
             "name": info_player.name,
@@ -200,6 +199,7 @@ async def quit_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
         await manager.specificBroadcast(
             make_ws_message(WSEvent.PLAYER_QUIT, payload), match_id
         )
+
         match_service = services.MatchService(db)
         match = match_service.get_match_by_id(match_id)
         players_count = match_service.count_players_by_match(match_id)
@@ -216,30 +216,29 @@ async def quit_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
         except Exception as e:
             print(f"[LOG] error creando/broadcast log de quit: {e}")
 
-        return {"status": "success"}
     except services.MatchNotFound:
-        raise HTTPException(status_code=404, detail="Match not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
     except services.PlayerNotInMatch:
-        raise HTTPException(status_code=404, detail="Player not in match")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Player not in match")
     except SQLAlchemyError as db_e:
         print(f"[DB ERROR] Database error in quit_match: {db_e}")
-        raise HTTPException(status_code=500, detail="Database error occurred")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database error occurred")
     except HTTPException:
         raise
     except Exception as e:
         print(f"[UNEXPECTED ERROR] Unexpected error in quit_match: {e}")
         raise HTTPException(
-            status_code=500, detail=f"Internal server error: {str(e)}")
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Internal server error: {str(e)}")
+
+    return {"status": "success"}
 
 
 @router.post("/{match_id}/cancel", status_code=status.HTTP_200_OK)
 async def cancel_match(match_id: UUID, owner_id: UUID, db=Depends(get_db)):
-    """Cancel match.
 
-    Args:
-        match_id: Parameter match_id.
-        owner_id: Parameter owner_id.
-        db: Parameter db."""
     try:
         cancelled_match = services.MatchService(
             db).cancel_match(match_id, owner_id)
@@ -247,29 +246,29 @@ async def cancel_match(match_id: UUID, owner_id: UUID, db=Depends(get_db)):
         manager.close_match(match_id)
         payload = cancelled_match.model_dump(mode="json")
         await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, payload))
-        return {
-            "status": "Match cancelled and deleted successfully",
-            "match_id": match_id,
-        }
+
     except services.MatchNotFound:
-        raise HTTPException(status_code=404, detail="Match not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
     except services.MatchValidationError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except SQLAlchemyError as e:
         raise HTTPException(
-            status_code=500, detail=f"Database error: {str(e)}")
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Database error: {str(e)}")
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Internal server error: {str(e)}")
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Internal server error: {str(e)}")
+
+    return {
+        "status": "Match cancelled and deleted successfully",
+        "match_id": match_id,
+    }
 
 
 @router.post("/{match_id}/start", status_code=status.HTTP_200_OK)
 async def start_match(match_id: UUID, db=Depends(get_db)):
-    """Start match.
 
-    Args:
-        match_id: Parameter match_id.
-        db: Parameter db."""
     try:
         match = MatchLifecycleService(db).start_game(match_id)
         payload = match.model_dump(mode="json")
@@ -277,14 +276,16 @@ async def start_match(match_id: UUID, db=Depends(get_db)):
         await manager.specificBroadcast(
             make_ws_message(WSEvent.MATCH, payload), match_id
         )
+
     except services.MatchNotFound:
-        raise HTTPException(status_code=404, detail="Match not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Match not found")
     except SQLAlchemyError as e:
         raise HTTPException(
-            status_code=500, detail=f"Database error: {str(e)}")
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Database error: {str(e)}")
     except Exception as e:
         raise HTTPException(
-            status_code=400, detail=f"Could not start match: {str(e)}")
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Could not start match: {str(e)}")
 
     try:
         current_player_id = TurnService(
@@ -300,6 +301,7 @@ async def start_match(match_id: UUID, db=Depends(get_db)):
                 f"[LOG] No se pudo obtener current_player_id para match {match_id}")
     except Exception as e:
         print(f"[LOG] error creando/broadcast log de turno: {e}")
+
     return {"status": "Match started successfully"}
 
 # ------------------------------------------------------------------------------
@@ -310,20 +312,17 @@ async def start_match(match_id: UUID, db=Depends(get_db)):
     "/{match_id}/logs", status_code=status.HTTP_200_OK, response_model=List[MatchLogOut]
 )
 async def get_logs(match_id: UUID, db=Depends(get_db)) -> List[MatchLogOut]:
-    """Get logs.
 
-    Args:
-        match_id: Parameter match_id.
-        db: Parameter db.
-
-    Returns:
-        Return value."""
     try:
         logs = LogService(db).get_logs_by_match(match_id)
-    except SQLAlchemyError:
-        raise HTTPException(status_code=500)
+
+    except SQLAlchemyError as err:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Database error: {str(err)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
     return logs
 
 
@@ -335,20 +334,16 @@ async def get_logs(match_id: UUID, db=Depends(get_db)) -> List[MatchLogOut]:
 async def get_player_by_ID_match(
     match_id: UUID, db=Depends(get_db)
 ) -> List[Players_by_Match_Schema]:
-    """Get player by ID match.
 
-    Args:
-        match_id: Parameter match_id.
-        db: Parameter db.
-
-    Returns:
-        Return value."""
     try:
         players_match: List[Players_by_Match_Schema] = services.MatchService(
             db
         ).get_players_by_match(match_id)
+
     except Exception:
-        raise HTTPException(status_code=404, detail="Not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Players for march not found")
+
     return players_match
 
 
@@ -358,28 +353,30 @@ async def get_player_by_ID_match(
     response_model=List[Cards_by_Match_Schema],
 )
 async def get_cards(match_id: UUID, db=Depends(get_db)):
-    """Get cards.
 
-    Args:
-        match_id: Parameter match_id.
-        db: Parameter db."""
     try:
         cards = services.MatchService(db).get_cards_by_match(match_id)
-    except services.SQLAlchemyError:
-        raise HTTPException(status_code=500)
+
+    except SQLAlchemyError as err:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Database error: {str(err)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
     return cards
 
 
 @router.get("/{match_id}/secrets", status_code=status.HTTP_200_OK)
 async def get_secrets(match_id: UUID, db=Depends(get_db)):
-    """Get secrets.
 
-    Args:
-        match_id: Parameter match_id.
-        db: Parameter db."""
-    secrets = services.MatchService(db).get_secrets_by_match(match_id)
+    try:
+        secrets = services.MatchService(db).get_secrets_by_match(match_id)
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
     return secrets
 
 
@@ -387,17 +384,14 @@ async def get_secrets(match_id: UUID, db=Depends(get_db)):
     "/{match_id}/sets", status_code=status.HTTP_200_OK, response_model=List[MatchSetOut]
 )
 async def get_sets(match_id: UUID, db=Depends(get_db)):
-    """Get sets.
 
-    Args:
-        match_id: Parameter match_id.
-        db: Parameter db."""
     try:
         sets = set_services.SetService(db).get_sets_by_match(match_id)
-    except SQLAlchemyError:
-        raise HTTPException(status_code=500)
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
     return sets
 
 # ------------------------------------------------------------------------------
@@ -408,174 +402,235 @@ async def get_sets(match_id: UUID, db=Depends(get_db)):
 async def discard_card(
     match_id: UUID, cards: discard_Match_Cards_in, db=Depends(get_db)
 ):
-    """Discard card.
 
-    Args:
-        match_id: Parameter match_id.
-        cards: Parameter cards.
-        db: Parameter db."""
+    player_id = cards.player_id
+    discarded_cards_ids = cards.card_ids
+
+    # ? Esto es validación, se debería de sacar a un método
     try:
-        player_id = cards.player_id
-        player = (
-            db.query(Match_Player)
-            .filter(
-                Match_Player.match_id == match_id, Match_Player.player_id == player_id
-            )
-            .first()
+        # * Esto en especifico debería de ser un middleware en los endpoints
+        # * que afectan al juego
+        PlayerServices(
+            db).get_player_in_match(player_id, match_id)
+    except InvalidPlayerData:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Datos inválidos"
         )
-        if not player:
-            raise HTTPException(
-                status_code=404, detail="Player not found in this match"
-            )
-        discarded_cards_ids = cards.card_ids
-        len_discarded_cards_ids = len(discarded_cards_ids)
-        player_cards_count = (
-            db.query(Match_Card)
-            .filter(
-                Match_Card.match_id == match_id,
-                Match_Card.player_id == player_id,
-                Match_Card.is_discarded == False,
-            )
-            .count()
+    except PlayerNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="The player is not in the match"
         )
-        if len_discarded_cards_ids > player_cards_count:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"error": "No puedes descartar más cartas de las que tienes"},
-            )
-        else:
-            PileService(db).discard_cards(
-                player_id, match_id, discarded_cards_ids
-            )
-            ids = list(set(discarded_cards_ids))
-            results = services.MatchService(db).get_extended_cards_by_match(
-                match_id, ids
-            )
-            payload = [
-                {
-                    "id": card[0],
-                    "card_id": card[1],
-                    "match_id": card[2],
-                    "player_id": card[3],
-                    "is_discarded": card[4],
-                    "discarded_at": card[5],
-                    "name": card[6],
-                    "type": card[7].value if hasattr(card[7], "value") else card[7],
-                    "description": card[8],
-                }
-                for card in results
-            ]
-            await manager.specificBroadcast(
-                make_ws_message(WSEvent.CARDS, payload), match_id
-            )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error"
+        )
 
-            try:
-                player_obj = PlayerServices(db).get_player(player_id)
-                card_names = []
-                for card in results:
-                    card_names.append(card[6])
-                cards_text = (
-                    ", ".join(card_names)
-                    if len(card_names) <= 3
-                    else f"{', '.join(card_names[:3])} y {len(card_names) - 3} más"
-                )
-                log_message = f"[DISCARD] Jugador {player_obj.name} descartó {len(discarded_cards_ids)} carta(s): {cards_text}"
-                await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.DISCARD_CARDS, player_obj.id)
-            except Exception as e:
-                print(f"[LOG] error creando/broadcast log de discard: {e}")
+    # ? ------------------------------------------------------------------------
+    try:
+        player_cards_in_hand = card_services.Cards_Services(
+            db).get_player_cards_in_hand(player_id, match_id)
+    except card_services.InvalidCardData:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Datos inválidos"
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error"
+        )
 
-            return {"status": "success", "cards_discarded": len(discarded_cards_ids)}
-    except HTTPException as exception:
-        raise exception
+    if len(discarded_cards_ids) > len(player_cards_in_hand):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "No puedes descartar más cartas de las que tienes"},
+        )
+    # ? ------------------------------------------------------------------------
+
+    try:
+        PileService(db).discard_cards(
+            player_id, match_id, discarded_cards_ids
+        )
+
+        ids = list(set(discarded_cards_ids))
+        results = services.MatchService(db).get_extended_cards_by_match(
+            match_id, ids
+        )
+
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database error",
+        )
+
+    try:
+        payload = [
+            {
+                "id": card[0],
+                "card_id": card[1],
+                "match_id": card[2],
+                "player_id": card[3],
+                "is_discarded": card[4],
+                "discarded_at": card[5],
+                "name": card[6],
+                "type": card[7].value if hasattr(card[7], "value") else card[7],
+                "description": card[8],
+            }
+            for card in results
+        ]
+        await manager.specificBroadcast(
+            make_ws_message(WSEvent.CARDS, payload), match_id
+        )
+
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error with WebSockets",
+        )
+
+    try:
+        player_obj = PlayerServices(db).get_player(player_id)
+        card_names = []
+        for card in results:
+            card_names.append(card[6])
+        cards_text = (
+            ", ".join(card_names)
+            if len(card_names) <= 3
+            else f"{', '.join(card_names[:3])} y {len(card_names) - 3} más"
+        )
+        log_message = f"[DISCARD] Jugador {player_obj.name} descartó {len(discarded_cards_ids)} carta(s): {cards_text}"
+        await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.DISCARD_CARDS, player_obj.id)
+
+    except Exception as e:
+        print(f"[LOG] error creando/broadcast log de discard: {e}")
+
+    return {"status": "success", "cards_discarded": len(discarded_cards_ids)}
 
 
 @router.put("/{match_id}/cards/take", status_code=status.HTTP_200_OK)
 async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_db)):
-    """Take card.
 
-    Args:
-        match_id: Parameter match_id.
-        cards: Parameter cards.
-        db: Parameter db."""
+    player_id = cards.player_id
+    taken_cards_ids = cards.card_ids
+
+    # ? Esto es validación, se debería de sacar a un método
     try:
-        player_id = cards.player_id
-        player = (
-            db.query(Match_Player)
-            .filter(
-                Match_Player.match_id == match_id, Match_Player.player_id == player_id
-            )
-            .first()
+        # * Esto en especifico debería de ser un middleware en los endpoints
+        # * que afectan al juego
+        PlayerServices(
+            db).get_player_in_match(player_id, match_id)
+    except InvalidPlayerData:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Datos inválidos"
         )
-        if not player:
-            raise HTTPException(
-                status_code=404, detail="Player not found in this match"
-            )
-        taken_cards_ids = cards.card_ids
-        len_taken_cards_ids = len(taken_cards_ids)
-        count_cards_pile = PileService(db).get_count_cards_pile(match_id)
-        player_cards_count = (
-            db.query(Match_Card)
-            .filter(Match_Card.match_id == match_id, Match_Card.player_id == player_id)
-            .count()
+    except PlayerNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="The player is not in the match"
         )
-        if count_cards_pile < len_taken_cards_ids:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "error": "No puedes tomar más cartas de las que quedan en el mazo"
-                },
-            )
-        if len_taken_cards_ids > 6:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"error": "No puedes tomar mas de 6 cartas"},
-            )
-        elif player_cards_count + len_taken_cards_ids > 6:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"error": "No puedes tener mas de 6 cartas"},
-            )
-        else:
-            PileService(db).take_cards(player_id, match_id, taken_cards_ids)
-            ids = list(set(taken_cards_ids))
-            results = services.MatchService(db).get_extended_cards_by_match(
-                match_id, ids
-            )
-            payload = [
-                {
-                    "id": card[0],
-                    "card_id": card[1],
-                    "match_id": card[2],
-                    "player_id": card[3],
-                    "is_discarded": card[4],
-                    "discarded_at": card[5],
-                    "name": card[6],
-                    "type": card[7].value if hasattr(card[7], "value") else card[7],
-                    "description": card[8],
-                }
-                for card in results
-            ]
-            remaining_after = PileService(db).get_count_cards_pile(match_id)
-            if remaining_after <= 3:
-                try:
-                    await handle_match_ended(
-                        db, manager, match_id, MatchEndedReason.DECK_FINISHED
-                    )
-                except Exception as e:
-                    print(f"Error al handle_match_ended en take_card: {e}")
-            await manager.specificBroadcast(
-                make_ws_message(WSEvent.CARDS, payload), match_id
-            )
-            try:
-                player_obj = PlayerServices(db).get_player(player_id)
-                log_message = f"[TAKE] Jugador {player_obj.name} tomó {len(taken_cards_ids)} carta(s) del mazo"
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error"
+        )
 
-                await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.TAKE_CARDS, player_obj.id)
+    # ?-------------------------------------------------------------------------
+    try:
+        player_cards_in_hand = card_services.Cards_Services(
+            db).get_player_cards_in_hand(player_id, match_id)
+        count_cards_pile = PileService(db).get_count_cards_pile(match_id)
+
+    except card_services.InvalidCardData:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Datos inválidos"
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error"
+        )
+
+    if count_cards_pile < len(taken_cards_ids):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "No puedes tomar más cartas de las que quedan en el mazo"
+            },
+        )
+
+    if len(taken_cards_ids) > 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "No puedes tomar mas de 6 cartas"},
+        )
+
+    if len(player_cards_in_hand) + len(taken_cards_ids) > 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "No puedes tener mas de 6 cartas"},
+        )
+    # ?-------------------------------------------------------------------------
+
+    try:
+        PileService(db).take_cards(player_id, match_id, taken_cards_ids)
+
+        ids = list(set(taken_cards_ids))
+        results = services.MatchService(db).get_extended_cards_by_match(
+            match_id, ids
+        )
+
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database error",
+        )
+
+    # Verificar si se terminaron las cartas de mano
+    try:
+        remaining_after = PileService(db).get_count_cards_pile(match_id)
+        if remaining_after <= 3:
+            try:
+                await handle_match_ended(
+                    db, manager, match_id, MatchEndedReason.DECK_FINISHED
+                )
             except Exception as e:
-                print(f"[LOG] error creando/broadcast log de take: {e}")
-            return {"status": "success", "cards_taken": len(taken_cards_ids)}
-    except HTTPException as exception:
-        raise exception
+                print(f"Error al handle_match_ended en take_card: {e}")
+
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error"
+        )
+
+    # Transmitir por websocket
+    try:
+        payload = [
+            {
+                "id": card[0],
+                "card_id": card[1],
+                "match_id": card[2],
+                "player_id": card[3],
+                "is_discarded": card[4],
+                "discarded_at": card[5],
+                "name": card[6],
+                "type": card[7].value if hasattr(card[7], "value") else card[7],
+                "description": card[8],
+            }
+            for card in results
+        ]
+
+        await manager.specificBroadcast(
+            make_ws_message(WSEvent.CARDS, payload), match_id
+        )
+
+    except Exception as e:
+        print("[Error] manager.specificBroadcast - take_card: ", str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error"
+        )
+
+    # Se realiza el log de que el un jugador x cartas
+    try:
+        player_obj = PlayerServices(db).get_player(player_id)
+        log_message = f"[TAKE] Jugador {player_obj.name} tomó {len(taken_cards_ids)} carta(s) del mazo"
+
+        await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.TAKE_CARDS, player_obj.id)
+
+    except Exception as e:
+        print(f"[LOG] error creando/broadcast log de take: {e}")
+
+    return {"status": "success", "cards_taken": len(taken_cards_ids)}
 
 
 # ------------------------------------------------------------------------------
@@ -673,9 +728,18 @@ async def time_out(
                 detail=f"No se encontró la carta de descarte",
             )
         if first_card:
-            PileService(db).discard_cards(
-                first_card.player_id, match_id, [first_card.id], delete=False
-            )
+            try:
+                PileService(db).discard_cards(
+                    first_card.player_id, match_id, [
+                        first_card.id], delete=False
+                )
+
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail={"error": "Database error", "details": str(e)},
+                )
+
             db_match_card_2_match_card_schema(first_card)
         fourth_card: Match_Card = (
             db.query(Match_Card)
@@ -689,9 +753,16 @@ async def time_out(
             .first()
         )
         if fourth_card:
-            new_card = PileService(db).take_cards(
-                player_id, match_id, cards=[fourth_card.id]
-            )
+            try:
+                new_card = PileService(db).take_cards(
+                    player_id, match_id, cards=[fourth_card.id]
+                )
+
+            except Exception:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database error",
+                )
+
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -787,9 +858,18 @@ async def play_set(
             payload = {}
             match_set_out = db_match_set_2_match_set_schema(match_set)
             payload = match_set_out.model_dump(mode="json")
-            PileService(db).discard_cards(
-                None, match_id, setIn.card_ids, delete=True
-            )
+
+            try:
+                PileService(db).discard_cards(
+                    None, match_id, setIn.card_ids, delete=True
+                )
+
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail={"error": "Database error", "details": str(e)},
+                )
+
             payload.update(
                 {"deleted_cards": [str(uuid) for uuid in match_card_ids]})
             ws_msj = make_ws_message(WSEvent.SET, payload)
@@ -936,9 +1016,18 @@ async def put_down_a_detective(
                 match_set_out = db_match_set_2_match_set_schema(match_set)
 
             payload = match_set_out.model_dump(mode="json")
-            PileService(db).discard_cards(
-                None, match_id, set_info.card_ids, delete=True
-            )
+
+            try:
+                PileService(db).discard_cards(
+                    None, match_id, set_info.card_ids, delete=True
+                )
+
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail={"error": "Database error", "details": str(e)},
+                )
+
             payload.update(
                 {"deleted_cards": [str(uuid) for uuid in match_card_ids]})
             ws_msj = make_ws_message(WSEvent.SET, payload)
@@ -1245,9 +1334,18 @@ async def play_event(
                 EventStatus.RESOLVED,
             )
             payload = services_event.EventService(db).resolve_event(new_event)
-            PileService(db).discard_cards(
-                player_id, match_id, [match_card_id], delete=False
-            )
+
+            try:
+                PileService(db).discard_cards(
+                    player_id, match_id, [match_card_id], delete=False
+                )
+
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail={"error": "Database error", "details": str(e)},
+                )
+
             discarded_card = (
                 db.query(Match_Card).filter(
                     Match_Card.id == match_card_id).first()
@@ -1276,9 +1374,18 @@ async def play_event(
             new_event = services_event.EventService(db).create_event(
                 match_id, player_id, typeEvent.value, match_card_id, event_payload
             )
-            PileService(db).discard_cards(
-                player_id, match_id, [match_card_id], delete=False
-            )
+
+            try:
+                PileService(db).discard_cards(
+                    player_id, match_id, [match_card_id], delete=False
+                )
+
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail={"error": "Database error", "details": str(e)},
+                )
+
             discarded_card = (
                 db.query(Match_Card).filter(
                     Match_Card.id == match_card_id).first()
@@ -1551,9 +1658,17 @@ async def play_not_so_fast(
             print(
                 f"[LOG] error creando/broadcast log de play_not_so_fast: {e}")
 
-        PileService(db).discard_cards(
-            player_id, match_id, [match_card_id], delete=False
-        )
+        try:
+            PileService(db).discard_cards(
+                player_id, match_id, [match_card_id], delete=False
+            )
+
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={"error": "Database error", "details": str(e)},
+            )
+
         discarded_card = (
             db.query(Match_Card).filter(Match_Card.id == match_card_id).first()
         )

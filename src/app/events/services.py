@@ -2,6 +2,8 @@ import uuid
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 
+from fastapi import HTTPException, status
+
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -182,9 +184,11 @@ class EventService:
                     updated_match_cards = services_cards.Cards_Services(
                         db
                     ).delay_the_murderer_escape_event(event_payload["cards_ids"])
+
                     PileService(db).discard_cards(
                         None, match_id, [match_card_id], delete=True
                     )
+
                     updated_match_cards_schemas = [
                         db_match_card_2_match_card_schema(card)
                         for card in updated_match_cards
@@ -216,9 +220,11 @@ class EventService:
                         ).early_train_to_paddington_event(
                             match_id, event_payload["cards_ids"]
                         )
+
                         PileService(db).discard_cards(
                             None, match_id, [match_card_id], delete=True
                         )
+
                         serialized_discarded_cards = [
                             mc.model_dump(mode="json") for mc in discarded_cards
                         ]
@@ -357,9 +363,11 @@ class EventService:
                         match_set_out = db_match_set_2_match_set_schema(
                             match_set)
                         create_payload = match_set_out.model_dump(mode="json")
+
                         PileService(db).discard_cards(
                             None, match_id, set_data["card_ids"], delete=True
                         )
+
                         create_payload.update(
                             {"deleted_cards": data["card_ids"]})
                         payload["data_set"] = create_payload
@@ -371,9 +379,11 @@ class EventService:
                         match_set_out = db_match_set_2_match_set_schema(
                             match_set)
                         update_payload = match_set_out.model_dump(mode="json")
+
                         PileService(db).discard_cards(
                             None, match_id, [match_card_id], delete=True
                         )
+
                         update_payload.update(
                             {"deleted_cards": [str(uuid)
                                                for uuid in data["card_ids"]]}
