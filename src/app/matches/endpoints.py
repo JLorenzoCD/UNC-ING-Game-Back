@@ -47,6 +47,7 @@ from websocketManager.ws_messages import WSEvent, make_ws_message
 from websocketManager.ws_routes import manager
 
 from app.matches.exceptions import PlayersIsInOnGoingMatch
+from app.sets.exceptions import InvalidCardError, TargetSecretError
 
 card_services = services_cards
 router = APIRouter(tags=["matches"], prefix="/matches")
@@ -932,102 +933,101 @@ async def play_set_stolen(
     db=Depends(get_db),
 ) -> set_schemas.MatchSetOut:
 
-    try:
-        match_set = set_services.SetService(db).get_match_set(set_id, match_id)
-        set_type = match_set.type
-        target_secret = stolen_setIn.target_secret_id
-        target_player = stolen_setIn.target_player_id
-        if not target_player:
-            raise set_services.InvalidCardError
-        if (
-            set_type
-            in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE, SetType.PARKER_PYNE]
-            and target_secret is None
-        ):
-            raise set_services.TargetSecretError("No hay secreto seleccionado")
-        if target_secret:
-            secret = secret_services.Secrets_Services(db).get_match_secret_by_id(
-                target_secret
+    set_service = set_services.SetService(db)
+    secret_service = secret_services.Secrets_Services(db)
+
+    # ? Esto es validación, debería de estar como un método de un servicio
+    match_set = set_service.get_match_set(set_id, match_id)
+    set_type = match_set.type
+    target_secret = stolen_setIn.target_secret_id
+    target_player = stolen_setIn.target_player_id
+    if not target_player:
+        raise InvalidCardError("Property target_player is empty")
+
+    if (
+        set_type
+        in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE, SetType.PARKER_PYNE]
+        and target_secret is None
+    ):
+        raise TargetSecretError("No hay secreto seleccionado")
+
+    if target_secret:
+        secret = secret_service.get_match_secret_by_id(
+            target_secret
+        )
+        if secret.player_id != target_player:
+            raise TargetSecretError(
+                "El secreto y el jugador no coinciden"
             )
-            if secret.player_id != target_player:
-                raise set_services.TargetSecretError(
-                    "El secreto y el jugador no coinciden"
-                )
-            if set_type in [
-                SetType.LADY_EILEEN,
-                SetType.TUPPENCE_BERESFORD,
-                SetType.TOMMY_BERESFORD,
-                SetType.TWO_BERESFORD,
-                SetType.MR_SATTERTHWAITE,
-            ]:
-                raise set_services.TargetSecretError(
-                    "No se debería seleccionar secreto en este momento"
-                )
-        secret_service = secret_services.Secrets_Services(db)
-        if target_secret is not None:
-            if match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE]:
-                target_secret = secret_service.update_secret(
-                    secret_services.Secret_action.REVEAL, target_secret, target_player
-                )
-                match_secret_out = db_match_secret_2_match_secret_schema(
-                    target_secret)
-                try:
-                    res = secret_service.is_murderer_revealed(match_id)
-                    if res:
-                        await handle_match_ended(
-                            db, manager, match_id, MatchEndedReason.MURDERER_REVEALED
-                        )
-                    elif secret_service.is_everyone_in_social_disgrace(match_id):
-                        await handle_match_ended(
-                            db, manager, match_id, MatchEndedReason.SOCIAL_DISGRACE
-                        )
-                except Exception as e:
-                    print(f"Error al verificar condiciones de victoria: {e}")
-            if match_set.type == SetType.PARKER_PYNE:
-                target_secret = secret_service.update_secret(
-                    secret_services.Secret_action.HIDE, target_secret, target_player
-                )
-                match_secret_out = db_match_secret_2_match_secret_schema(
-                    target_secret)
-            payload = match_secret_out.model_dump(mode="json")
-            ws_msj = make_ws_message(WSEvent.SECRET, payload)
-            await manager.specificBroadcast(ws_msj, match_id)
+
+        if set_type in [
+            SetType.LADY_EILEEN,
+            SetType.TUPPENCE_BERESFORD,
+            SetType.TOMMY_BERESFORD,
+            SetType.TWO_BERESFORD,
+            SetType.MR_SATTERTHWAITE,
+        ]:
+            raise TargetSecretError(
+                "No se debería seleccionar secreto en este momento"
+            )
+
+    # ? ------------------------------------------------------------------------
+
+    if target_secret is not None:
+        if match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE]:
+            target_secret = secret_service.update_secret(
+                secret_services.Secret_action.REVEAL, target_secret, target_player
+            )
+            match_secret_out = db_match_secret_2_match_secret_schema(
+                target_secret)
+
+            try:
+                res = secret_service.is_murderer_revealed(match_id)
+                if res:
+                    await handle_match_ended(
+                        db, manager, match_id, MatchEndedReason.MURDERER_REVEALED
+                    )
+                elif secret_service.is_everyone_in_social_disgrace(match_id):
+                    await handle_match_ended(
+                        db, manager, match_id, MatchEndedReason.SOCIAL_DISGRACE
+                    )
+            except Exception as e:
+                print(f"Error al verificar condiciones de victoria: {e}")
+
+        if match_set.type == SetType.PARKER_PYNE:
+            target_secret = secret_service.update_secret(
+                secret_services.Secret_action.HIDE, target_secret, target_player
+            )
+            match_secret_out = db_match_secret_2_match_secret_schema(
+                target_secret)
+
+        payload = match_secret_out.model_dump(mode="json")
+        ws_msj = make_ws_message(WSEvent.SECRET, payload)
+        await manager.specificBroadcast(ws_msj, match_id)
+    else:
+        payload = {"target_player_id": [target_player]}
+        ws_msj = make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload)
+        await manager.specificBroadcast(ws_msj, match_id)
+
+    match_set_out = db_match_set_2_match_set_schema(match_set)
+
+    # Logs
+    try:
+        player = PlayerServices(db).get_player(match_set_out.player_id)
+
+        setType = match_set_out.type
+        log_message = f"[SET] Jugador {player.name} jugó el set {setType.value}"
+        event_type = getattr(MatchEventType, setType.name, None)
+        if event_type:
+            await LogService(db).create_and_propagate_log(match_id, log_message, event_type, player.id)
         else:
-            payload = {"target_player_id": [target_player]}
-            ws_msj = make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload)
-            await manager.specificBroadcast(ws_msj, match_id)
-        match_set_out = db_match_set_2_match_set_schema(match_set)
-
-        try:
-            player = PlayerServices(db).get_player(match_set_out.player_id)
-
-            setType = match_set_out.type
-            log_message = f"[SET] Jugador {player.name} jugó el set {setType.value}"
-            event_type = getattr(MatchEventType, setType.name, None)
-            if event_type:
-                await LogService(db).create_and_propagate_log(match_id, log_message, event_type, player.id)
-            else:
-                print(
-                    f"[LOG] Warning: No matching MatchEventType for SetType {setType.name}"
-                )
-        except Exception as e:
-            print(f"[LOG] error creando/broadcast log de set robado: {e}")
-
-        return match_set_out
-    except (
-        set_services.InvalidCardError,
-        set_services.InvalidMatchIdError,
-        set_services.TargetSecretError,
-    ) as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except set_services.InvalidSetError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-    except SQLAlchemyError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    except (ValueError) as e:
-        raise HTTPException(status_code=404, detail=str(e))
+            print(
+                f"[LOG] Warning: No matching MatchEventType for SetType {setType.name}"
+            )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[LOG] error creando/broadcast log de set robado: {e}")
+
+    return match_set_out
 
 # ------------------------------------------------------------------------------
 # -------------------------------- Eventos -------------------------------------
