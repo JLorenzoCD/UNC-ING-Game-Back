@@ -1041,128 +1041,99 @@ async def play_event(
     event_payload: dict | None,
     db=Depends(get_db),
 ):
-    """Play event.
 
-    Args:
-        match_id: Parameter match_id.
-        player_id: Parameter player_id.
-        match_card_id: Parameter match_card_id.
-        event_payload: Parameter event_payload.
-        db: Parameter db."""
-    print("entre al endpoint play_event")
-    try:
-        # Obtener tipo de evento y crear log ANTES de procesarlo
-        typeEvent = services_cards.Cards_Services(
-            db).get_event_type_by_card(match_card_id)
+    card_service = services_cards.Cards_Services(db)
+    event_service = services_event.EventService(db)
 
-        services_cards.Cards_Services(db).validate_card_ownership(
-            player_id, match_id, match_card_id
+    # Obtener tipo de evento y crear log ANTES de procesarlo
+    typeEvent = card_service.get_event_type_by_card(match_card_id)
+
+    card_service.validate_card_ownership(
+        player_id, match_id, match_card_id
+    )
+    typeEvent = card_service.get_event_type_by_card(
+        match_card_id
+    )
+
+    if card_service.is_instant_event(typeEvent.value):
+        new_event = event_service.create_event(
+            match_id,
+            player_id,
+            typeEvent.value,
+            match_card_id,
+            event_payload,
+            EventStatus.RESOLVED,
         )
-        typeEvent = services_cards.Cards_Services(db).get_event_type_by_card(
-            match_card_id
+        payload = event_service.resolve_event(new_event)
+
+        PileService(db).discard_cards(
+            player_id, match_id, [match_card_id], delete=False
         )
-        if services_cards.Cards_Services(db).is_instant_event(typeEvent.value):
-            new_event = services_event.EventService(db).create_event(
-                match_id,
-                player_id,
-                typeEvent.value,
-                match_card_id,
-                event_payload,
-                EventStatus.RESOLVED,
-            )
-            payload = services_event.EventService(db).resolve_event(new_event)
 
-            try:
-                PileService(db).discard_cards(
-                    player_id, match_id, [match_card_id], delete=False
-                )
+        discarded_card = card_service.get_card_by_id(match_card_id)
+        discarded_card_event = db_match_card_2_match_card_schema(
+            discarded_card
+        ).model_dump(mode="json")
+        payload["discarded_card_event"] = discarded_card_event
 
-            except Exception as e:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail={"error": "Database error", "details": str(e)},
-                )
-
-            discarded_card = (
-                db.query(Match_Card).filter(
-                    Match_Card.id == match_card_id).first()
-            )
-            discarded_card_event = db_match_card_2_match_card_schema(
-                discarded_card
-            ).model_dump(mode="json")
-            payload["discarded_card_event"] = discarded_card_event
-
-            await manager.specificBroadcast(
-                make_ws_message(WSEvent.CARD_EVENT, payload), match_id
-            )
-
-            try:
-                player_obj = PlayerServices(db).get_player(player_id)
-                log_message = f"[EVENTO] Jugador {player_obj.name} jugó el evento {typeEvent.value} y no puede ser cancelada con una 'NOT SO FAST...'"
-                event_type = getattr(MatchEventType, typeEvent.name, None)
-                if event_type:
-                    await LogService(db).create_and_propagate_log(match_id, log_message, event_type, player_obj.id)
-                else:
-                    print(
-                        f"[LOG] Warning: No matching MatchEventType for Card_event {typeEvent.name}")
-            except Exception as e:
-                print(f"[LOG] error creando/broadcast log de evento: {e}")
-        else:
-            new_event = services_event.EventService(db).create_event(
-                match_id, player_id, typeEvent.value, match_card_id, event_payload
-            )
-
-            try:
-                PileService(db).discard_cards(
-                    player_id, match_id, [match_card_id], delete=False
-                )
-
-            except Exception as e:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail={"error": "Database error", "details": str(e)},
-                )
-
-            discarded_card = (
-                db.query(Match_Card).filter(
-                    Match_Card.id == match_card_id).first()
-            )
-            discarded_card_event = db_match_card_2_match_card_schema(
-                discarded_card
-            ).model_dump(mode="json")
-
-            payload = {
-                "event_id": str(new_event.id),
-                "event_type": typeEvent.value,
-                "player_id": player_id,
-                "resolve_at_utc": new_event.resolve_at.isoformat(),
-                "nsf_count": new_event.nsf_count,
-                "discarded_card": discarded_card_event,
-            }
-            await manager.specificBroadcast(
-                make_ws_message(
-                    WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
-            )
-
-            try:
-                player_obj = PlayerServices(db).get_player(player_id)
-                log_message = f"[EVENTO] Jugador {player_obj.name} jugó el evento {typeEvent.value}, puedes jugar una carta 'NOT SO FAST...' para cancelarlo"
-                # Mapear Card_event a MatchEventType usando el nombre
-                event_type = getattr(MatchEventType, typeEvent.name, None)
-                if event_type:
-                    await LogService(db).create_and_propagate_log(match_id, log_message, event_type, player_obj.id)
-                else:
-                    print(
-                        f"[LOG] Warning: No matching MatchEventType for Card_event {typeEvent.name}")
-            except Exception as e:
-                print(f"[LOG] error creando/broadcast log de evento: {e}")
-
-        return {"status": "event_created", "event_id": new_event.id}
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error al procesar el evento: {str(e)}",
+        await manager.specificBroadcast(
+            make_ws_message(WSEvent.CARD_EVENT, payload), match_id
         )
+
+        # Logs
+        try:
+            player_obj = PlayerServices(db).get_player(player_id)
+            log_message = f"[EVENTO] Jugador {player_obj.name} jugó el evento {typeEvent.value} y no puede ser cancelada con una 'NOT SO FAST...'"
+            event_type = getattr(MatchEventType, typeEvent.name, None)
+            if event_type:
+                await LogService(db).create_and_propagate_log(match_id, log_message, event_type, player_obj.id)
+            else:
+                print(
+                    f"[LOG] Warning: No matching MatchEventType for Card_event {typeEvent.name}")
+        except Exception as e:
+            print(f"[LOG] error creando/broadcast log de evento: {e}")
+    else:
+        new_event = event_service.create_event(
+            match_id, player_id, typeEvent.value, match_card_id, event_payload
+        )
+
+        PileService(db).discard_cards(
+            player_id, match_id, [match_card_id], delete=False
+        )
+
+        discarded_card = card_service.get_card_by_id(match_card_id)
+        discarded_card_event = db_match_card_2_match_card_schema(
+            discarded_card
+        ).model_dump(mode="json")
+
+        payload = {
+            "event_id": str(new_event.id),
+            "event_type": typeEvent.value,
+            "player_id": player_id,
+            "resolve_at_utc": new_event.resolve_at.isoformat(),
+            "nsf_count": new_event.nsf_count,
+            "discarded_card": discarded_card_event,
+        }
+        await manager.specificBroadcast(
+            make_ws_message(
+                WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
+        )
+
+        # Logs
+        try:
+            player_obj = PlayerServices(db).get_player(player_id)
+            log_message = f"[EVENTO] Jugador {player_obj.name} jugó el evento {typeEvent.value}, puedes jugar una carta 'NOT SO FAST...' para cancelarlo"
+            # Mapear Card_event a MatchEventType usando el nombre
+            event_type = getattr(MatchEventType, typeEvent.name, None)
+            if event_type:
+                await LogService(db).create_and_propagate_log(match_id, log_message, event_type, player_obj.id)
+            else:
+                print(
+                    f"[LOG] Warning: No matching MatchEventType for Card_event {typeEvent.name}")
+        except Exception as e:
+            print(f"[LOG] error creando/broadcast log de evento: {e}")
+
+    return {"status": "event_created", "event_id": new_event.id}
 
 
 @router.post("/{match_id}/card_trade", status_code=status.HTTP_200_OK)

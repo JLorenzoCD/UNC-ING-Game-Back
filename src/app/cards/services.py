@@ -422,6 +422,20 @@ class Cards_Services:
 
         return player_cards_in_hand
 
+    def get_card_by_id(self, card_id: UUID) -> Match_Card | None:
+        try:
+            card = (
+                self._db.query(Match_Card).filter(
+                    Match_Card.id == card_id).first()
+            )
+
+        except DataError:
+            raise InvalidCardData()
+        except Exception as e:
+            raise e  # Algún error inesperado (status=500)
+
+        return card
+
     def validate_card_ownership(
         self, player_id: UUID, match_id: UUID, match_card_id: UUID
     ) -> bool:
