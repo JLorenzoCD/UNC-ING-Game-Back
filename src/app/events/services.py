@@ -19,7 +19,7 @@ from app.sets import models as set_models
 from app.sets import services as set_services
 from app.sets.utils import db_match_set_2_match_set_schema
 
-from app.cards.exceptions import InvalidCardData
+from app.cards.exceptions import InvalidCardData, CardInvalidAction
 from app.events.exceptions import EventNotFound, EventInvalidAction
 
 
@@ -479,16 +479,16 @@ class EventService:
 
         event_type = event.event_type
         if event_type != Card_event.CARD_TRADE.value and event_type != Card_event.DEAD_CARD_FOLLY.value:
-            raise Exception(
-                "Error (get_players_target_devious_card): Este método es solo para eventos en el cual se intercambian cartas.")
+            raise CardInvalidAction(
+                "Este método es solo para eventos en el cual se intercambian cartas.")
 
         responses = event.payload.get("responses", [])
         all_devious_cards = self._db.query(Card).filter(
             Card.type == Card_Type.DEVIOUS,
         ).all()
         if len(responses) < 2:
-            raise Exception(
-                "Error (get_players_target_devious_card): Debe de haber mas de 2 cartas intercambiadas.")
+            raise CardInvalidAction(
+                "Debe de haber mas de 2 cartas intercambiadas.")
 
         if all_devious_cards is None:
             return []

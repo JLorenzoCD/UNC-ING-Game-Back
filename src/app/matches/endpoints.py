@@ -1144,63 +1144,51 @@ async def play_card_trade(
     event_payload: dict,
     db=Depends(get_db),
 ):
-    """Play card trade.
+    event_service = services_event.EventService(db)
 
-    Args:
-        match_id: Parameter match_id.
-        player_id: Parameter player_id.
-        event_id: Parameter event_id.
-        event_payload: Parameter event_payload.
-        db: Parameter db."""
+    services_cards.Cards_Services(db).validate_card_ownership(
+        player_id, match_id, event_payload["target_card_id"]
+    )
+    event_update = event_service.update_info_event(
+        event_id, player_id, event_payload["target_card_id"]
+    )
+
+    # Log de carta seleccionada
     try:
-        services_cards.Cards_Services(db).validate_card_ownership(
-            player_id, match_id, event_payload["target_card_id"]
+        player = PlayerServices(db).get_player(player_id)
+        log_message = f"[EVENT] El jugador '{player.name}' selecciono una carta para intercambiar'"
+
+        await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.CARD_TRADE, player.id)
+    except Exception as e:
+        print(
+            f"[LOG] error creando/broadcast log de play_card_trade: {e}")
+
+    if event_service.is_event_ready_to_resolve(event_update):
+        payload = event_service.resolve_event(event_update)
+
+        await manager.specificBroadcast(
+            make_ws_message(WSEvent.CARD_EVENT, payload), match_id
         )
-        event_update = services_event.EventService(db).update_info_event(
-            event_id, player_id, event_payload["target_card_id"]
-        )
 
-        try:
-            player = PlayerServices(db).get_player(player_id)
-            log_message = f"[EVENT] El jugador '{player.name}' selecciono una carta para intercambiar'"
-
-            await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.CARD_TRADE, player.id)
-        except Exception as e:
-            print(
-                f"[LOG] error creando/broadcast log de play_card_trade: {e}")
-
-        if services_event.EventService(db).is_event_ready_to_resolve(event_update):
-            payload = services_event.EventService(
-                db).resolve_event(event_update)
-
+        devious_card_targets_players = event_service.get_players_target_devious_card(
+            event_update)
+        if len(devious_card_targets_players) >= 1:
             await manager.specificBroadcast(
-                make_ws_message(WSEvent.CARD_EVENT, payload), match_id
+                make_ws_message(
+                    WSEvent.PLAYER_SECRET_REVEAL, {
+                        "target_player_id": devious_card_targets_players}
+                ),
+                match_id,
             )
 
-            devious_card_targets_players = services_event.EventService(
-                db).get_players_target_devious_card(event_update)
-            if len(devious_card_targets_players) >= 1:
-                await manager.specificBroadcast(
-                    make_ws_message(
-                        WSEvent.PLAYER_SECRET_REVEAL, {
-                            "target_player_id": devious_card_targets_players}
-                    ),
-                    match_id,
-                )
-                try:
-                    log_message = f"[EVENT] Se ha/n recibido alguna carta 'DEVIOUS', el jugador/es tendrá/n que revelar un secreto propio."
+            # Log del intercambio
+            try:
+                log_message = f"[EVENT] Se ha/n recibido alguna carta 'DEVIOUS', el jugador/es tendrá/n que revelar un secreto propio."
 
-                    await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.CARD_TRADE, player.id)
-                except Exception as e:
-                    print(
-                        f"[LOG] error creando/broadcast log de play_card_trade: {e}")
-
-    except Exception as e:
-        print(f"Algun error en card trade error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Error al procesar la carta {e}",
-        )
+                await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.CARD_TRADE, player.id)
+            except Exception as e:
+                print(
+                    f"[LOG] error creando/broadcast log de play_card_trade: {e}")
 
     return {"status": "ok", "message": "CardTrade de lujo"}
 
