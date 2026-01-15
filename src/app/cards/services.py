@@ -4,6 +4,7 @@ from enum import Enum
 from uuid import UUID
 
 from sqlalchemy.exc import SQLAlchemyError, DataError
+from sqlalchemy import func
 
 from app.cards.models import Card, Card_Type, Match_Card
 from app.cards.schemas import Match_Card_Schema
@@ -431,8 +432,52 @@ class Cards_Services:
 
         except DataError:
             raise InvalidCardData()
-        except Exception as e:
-            raise e  # Algún error inesperado (status=500)
+        except Exception:
+            raise  # Algún error inesperado (status=500)
+
+        return card
+
+    def get_random_card_from_player_in_match(self, match_id: UUID, player_id: UUID) -> Match_Card | None:
+
+        try:
+            card = (
+                self._db.query(Match_Card)
+                .filter(
+                    Match_Card.match_id == match_id,
+                    Match_Card.player_id == player_id,
+                    Match_Card.is_discarded == False,
+                )
+                # Si se usa MySQL se debe cambiar a func.rand()
+                .order_by(func.random())
+                .first()
+            )
+
+        except DataError:
+            raise InvalidCardData()
+        except Exception:
+            raise  # Algún error inesperado (status=500)
+
+        return card
+
+    def get_first_card_of_regular_deck(self, match_id: UUID) -> Match_Card | None:
+
+        try:
+            card = (
+                self._db.query(Match_Card)
+                .filter(
+                    Match_Card.match_id == match_id,
+                    Match_Card.player_id == None,
+                    Match_Card.is_discarded == False,
+                )
+                .order_by(Match_Card.id)
+                .offset(3)
+                .first()
+            )
+
+        except DataError:
+            raise InvalidCardData()
+        except Exception:
+            raise  # Algún error inesperado (status=500)
 
         return card
 

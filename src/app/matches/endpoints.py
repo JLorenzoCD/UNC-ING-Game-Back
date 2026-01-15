@@ -5,7 +5,6 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.cards import services as services_cards
-from app.cards.models import Match_Card
 from app.cards.schemas import (
     Match_Card_Schema,
     discard_Match_Cards_in,
@@ -35,7 +34,7 @@ from app.models.db import get_db
 from app.player.services import PlayerServices
 from app.secrets import schemas as secret_schemas
 from app.secrets import services as secret_services
-from app.secrets.models import Match_Secret, Secret_action
+from app.secrets.models import Secret_action
 from app.secrets.utils import db_match_secret_2_match_secret_schema
 from app.sets import schemas as set_schemas
 from app.sets import services as set_services
@@ -504,6 +503,8 @@ async def time_out(
 ) -> Optional[List[Match_Card_Schema]]:
 
     match_services = services.MatchService(db)
+    card_service = services_cards.Cards_Services(db)
+
     time_now = datetime.now(timezone.utc)
 
     match = match_services.get_match_by_id(match_id)
@@ -519,49 +520,31 @@ async def time_out(
 
     PlayerServices(db).get_player_in_match(player_id, match_id)
 
-    first_card: Match_Card | None = (
-        db.query(Match_Card)
-        .filter(
-            Match_Card.match_id == match_id,
-            Match_Card.player_id == player_id,
-            Match_Card.is_discarded == False,
+    ids = set()
+    # Se obtiene una carta en posesión del jugador, en caso que la tenga se descarta
+    random_card_from_player = card_service.get_random_card_from_player_in_match(
+        match_id, player_id)
+    if random_card_from_player:
+        PileService(db).discard_cards(
+            random_card_from_player.player_id, match_id, [
+                random_card_from_player.id], delete=False
         )
-        .first()
-    )
-    if not first_card:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"No se encontró la carta de descarte",
-        )
+        db_match_card_2_match_card_schema(random_card_from_player)
 
-    PileService(db).discard_cards(
-        first_card.player_id, match_id, [
-            first_card.id], delete=False
-    )
-    db_match_card_2_match_card_schema(first_card)
+        ids.add(random_card_from_player.id)
 
-    fourth_card: Match_Card | None = (
-        db.query(Match_Card)
-        .filter(
-            Match_Card.player_id == None,
-            Match_Card.is_discarded == False,
-            Match_Card.match_id == match_id,
-        )
-        .order_by(Match_Card.id)
-        .offset(3)
-        .first()
-    )
-    if not fourth_card:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"No se encontró la cuarta carta",
-        )
+    # Obtener una carta del mazo regular para dársela al jugador
+    card_of_regular_deck = card_service.get_first_card_of_regular_deck(
+        match_id)
+    if not card_of_regular_deck:
+        raise CardInvalidAction("Can't get a card from the regular deck")
 
     PileService(db).take_cards(
-        player_id, match_id, cards=[fourth_card.id]
+        player_id, match_id, cards=[card_of_regular_deck.id]
     )
 
-    ids = list(set([first_card.id, fourth_card.id]))
+    ids.add(card_of_regular_deck.id)
+    ids = list(ids)
     results = services.MatchService(
         db).get_extended_cards_by_match(match_id, ids)
     payload = [
@@ -582,6 +565,20 @@ async def time_out(
         make_ws_message(WSEvent.CARDS, payload), match_id
     )
 
+    # Verificar si se terminaron las cartas de mano
+    remaining_after = PileService(db).get_count_cards_pile(match_id)
+    if remaining_after <= 3:
+        try:
+            await handle_match_ended(
+                db, manager, match_id, MatchEndedReason.DECK_FINISHED
+            )
+
+        except Exception as e:
+            print(f"Error al handle_match_ended en take_card: {e}")
+
+        return results
+
+    # Pasar turno
     match = TurnService(db).pass_turn_by_id(match_id)
     current_player_id = TurnService(db).get_current_player_by_match(
         match_id
@@ -590,8 +587,8 @@ async def time_out(
     if current_player_id:
         match_dict["current_player_id"] = str(current_player_id)
 
-    msg = make_ws_message(WSEvent.TURN, match_dict)
     try:
+        msg = make_ws_message(WSEvent.TURN, match_dict)
         await manager.specificBroadcast(msg, match_id)
     except Exception as ws_err:
         print(f"[WS] pass_turn broadcast error: {ws_err}")
@@ -1369,12 +1366,10 @@ async def update_secret_in_match(
 
     match_secret_old = secret_service.get_match_secret_by_id(secret_id)
 
-    match_secret: Match_Secret = secret_service.update_secret(
+    match_secret = secret_service.update_secret(
         secretIn.action, secret_id, secretIn.target_player_id
     )
-    match_secret_out: secret_schemas.Match_Secret_Schema = (
-        db_match_secret_2_match_secret_schema(match_secret)
-    )
+    match_secret_out = db_match_secret_2_match_secret_schema(match_secret)
 
     payload = match_secret_out.model_dump(mode="json")
     msj_ws = make_ws_message(WSEvent.SECRET, payload)
