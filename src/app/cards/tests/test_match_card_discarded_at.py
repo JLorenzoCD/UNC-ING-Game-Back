@@ -5,7 +5,7 @@ import pytest
 
 from app.cards.models import Card, Card_Type, Match_Card
 from app.matches.models import Match, MatchStatus
-from app.piles.service import PileService
+from app.piles.services import PileServices
 from app.player.models import Player
 
 "\nTest específicos para el campo discarded_at del modelo Match_Card.\n\nEstos tests verifican que el nuevo campo discarded_at se actualice\ncorrectamente cuando se descartan cartas.\n"
@@ -64,9 +64,9 @@ class TestMatchCardDiscardedAt:
         db = setup_data["db"]
         player = setup_data["player"]
         match_cards = setup_data["match_cards"]
-        pile_service = PileService(db)
+        pile_service = PileServices(db)
         first_timestamp = datetime(2024, 1, 1, 12, 0, 0)
-        with patch("app.piles.service.datetime") as mock_dt:
+        with patch("app.piles.services.datetime") as mock_dt:
             mock_dt.now.return_value = first_timestamp
             pile_service.discard_cards(
                 player.id, setup_data["match"].id, [match_cards[0].id]
@@ -77,7 +77,7 @@ class TestMatchCardDiscardedAt:
         match_cards[0].is_discarded = False
         db.commit()
         second_timestamp = datetime(2024, 1, 2, 12, 0, 0)
-        with patch("app.piles.service.datetime") as mock_dt:
+        with patch("app.piles.services.datetime") as mock_dt:
             mock_dt.now.return_value = second_timestamp
             pile_service.discard_cards(
                 player.id, setup_data["match"].id, [match_cards[0].id]
@@ -96,7 +96,7 @@ class TestMatchCardDiscardedAt:
         )
         db.add(other_player)
         db.commit()
-        pile_service = PileService(db)
+        pile_service = PileServices(db)
         match_cards[0].player_id = other_player.id
         db.commit()
         pile_service.discard_cards(
@@ -112,10 +112,11 @@ class TestMatchCardDiscardedAt:
         db = setup_data["db"]
         player = setup_data["player"]
         match_cards = setup_data["match_cards"]
-        pile_service = PileService(db)
+        pile_service = PileServices(db)
         cards_to_discard = [match_cards[0].id, match_cards[1].id]
         before_discard = datetime.now()
-        pile_service.discard_cards(player.id, setup_data["match"].id, cards_to_discard)
+        pile_service.discard_cards(
+            player.id, setup_data["match"].id, cards_to_discard)
         after_discard = datetime.now()
         db.refresh(match_cards[0])
         db.refresh(match_cards[1])

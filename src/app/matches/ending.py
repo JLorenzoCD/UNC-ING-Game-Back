@@ -23,7 +23,7 @@ async def handle_match_ended(db, manager, match_id: UUID, reason: MatchEndedReas
         match_id: Parameter match_id.
         reason: Parameter reason."""
     from app.matches.services import MatchService
-    from app.secrets.services import Secrets_Services
+    from app.secrets.services import SecretsServices
     from websocketManager.ws_messages import WSEvent, make_ws_message
 
     try:
@@ -34,7 +34,7 @@ async def handle_match_ended(db, manager, match_id: UUID, reason: MatchEndedReas
         return None
     if match_row.status == MatchStatus.COMPLETED:
         return None
-    info = Secrets_Services(db).get_full_info(match_id)
+    info = SecretsServices(db).get_full_info(match_id)
     try:
         MatchService(db).update_status_match(match_id, MatchStatus.COMPLETED)
     except SQLAlchemyError as e:
@@ -62,7 +62,8 @@ async def handle_match_ended(db, manager, match_id: UUID, reason: MatchEndedReas
         "match_id": str(match_id),
         "secret_murderer_id": str(info["murderer_secret_id"]),
         "secret_accomplice_id": (
-            str(info["accomplice_secret_id"]) if info["accomplice_secret_id"] else None
+            str(info["accomplice_secret_id"]
+                ) if info["accomplice_secret_id"] else None
         ),
         "reason": reason.value,
         "details": detailstmp,

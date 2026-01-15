@@ -2,7 +2,7 @@ from conftest import setup_match_and_players
 
 from app.player.models import Match_Player
 from app.secrets.models import Match_Secret, Secret, Secret_Type
-from app.secrets.services import Secrets_Services
+from app.secrets.services import SecretsServices
 
 
 def test_get_accomplice_id_none_when_not_present(db_session, client):
@@ -16,7 +16,7 @@ def test_get_accomplice_id_none_when_not_present(db_session, client):
     match_str_id = setup["match_str_id"]
     resp = client.post(f"/matches/{match_str_id}/start")
     assert resp.status_code == 200
-    svc = Secrets_Services(db_session)
+    svc = SecretsServices(db_session)
     accomplice = svc.get_accomplice_id(match_id)
     assert accomplice is None
 
@@ -31,7 +31,7 @@ def test_get_full_info_basic(db_session, client):
     match_id = setup["match_id"]
     match_str_id = setup["match_str_id"]
     client.post(f"/matches/{match_str_id}/start")
-    svc = Secrets_Services(db_session)
+    svc = SecretsServices(db_session)
     info = svc.get_full_info(match_id)
     assert info is not None
     assert "murderer_secret_id" in info
@@ -49,7 +49,7 @@ def test_get_full_info_without_murderer(db_session, client):
         client: Parameter client."""
     setup = setup_match_and_players(client, db_session)
     match_id = setup["match_id"]
-    svc = Secrets_Services(db_session)
+    svc = SecretsServices(db_session)
     info = svc.get_full_info(match_id)
     assert info is None
 
@@ -65,7 +65,7 @@ def test_get_murderer_and_accomplice_names(db_session, client):
     match_str_id = setup["match_str_id"]
     resp = client.post(f"/matches/{match_str_id}/start")
     assert resp.status_code == 200
-    svc = Secrets_Services(db_session)
+    svc = SecretsServices(db_session)
     murderer_name = svc.get_murderer_name(match_id)
     accomplice_name = svc.get_accomplice_name(match_id)
     assert isinstance(murderer_name, str) and murderer_name != ""
@@ -85,7 +85,7 @@ def test_get_murderer_id_success(db_session, client):
     match_str_id = setup["match_str_id"]
     resp = client.post(f"/matches/{match_str_id}/start")
     assert resp.status_code == 200
-    svc = Secrets_Services(db_session)
+    svc = SecretsServices(db_session)
     murderer_id = svc.get_murderer_id(match_id)
     assert murderer_id is not None
     players = [
@@ -101,7 +101,7 @@ def test_is_everyone_in_social_disgrace_false_when_match_not_started(
     """Test que verifica que no hay desgracia social cuando la partida no empezó"""
     setup = setup_match_and_players(client, db_session)
     match_id = setup["match_id"]
-    svc = Secrets_Services(db_session)
+    svc = SecretsServices(db_session)
     result = svc.is_everyone_in_social_disgrace(match_id)
     assert result is False
 
@@ -115,7 +115,7 @@ def test_is_everyone_in_social_disgrace_false_when_some_innocent_secrets_hidden(
     match_str_id = setup["match_str_id"]
     resp = client.post(f"/matches/{match_str_id}/start")
     assert resp.status_code == 200
-    svc = Secrets_Services(db_session)
+    svc = SecretsServices(db_session)
     innocent_secrets = (
         db_session.query(Match_Secret)
         .join(Secret, Match_Secret.secret_id == Secret.id)
@@ -139,7 +139,7 @@ def test_is_everyone_in_social_disgrace_true_when_all_innocent_secrets_revealed(
     match_str_id = setup["match_str_id"]
     resp = client.post(f"/matches/{match_str_id}/start")
     assert resp.status_code == 200
-    svc = Secrets_Services(db_session)
+    svc = SecretsServices(db_session)
     innocent_secrets = (
         db_session.query(Match_Secret)
         .join(Secret, Match_Secret.secret_id == Secret.id)
@@ -163,7 +163,7 @@ def test_is_everyone_in_social_disgrace_two_players_scenario(db_session, client)
     player2_id = setup["player2_id"]
     resp = client.post(f"/matches/{match_str_id}/start")
     assert resp.status_code == 200
-    svc = Secrets_Services(db_session)
+    svc = SecretsServices(db_session)
     murderer_id = svc.get_murderer_id(match_id)
     innocent_id = player2_id if murderer_id == owner_id else owner_id
     innocent_secrets = (
@@ -188,7 +188,7 @@ def test_is_murderer_revealed_after_reveal(db_session, client):
     match_id = setup["match_id"]
     match_str_id = setup["match_str_id"]
     client.post(f"/matches/{match_str_id}/start")
-    svc = Secrets_Services(db_session)
+    svc = SecretsServices(db_session)
     secret = (
         db_session.query(Match_Secret)
         .join(Secret, Match_Secret.secret_id == Secret.id)
@@ -211,6 +211,6 @@ def test_is_murderer_revealed_none_before_reveal(db_session, client):
         client: Parameter client."""
     setup = setup_match_and_players(client, db_session)
     match_id = setup["match_id"]
-    svc = Secrets_Services(db_session)
+    svc = SecretsServices(db_session)
     result = svc.is_murderer_revealed(match_id)
     assert result is None

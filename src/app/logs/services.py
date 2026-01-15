@@ -12,7 +12,7 @@ from app.matches.models import MatchLogs
 from app.matches.utils import db_match_log_2_match_log_schema
 
 
-class LogService:
+class LogServices:
     """Service class for managing match logs."""
 
     def __init__(self, db):

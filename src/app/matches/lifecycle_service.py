@@ -7,13 +7,13 @@ from fastapi import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.cards.models import Card, Match_Card
-from app.cards.services import Cards_Services
+from app.cards.services import CardsServices
 from app.matches.models import Match, MatchStatus
 from app.matches.schemas import MatchOut
 from app.matches.utils import db_match_2_match_schema
 from app.player.models import Match_Player, Player
 from app.secrets.models import Match_Secret, Secret, Secret_Type
-from app.secrets.services import Secrets_Services
+from app.secrets.services import SecretsServices
 
 from app.player.exceptions import PlayerNotFoundInMatch
 
@@ -21,7 +21,7 @@ from app.matches.exceptions import MatchValidationError
 from app.matches.services import MatchService
 
 
-class MatchLifecycleService:
+class MatchLifecycleServices:
     """Service for match lifecycle operations (start, cancel, join, quit)."""
 
     def __init__(self, db):
@@ -216,15 +216,15 @@ class MatchLifecycleService:
             if match.status == MatchStatus.WAITING:
                 match_service.update_status_match(
                     match_id, MatchStatus.IN_PROGRESS)
-                Cards_Services(self._db).init_match_cards(
+                CardsServices(self._db).init_match_cards(
                     match_id, len(match_players))
-                Secrets_Services(self._db).init_match_secrets(
+                SecretsServices(self._db).init_match_secrets(
                     len(match_players), match_id
                 )
-                match_cards: list[Match_Card] = Cards_Services(
+                match_cards: list[Match_Card] = CardsServices(
                     self._db
                 ).get_cards_by_match(match_id)
-                match_secrets: list[Match_Secret] = Secrets_Services(
+                match_secrets: list[Match_Secret] = SecretsServices(
                     self._db
                 ).get_secrets_by_match(match_id)
                 random.shuffle(match_cards)

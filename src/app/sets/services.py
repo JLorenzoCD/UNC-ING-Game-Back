@@ -14,8 +14,8 @@ from app.sets.utils import db_match_set_2_match_set_schema
 from app.sets.exceptions import InvalidCardError, InvalidMatchIdError, InvalidSetError, TargetSecretError, SetUpdateError
 
 
-class SetService:
-    """Class SetService."""
+class SetServices:
+    """Class SetServices."""
 
     def __init__(self, db: Session):
         """init  .

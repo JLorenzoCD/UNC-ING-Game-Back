@@ -6,12 +6,12 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.sets.models import Match_Set, SetType
 from app.sets.schemas import MatchSetOut
-from app.sets.services import InvalidSetError, SetService
+from app.sets.services import InvalidSetError, SetServices
 from app.sets.tests.conftest import setup_match_and_players
 
 
 class TestStealSet:
-    """Suite de pruebas para el método steal_set en SetService"""
+    """Suite de pruebas para el método steal_set en SetServices"""
 
     def test_steal_set_database_error_rollback(self, db_session, client):
         """Prueba que los errores de base de datos se manejen correctamente con rollback"""
@@ -33,7 +33,7 @@ class TestStealSet:
         mock_db.query.return_value.filter.return_value.first.return_value = original_set
         mock_db.commit.side_effect = SQLAlchemyError("Error de base de datos")
         mock_db.rollback = Mock()
-        set_service = SetService(mock_db)
+        set_service = SetServices(mock_db)
         with pytest.raises(SQLAlchemyError):
             set_service.steal_set(original_set.id, player2_id)
         mock_db.rollback.assert_called_once()
@@ -42,7 +42,7 @@ class TestStealSet:
         """Prueba el comportamiento cuando se proporciona un UUID que no existe"""
         setup_data = setup_match_and_players(client, db_session)
         player2_id = setup_data["player2_id"]
-        set_service = SetService(db_session)
+        set_service = SetServices(db_session)
         non_existent_uuid = uuid.UUID("00000000-0000-0000-0000-000000000000")
         with pytest.raises(InvalidSetError):
             set_service.steal_set(non_existent_uuid, player2_id)
@@ -71,7 +71,7 @@ class TestStealSet:
         db_session.commit()
         db_session.refresh(set1)
         db_session.refresh(set2)
-        set_service = SetService(db_session)
+        set_service = SetServices(db_session)
         result = set_service.steal_set(set1.id, player2_id)
         assert result.player_id == player2_id
         assert result.id == set1.id
@@ -85,7 +85,7 @@ class TestStealSet:
         setup_data = setup_match_and_players(client, db_session)
         player2_id = setup_data["player2_id"]
         fake_set_id = uuid.uuid4()
-        set_service = SetService(db_session)
+        set_service = SetServices(db_session)
         with pytest.raises(
             InvalidSetError, match=f"No se encontró el set con id {fake_set_id}"
         ):
@@ -112,7 +112,7 @@ class TestStealSet:
         original_match_id = original_set.match_id
         original_quin_play = original_set.quin_play
         original_quin_count = original_set.quin_count
-        set_service = SetService(db_session)
+        set_service = SetServices(db_session)
         result = set_service.steal_set(original_set.id, player2_id)
         assert result.id == original_id
         assert result.type == original_type
@@ -136,7 +136,7 @@ class TestStealSet:
         db_session.add(original_set)
         db_session.commit()
         db_session.refresh(original_set)
-        set_service = SetService(db_session)
+        set_service = SetServices(db_session)
         result = set_service.steal_set(original_set.id, owner_id)
         assert result.player_id == owner_id
         assert result.id == original_set.id
@@ -157,7 +157,7 @@ class TestStealSet:
         db_session.add(original_set)
         db_session.commit()
         db_session.refresh(original_set)
-        set_service = SetService(db_session)
+        set_service = SetServices(db_session)
         result = set_service.steal_set(original_set.id, player2_id)
         assert isinstance(result, MatchSetOut)
         assert result.id == original_set.id
@@ -167,7 +167,8 @@ class TestStealSet:
         assert result.quin_play == False
         assert result.quin_count == 0
         updated_set = (
-            db_session.query(Match_Set).filter(Match_Set.id == original_set.id).first()
+            db_session.query(Match_Set).filter(
+                Match_Set.id == original_set.id).first()
         )
         assert updated_set.player_id == player2_id
 
@@ -198,7 +199,7 @@ class TestStealSet:
         db_session.add(original_set)
         db_session.commit()
         db_session.refresh(original_set)
-        set_service = SetService(db_session)
+        set_service = SetServices(db_session)
         result = set_service.steal_set(original_set.id, player3_id)
         assert result.player_id == player3_id
         assert result.type == SetType.MISS_MARPLE
@@ -219,7 +220,7 @@ class TestStealSet:
         db_session.add(original_set)
         db_session.commit()
         db_session.refresh(original_set)
-        set_service = SetService(db_session)
+        set_service = SetServices(db_session)
         result = set_service.steal_set(original_set.id, player2_id)
         assert result.type == SetType.TOMMY_BERESFORD
         assert result.player_id == player2_id
@@ -240,7 +241,7 @@ class TestStealSet:
         db_session.add(original_set)
         db_session.commit()
         db_session.refresh(original_set)
-        set_service = SetService(db_session)
+        set_service = SetServices(db_session)
         result = set_service.steal_set(original_set.id, player2_id)
         assert result.type == SetType.TUPPENCE_BERESFORD
         assert result.player_id == player2_id
@@ -271,7 +272,7 @@ class TestStealSet:
             db_session.add(original_set)
             db_session.commit()
             db_session.refresh(original_set)
-            set_service = SetService(db_session)
+            set_service = SetServices(db_session)
             result = set_service.steal_set(original_set.id, player2_id)
             assert result.type == set_type
             assert result.player_id == player2_id
@@ -294,7 +295,7 @@ class TestStealSet:
         db_session.add(original_set)
         db_session.commit()
         db_session.refresh(original_set)
-        set_service = SetService(db_session)
+        set_service = SetServices(db_session)
         result = set_service.steal_set(original_set.id, player2_id)
         assert result.quin_play == True
         assert result.quin_count == 2

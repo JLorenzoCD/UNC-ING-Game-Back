@@ -1,7 +1,7 @@
 from datetime import date
 
 from app.cards.models import Card, Card_Type, Match_Card
-from app.cards.services import Cards_Services
+from app.cards.services import CardsServices
 from app.matches.models import Match
 from app.player.models import Player
 
@@ -56,7 +56,7 @@ def test_cards_off_the_table(db):
     db.add_all(hand_player_1 + hand_player_2)
     db.commit()
     event_card_id = hand_player_1[0].id
-    card_service = Cards_Services(db)
+    card_service = CardsServices(db)
     result = card_service.cards_off_the_table(
         match.id,
         target_player_id=player_2.id,

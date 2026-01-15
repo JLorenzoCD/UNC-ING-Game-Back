@@ -9,7 +9,7 @@ from app.cards.models import Match_Card
 from app.cards.services import Card_event
 from app.cards.utils import db_match_card_2_match_card_schema
 from app.events.models import EventosDeTurno, EventStatus
-from app.events.services import EventService
+from app.events.services import EventServices
 from app.matches import services as match_services
 from app.matches.ending import MatchEndedReason, handle_match_ended
 from app.models.db import session_local
@@ -18,9 +18,9 @@ from app.sets.models import SetType
 from websocketManager.ws_messages import WSEvent, make_ws_message
 from websocketManager.ws_routes import manager
 
-from app.logs.service import LogService
+from app.logs.services import LogServices
 from app.matches.models import MatchEventType
-from app.piles.service import PileService
+from app.piles.services import PileServices
 
 
 async def event_resolver_loop():
@@ -33,7 +33,7 @@ async def event_resolver_loop():
     while True:
         await asyncio.sleep(1)
         db: Session = session_local()
-        event_service = EventService(db)
+        event_service = EventServices(db)
         try:
             events_to_resolve = (
                 db.query(EventosDeTurno)
@@ -46,7 +46,7 @@ async def event_resolver_loop():
             for event in events_to_resolve:
                 if event.nsf_count % 2 == 0:
                     try:
-                        if card_services.Cards_Services(db).is_complex_event(
+                        if card_services.CardsServices(db).is_complex_event(
                             event.event_type
                         ):
                             event.status = EventStatus.PENDING_TARGET_RESPONSE.value
@@ -94,7 +94,7 @@ async def event_resolver_loop():
                                     if (
                                         result_payload.get("type")
                                         == Card_event.EARLY_TRAIN_TO_PADDINGTON.value
-                                        and PileService(
+                                        and PileServices(
                                             db
                                         ).get_count_cards_pile(event.match_id)
                                         <= 3
@@ -120,7 +120,7 @@ async def event_resolver_loop():
                                             SetType.HERCULE_POIROT.value,
                                             SetType.MISS_MARPLE.value,
                                         ]:
-                                            res = secret_service.Secrets_Services(
+                                            res = secret_service.SecretsServices(
                                                 db
                                             ).is_murderer_revealed(event.match_id)
                                             if res:
@@ -130,7 +130,7 @@ async def event_resolver_loop():
                                                     event.match_id,
                                                     MatchEndedReason.MURDERER_REVEALED,
                                                 )
-                                            elif secret_service.Secrets_Services(
+                                            elif secret_service.SecretsServices(
                                                 db
                                             ).is_everyone_in_social_disgrace(
                                                 event.match_id
@@ -176,7 +176,7 @@ async def event_resolver_loop():
 
                         try:
                             log_message = f"[EVENT] El evento '{event.event_type.capitalize()}' no fue cancelado"
-                            await LogService(db).create_and_propagate_log(event.match_id, log_message, MatchEventType.NOT_SO_FAST, event.player_id)
+                            await LogServices(db).create_and_propagate_log(event.match_id, log_message, MatchEventType.NOT_SO_FAST, event.player_id)
                         except Exception as e:
                             print(
                                 f"[LOG] error creando/broadcast log de worker-played: {e}")
@@ -202,7 +202,7 @@ async def event_resolver_loop():
                     payload = {}
                     if event.event_type in [e.value for e in Card_event]:
 
-                        PileService(db).discard_cards(
+                        PileServices(db).discard_cards(
                             None, event.match_id, [event.match_card_id], delete=False
                         )
 
@@ -236,7 +236,7 @@ async def event_resolver_loop():
 
                     try:
                         log_message = f"[EVENT] El evento '{event.event_type.capitalize()}' fue cancelado por una carta 'NOT SO FAST...'"
-                        await LogService(db).create_and_propagate_log(event.match_id, log_message, MatchEventType.NOT_SO_FAST, event.player_id)
+                        await LogServices(db).create_and_propagate_log(event.match_id, log_message, MatchEventType.NOT_SO_FAST, event.player_id)
                     except Exception as e:
                         print(
                             f"[LOG] error creando/broadcast log de worker-canceled: {e}")

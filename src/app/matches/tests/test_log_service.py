@@ -7,15 +7,15 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.matches.models import MatchEventType, MatchLogs
 from app.matches.schemas import MatchLogOut
-from app.logs.service import LogService
+from app.logs.services import LogServices
 
 
-class TestLogService:
-    """Class TestLogService."""
+class TestLogServices:
+    """Class TestLogServices."""
 
     def test_create_log_all_event_types(self, db_session):
         """Test crear logs con todos los tipos de evento disponibles"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         player_id = uuid.uuid4()
         event_types = [
@@ -31,7 +31,8 @@ class TestLogService:
         created_logs = []
         for i, event_type in enumerate(event_types):
             message = f"Log message {i} for {event_type.value}"
-            log_id = log_service.create_log(match_id, message, event_type, player_id)
+            log_id = log_service.create_log(
+                match_id, message, event_type, player_id)
             created_logs.append(log_id)
         assert len(created_logs) == len(event_types)
         saved_logs = log_service.get_logs_by_match(match_id)
@@ -42,7 +43,7 @@ class TestLogService:
 
     def test_create_log_database_error(self, db_session):
         """Test manejo de error de base de datos al crear log"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         message = "Test message"
         event_type = MatchEventType.PLAYER_JOIN
@@ -54,15 +55,17 @@ class TestLogService:
 
     def test_create_log_success(self, db_session):
         """Test crear un log exitosamente"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         player_id = uuid.uuid4()
         message = "Test log message"
         event_type = MatchEventType.PLAYER_JOIN
-        log_id = log_service.create_log(match_id, message, event_type, player_id)
+        log_id = log_service.create_log(
+            match_id, message, event_type, player_id)
         assert log_id is not None
         assert isinstance(log_id, uuid.UUID)
-        saved_log = db_session.query(MatchLogs).filter(MatchLogs.id == log_id).first()
+        saved_log = db_session.query(MatchLogs).filter(
+            MatchLogs.id == log_id).first()
         assert saved_log is not None
         assert saved_log.match_id == match_id
         assert saved_log.message == message
@@ -72,35 +75,38 @@ class TestLogService:
 
     def test_create_log_with_empty_message(self, db_session):
         """Test crear log con mensaje vacío"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         empty_message = ""
         event_type = MatchEventType.TURN
         log_id = log_service.create_log(match_id, empty_message, event_type)
         assert log_id is not None
-        saved_log = db_session.query(MatchLogs).filter(MatchLogs.id == log_id).first()
+        saved_log = db_session.query(MatchLogs).filter(
+            MatchLogs.id == log_id).first()
         assert saved_log.message == empty_message
 
     def test_create_log_with_long_message(self, db_session):
         """Test crear log con mensaje largo"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         long_message = "x" * 1000
         event_type = MatchEventType.PLAYER_JOIN
         log_id = log_service.create_log(match_id, long_message, event_type)
         assert log_id is not None
-        saved_log = db_session.query(MatchLogs).filter(MatchLogs.id == log_id).first()
+        saved_log = db_session.query(MatchLogs).filter(
+            MatchLogs.id == log_id).first()
         assert saved_log.message == long_message
 
     def test_create_log_without_player_id(self, db_session):
         """Test crear un log sin especificar player_id (opcional)"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         message = "System message"
         event_type = MatchEventType.TURN
         log_id = log_service.create_log(match_id, message, event_type)
         assert log_id is not None
-        saved_log = db_session.query(MatchLogs).filter(MatchLogs.id == log_id).first()
+        saved_log = db_session.query(MatchLogs).filter(
+            MatchLogs.id == log_id).first()
         assert saved_log is not None
         assert saved_log.player_id is None
         assert saved_log.match_id == match_id
@@ -108,7 +114,7 @@ class TestLogService:
 
     def test_get_log_by_id_database_error(self, db_session):
         """Test manejo de error de base de datos al obtener log por ID"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         log_id = uuid.uuid4()
         with patch.object(db_session, "query", side_effect=SQLAlchemyError("DB Error")):
             with patch.object(db_session, "rollback") as mock_rollback:
@@ -118,12 +124,13 @@ class TestLogService:
 
     def test_get_log_by_id_success(self, db_session):
         """Test obtener un log por su ID exitosamente"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         player_id = uuid.uuid4()
         message = "Test log for get by ID"
         event_type = MatchEventType.HERCULE_POIROT
-        log_id = log_service.create_log(match_id, message, event_type, player_id)
+        log_id = log_service.create_log(
+            match_id, message, event_type, player_id)
         retrieved_log = log_service.get_log_by_id(log_id)
         assert isinstance(retrieved_log, MatchLogOut)
         assert retrieved_log.id == log_id
@@ -135,20 +142,21 @@ class TestLogService:
 
     def test_get_logs_by_match_empty_result(self, db_session):
         """Test obtener logs de una partida sin logs"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         logs = log_service.get_logs_by_match(match_id)
         assert logs == []
 
     def test_get_logs_by_match_success(self, db_session):
         """Test obtener logs por match_id exitosamente"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         player_id = uuid.uuid4()
         log1_id = log_service.create_log(
             match_id, "First log", MatchEventType.PLAYER_JOIN, player_id
         )
-        log2_id = log_service.create_log(match_id, "Second log", MatchEventType.TURN)
+        log2_id = log_service.create_log(
+            match_id, "Second log", MatchEventType.TURN)
         other_match_id = uuid.uuid4()
         log_service.create_log(
             other_match_id, "Other match log", MatchEventType.PLAYER_JOIN
@@ -165,7 +173,7 @@ class TestLogService:
 
     def test_log_service_integration_with_different_matches(self, db_session):
         """Test que los logs se separan correctamente por partida"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match1_id = uuid.uuid4()
         match2_id = uuid.uuid4()
         player_id = uuid.uuid4()
@@ -193,7 +201,7 @@ class TestLogService:
 
     def test_logs_chronological_order(self, db_session):
         """Test que los logs mantienen orden cronológico"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         logs_data = [
             ("First log", MatchEventType.PLAYER_JOIN),

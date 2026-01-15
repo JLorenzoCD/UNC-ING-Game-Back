@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.matches.models import MatchEventType
-from app.logs.service import LogService
+from app.logs.services import LogServices
 from app.matches.tests.conftest import setup_match_and_players
 from websocketManager.ws_messages import WSEvent, make_ws_message
 
@@ -18,7 +18,7 @@ class TestLogIntegration:
         match_id = setup_data["match_str_id"]
         owner_id = setup_data["owner_str_id"]
         setup_data["player2_str_id"]
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         log_id = log_service.create_log(
             uuid.UUID(match_id),
             "[EVENTO] Jugador Owner Player jugo el evento CARDS_OFF_THE_TABLE",
@@ -40,7 +40,7 @@ class TestLogIntegration:
         """Test que se crea un log cuando un jugador se une a una partida"""
         setup_data = setup_match_and_players(client, db_session)
         match_id = setup_data["match_str_id"]
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         initial_logs = log_service.get_logs_by_match(uuid.UUID(match_id))
         initial_join_logs = [
             log for log in initial_logs if log.event_type == MatchEventType.PLAYER_JOIN
@@ -67,7 +67,8 @@ class TestLogIntegration:
             log for log in logs_after if log.event_type == MatchEventType.PLAYER_JOIN
         ]
         assert len(join_logs_after) == len(initial_join_logs) + 1
-        new_join_logs = [log for log in join_logs_after if log not in initial_join_logs]
+        new_join_logs = [
+            log for log in join_logs_after if log not in initial_join_logs]
         assert len(new_join_logs) == 1
         new_log = new_join_logs[0]
         assert "Player Three" in new_log.message
@@ -101,7 +102,8 @@ class TestLogIntegration:
                 assert response.status_code == 200
         response = client.get(f"/matches/{match_id}/cards")
         cards = response.json()
-        player_cards = [card for card in cards if card["player_id"] == owner_id]
+        player_cards = [
+            card for card in cards if card["player_id"] == owner_id]
         if len(player_cards) >= 3:
             set_data = {
                 "player_id": owner_id,
@@ -112,9 +114,10 @@ class TestLogIntegration:
                 "app.matches.endpoints.manager.specificBroadcast",
                 new_callable=AsyncMock,
             ) as mock_broadcast:
-                response = client.post(f"/matches/{match_id}/sets", json=set_data)
+                response = client.post(
+                    f"/matches/{match_id}/sets", json=set_data)
             if response.status_code == 200:
-                log_service = LogService(db_session)
+                log_service = LogServices(db_session)
                 logs = log_service.get_logs_by_match(uuid.UUID(match_id))
                 set_logs = [
                     log
@@ -146,9 +149,10 @@ class TestLogIntegration:
         ) as mock_broadcast:
             response = client.put(f"/matches/{match_id}/pass_turn")
         assert response.status_code == 200
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         logs = log_service.get_logs_by_match(uuid.UUID(match_id))
-        turn_logs = [log for log in logs if log.event_type == MatchEventType.TURN]
+        turn_logs = [log for log in logs if log.event_type ==
+                     MatchEventType.TURN]
         mock_broadcast.assert_called()
 
     def test_log_error_handling_in_endpoints(self, client, db_session):
@@ -156,7 +160,7 @@ class TestLogIntegration:
         setup_data = setup_match_and_players(client, db_session)
         match_id = setup_data["match_str_id"]
         with patch(
-            "app.matches.endpoints.LogService.create_log",
+            "app.matches.endpoints.LogServices.create_log",
             side_effect=Exception("Log error"),
         ):
             with patch(
@@ -191,7 +195,7 @@ class TestLogIntegration:
     )
     def test_log_message_formats(self, db_session, event_type, expected_message_part):
         """Test que los mensajes de log tienen el formato esperado para cada tipo de evento"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         player_id = uuid.uuid4()
         if event_type == MatchEventType.PLAYER_JOIN:
@@ -204,7 +208,8 @@ class TestLogIntegration:
             message = "[EVENTO] Jugador Test Player jugo el evento CARDS_OFF_THE_TABLE"
         else:
             message = f"Test message for {event_type.value}"
-        log_id = log_service.create_log(match_id, message, event_type, player_id)
+        log_id = log_service.create_log(
+            match_id, message, event_type, player_id)
         log_out = log_service.get_log_by_id(log_id)
         assert expected_message_part in log_out.message
         assert log_out.event_type == event_type
@@ -240,7 +245,8 @@ class TestLogIntegration:
             ):
                 response = client.post(
                     "/players",
-                    json={"name": "P1", "avatar": "a1", "birthday": "2000-01-01"},
+                    json={"name": "P1", "avatar": "a1",
+                          "birthday": "2000-01-01"},
                 )
                 p1 = response.json()
                 with patch(
@@ -252,7 +258,8 @@ class TestLogIntegration:
                     )
                 response = client.post(
                     "/players",
-                    json={"name": "P2", "avatar": "a2", "birthday": "2000-02-02"},
+                    json={"name": "P2", "avatar": "a2",
+                          "birthday": "2000-02-02"},
                 )
                 p2 = response.json()
                 with patch(
@@ -263,9 +270,10 @@ class TestLogIntegration:
                         f"/matches/{another_match_id}/join",
                         params={"player_id": p2["id"]},
                     )
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match1_logs = log_service.get_logs_by_match(uuid.UUID(match_id))
-        match2_logs = log_service.get_logs_by_match(uuid.UUID(another_match_id))
+        match2_logs = log_service.get_logs_by_match(
+            uuid.UUID(another_match_id))
         assert len(match1_logs) >= 1
         assert len(match2_logs) >= 1
         for log in match1_logs:
@@ -275,14 +283,16 @@ class TestLogIntegration:
 
     def test_websocket_message_format_for_logs(self, db_session):
         """Test que los mensajes de websocket para logs tienen el formato correcto"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         player_id = uuid.uuid4()
         message = "Test log message"
         event_type = MatchEventType.PLAYER_JOIN
-        log_id = log_service.create_log(match_id, message, event_type, player_id)
+        log_id = log_service.create_log(
+            match_id, message, event_type, player_id)
         log_out = log_service.get_log_by_id(log_id)
-        ws_message_str = make_ws_message(WSEvent.LOG, log_out.model_dump(mode="json"))
+        ws_message_str = make_ws_message(
+            WSEvent.LOG, log_out.model_dump(mode="json"))
         assert isinstance(ws_message_str, str)
         assert '"event": "new_log"' in ws_message_str
         assert '"payload":' in ws_message_str

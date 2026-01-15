@@ -4,7 +4,7 @@ import pytest
 
 from app.cards.models import Card, Card_Type, Match_Card
 from app.matches.services import MatchService
-from app.matches.lifecycle_service import MatchLifecycleService
+from app.matches.lifecycle_service import MatchLifecycleServices
 from app.player.models import Match_Player, Player
 from app.secrets.models import Match_Secret, Secret, Secret_Type
 
@@ -178,7 +178,7 @@ def test_start_match_many_players(client, db_session, num_players):
         )
         db_session.add(secret)
     db_session.commit()
-    MatchLifecycleService(db_session).start_game(match_uuid)
+    MatchLifecycleServices(db_session).start_game(match_uuid)
     db_session.commit()
     cartas_con_info = (
         db_session.query(Match_Card, Card)
@@ -257,7 +257,8 @@ def test_start_match_many_players(client, db_session, num_players):
             revelado = "Revelado" if match_secret.is_revealed else "Oculto"
             print(f"  • {secret.type.value} - {revelado}")
     total_cartas_asignadas = len(cartas_con_info) - len(cartas_sin_asignar)
-    total_secretos_asignados = len(secretos_con_info) - len(secretos_sin_asignar)
+    total_secretos_asignados = len(
+        secretos_con_info) - len(secretos_sin_asignar)
     print(f"\n📊 RESUMEN:")
     print("-" * 60)
     print(f"Total jugadores: {num_players}")

@@ -1,7 +1,7 @@
 import pytest
 
 from app.cards.models import Match_Card
-from app.piles.service import PileService
+from app.piles.services import PileServices
 from app.matches.tests.conftest import setup_match_and_players
 
 
@@ -37,9 +37,10 @@ def test_get_count_cards_pile_for_various_player_counts(
     resp_start = client.post(f"/matches/{match_str_id}/start")
     assert resp_start.status_code == 200
     total_cards = (
-        db_session.query(Match_Card).filter(Match_Card.match_id == match_id).count()
+        db_session.query(Match_Card).filter(
+            Match_Card.match_id == match_id).count()
     )
-    pile_count = PileService(db_session).get_count_cards_pile(match_id)
+    pile_count = PileServices(db_session).get_count_cards_pile(match_id)
     expected = total_cards - 6 * num_players
     assert (
         pile_count == expected

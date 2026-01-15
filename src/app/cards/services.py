@@ -31,8 +31,8 @@ class Card_event(Enum):
     NOT_SO_FAST = "NOT SO FAST"
 
 
-class Cards_Services:
-    """Class Cards_Services."""
+class CardsServices:
+    """Class CardsServices."""
 
     def __init__(self, db):
         """init  .
@@ -50,7 +50,7 @@ class Cards_Services:
             target_player_id: Parameter target_player_id.
             target_secret_id: Parameter target_secret_id."""
         try:
-            match_secret = secret_services.Secrets_Services(self._db).update_secret(
+            match_secret = secret_services.SecretsServices(self._db).update_secret(
                 Secret_action.STEAL, target_secret_id, target_player_id
             )
             return match_secret
@@ -133,7 +133,7 @@ class Cards_Services:
 
         Returns:
             Return value."""
-        from app.piles.service import PileService
+        from app.piles.services import PileServices
 
         if not card_ids:
             raise InvalidCardData(
@@ -149,7 +149,7 @@ class Cards_Services:
                     "Una o más cartas no son válidas o no pertenecen a esta partida"
                 )
 
-            PileService(self._db).discard_cards(
+            PileServices(self._db).discard_cards(
                 None, match_id, card_ids
             )
 
@@ -304,9 +304,9 @@ class Cards_Services:
             player_id: Parameter player_id.
             match_id: Parameter match_id.
             target_card_id: Parameter target_card_id."""
-        from app.piles.service import PileService
+        from app.piles.services import PileServices
 
-        PileService(self._db).take_cards(
+        PileServices(self._db).take_cards(
             player_id, match_id, [target_card_id]
         )
         try:

@@ -11,7 +11,7 @@ from app.cards.services import Card_event
 from app.cards.utils import db_match_card_2_match_card_schema
 from app.events.models import EventosDeTurno, EventStatus
 from app.matches import services as services_matches
-from app.piles.service import PileService
+from app.piles.services import PileServices
 from app.secrets import models as secret_models
 from app.secrets import services as secret_service
 from app.secrets.utils import db_match_secret_2_match_secret_schema
@@ -23,8 +23,8 @@ from app.cards.exceptions import InvalidCardData, CardInvalidAction
 from app.events.exceptions import EventNotFound, EventInvalidAction
 
 
-class EventService:
-    """Class EventService."""
+class EventServices:
+    """Class EventServices."""
 
     def __init__(self, db: Session):
         """init  .
@@ -109,7 +109,7 @@ class EventService:
 
         match typeEvent:
             case Card_event.CARDS_OFF_THE_TABLE.value:
-                diccionary = services_cards.Cards_Services(db).cards_off_the_table(
+                diccionary = services_cards.CardsServices(db).cards_off_the_table(
                     match_id,
                     event_payload["target_player_id"],
                     player_id,
@@ -133,7 +133,7 @@ class EventService:
                 }
 
             case Card_event.ANOTHER_VICTIM.value:
-                updated_set = set_services.SetService(db).steal_set(
+                updated_set = set_services.SetServices(db).steal_set(
                     event_payload["target_set_id"], player_id
                 )
                 payload = {
@@ -146,7 +146,7 @@ class EventService:
                 }
 
             case Card_event.LOOK_INTO_THE_ASHES.value:
-                taken_card = services_cards.Cards_Services(
+                taken_card = services_cards.CardsServices(
                     db
                 ).look_into_the_ashes_event(
                     player_id, match_id, event_payload["target_card_id"]
@@ -162,7 +162,7 @@ class EventService:
                 }
 
             case Card_event.AND_THEN_THERE_WAS_ONE_MORE.value:
-                updated_secret = services_cards.Cards_Services(
+                updated_secret = services_cards.CardsServices(
                     db
                 ).and_then_there_was_one_more_event(
                     event_payload["target_player_id"],
@@ -186,11 +186,11 @@ class EventService:
                         "Se pasaron mas de 5 cartas para retrasar")
                 event.match_card_id = None
                 db.commit()
-                updated_match_cards = services_cards.Cards_Services(
+                updated_match_cards = services_cards.CardsServices(
                     db
                 ).delay_the_murderer_escape_event(event_payload["cards_ids"])
 
-                PileService(db).discard_cards(
+                PileServices(db).discard_cards(
                     None, match_id, [match_card_id], delete=True
                 )
 
@@ -220,13 +220,13 @@ class EventService:
                     )
                 event.match_card_id = None
                 db.commit()
-                discarded_cards = services_cards.Cards_Services(
+                discarded_cards = services_cards.CardsServices(
                     db
                 ).early_train_to_paddington_event(
                     match_id, event_payload["cards_ids"]
                 )
 
-                PileService(db).discard_cards(
+                PileServices(db).discard_cards(
                     None, match_id, [match_card_id], delete=True
                 )
 
@@ -250,7 +250,7 @@ class EventService:
                     )
                 match_card_id1 = responses[0]
                 match_card_id2 = responses[1]
-                updated_match_cards = services_cards.Cards_Services(
+                updated_match_cards = services_cards.CardsServices(
                     db
                 ).swap_cards_owners(match_card_id1, match_card_id2)
                 updated_match_cards_schemas = [
@@ -272,7 +272,7 @@ class EventService:
             case Card_event.DEAD_CARD_FOLLY.value:
                 responses = event_payload.get("responses", [])
                 direction = event_payload.get("direction")
-                updated_match_cards = services_cards.Cards_Services(
+                updated_match_cards = services_cards.CardsServices(
                     db
                 ).pass_cards_in_direction(match_id, responses, direction)
                 updated_match_cards_schemas = [
@@ -306,7 +306,7 @@ class EventService:
                     set_models.SetType.HERCULE_POIROT.value,
                     set_models.SetType.MISS_MARPLE.value,
                 ):
-                    target_secret = secret_service.Secrets_Services(
+                    target_secret = secret_service.SecretsServices(
                         db
                     ).update_secret(
                         secret_models.Secret_action.REVEAL,
@@ -317,7 +317,7 @@ class EventService:
                         target_secret
                     )
                 if typeEvent == set_models.SetType.PARKER_PYNE.value:
-                    target_secret = secret_service.Secrets_Services(
+                    target_secret = secret_service.SecretsServices(
                         db
                     ).update_secret(
                         secret_models.Secret_action.HIDE,
@@ -366,13 +366,13 @@ class EventService:
                         "target_secret_id": None,
                         "match_id": match_id,
                     }
-                    match_set = set_services.SetService(
+                    match_set = set_services.SetServices(
                         db).create_set(set_data)
                     match_set_out = db_match_set_2_match_set_schema(
                         match_set)
                     create_payload = match_set_out.model_dump(mode="json")
 
-                    PileService(db).discard_cards(
+                    PileServices(db).discard_cards(
                         None, match_id, set_data["card_ids"], delete=True
                     )
 
@@ -382,14 +382,14 @@ class EventService:
 
                 elif event_payload["is_create_set"] == False:
                     match_set_id = uuid.UUID(event_payload["set_id"])
-                    match_set = set_services.SetService(db).get_match_set(
+                    match_set = set_services.SetServices(db).get_match_set(
                         match_set_id, match_id
                     )
                     match_set_out = db_match_set_2_match_set_schema(
                         match_set)
                     update_payload = match_set_out.model_dump(mode="json")
 
-                    PileService(db).discard_cards(
+                    PileServices(db).discard_cards(
                         None, match_id, [match_card_id], delete=True
                     )
 

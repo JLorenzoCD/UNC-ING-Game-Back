@@ -19,7 +19,8 @@ def create_match_cards_for_set(
     for name in card_names:
         card = db_session.query(Card).filter(Card.name == name).first()
         assert card is not None, f"Card with name '{name}' not found in test setup."
-        match_card = Match_Card(card_id=card.id, match_id=match_id, player_id=player_id)
+        match_card = Match_Card(
+            card_id=card.id, match_id=match_id, player_id=player_id)
         db_session.add(match_card)
         db_session.commit()
         db_session.refresh(match_card)
@@ -66,7 +67,8 @@ def test_endpoint_play_Eileen(
         owner_id = setup_data["owner_id"]
         player2_id = setup_data["player2_id"]
         secret_base = (
-            db_session.query(Secret).filter(Secret.type == Secret_Type.INNOCENT).first()
+            db_session.query(Secret).filter(
+                Secret.type == Secret_Type.INNOCENT).first()
         )
         match_card_ids = create_match_cards_for_set(
             db_session, card_names, match_id, owner_id
@@ -75,7 +77,8 @@ def test_endpoint_play_Eileen(
             db_session, secret_base, match_id, [owner_id, player2_id]
         )
         target_secret_id = match_secret_ids[0]
-        secret_services.Secrets_Services(db_session).reveal_secret(target_secret_id)
+        secret_services.SecretsServices(
+            db_session).reveal_secret(target_secret_id)
         set_in = {
             "type": set_type,
             "card_ids": match_card_ids,
@@ -105,7 +108,7 @@ def test_endpoint_play_Eileen(
             "is_create_set": True,
             "set_data": jsonable_encoder(set_data_payload),
         }
-        new_event = event_services.EventService(db_session).create_event(
+        new_event = event_services.EventServices(db_session).create_event(
             match_id,
             owner_id,
             SetType.LADY_EILEEN.value,
@@ -113,7 +116,8 @@ def test_endpoint_play_Eileen(
             jsonable_encoder(event_payload),
         )
         assert new_event is not None
-        resutl = event_services.EventService(db_session).resolve_event(new_event)
+        resutl = event_services.EventServices(
+            db_session).resolve_event(new_event)
         accion_set = resutl["accion_set"]
         assert accion_set["target_player_id"] == str(owner_id)
         assert resutl["type"] == SetType.LADY_EILEEN.value
@@ -127,8 +131,10 @@ def test_endpoint_play_Eileen(
     "set_type, card_names, quins_count_expected",
     [
         (SetType.TWO_BERESFORD, ["TOMMY BERESFORD", "TUPPENCE BERESFORD"], 0),
-        (SetType.MR_SATTERTHWAITE, ["MR SATTERTHWAITE", "MR SATTERTHWAITE"], 0),
-        (SetType.MR_SATTERTHWAITE, ["MR SATTERTHWAITE", "HARLEY QUIN WILDCARD"], 1),
+        (SetType.MR_SATTERTHWAITE, [
+         "MR SATTERTHWAITE", "MR SATTERTHWAITE"], 0),
+        (SetType.MR_SATTERTHWAITE, [
+         "MR SATTERTHWAITE", "HARLEY QUIN WILDCARD"], 1),
     ],
 )
 def test_endpoint_play_Eileen_Beresford_Satterthwaitte(
@@ -144,7 +150,8 @@ def test_endpoint_play_Eileen_Beresford_Satterthwaitte(
         owner_id = setup_data["owner_id"]
         player2_id = setup_data["player2_id"]
         secret_base = (
-            db_session.query(Secret).filter(Secret.type == Secret_Type.INNOCENT).first()
+            db_session.query(Secret).filter(
+                Secret.type == Secret_Type.INNOCENT).first()
         )
         match_card_ids = create_match_cards_for_set(
             db_session, card_names, match_id, owner_id
@@ -153,7 +160,8 @@ def test_endpoint_play_Eileen_Beresford_Satterthwaitte(
             db_session, secret_base, match_id, [owner_id, player2_id]
         )
         target_secret_id = match_secret_ids[0]
-        secret_services.Secrets_Services(db_session).reveal_secret(target_secret_id)
+        secret_services.SecretsServices(
+            db_session).reveal_secret(target_secret_id)
         set_in = {
             "type": set_type,
             "card_ids": match_card_ids,
@@ -180,7 +188,8 @@ def test_endpoint_play_Eileen_Beresford_Satterthwaitte(
         (SetType.LADY_EILEEN, ["LADY EILEEN", "HARLEY QUIN WILDCARD"]),
         (SetType.TWO_BERESFORD, ["TOMMY BERESFORD", "TUPPENCE BERESFORD"]),
         (SetType.MR_SATTERTHWAITE, ["MR SATTERTHWAITE", "MR SATTERTHWAITE"]),
-        (SetType.MR_SATTERTHWAITE, ["MR SATTERTHWAITE", "HARLEY QUIN WILDCARD"]),
+        (SetType.MR_SATTERTHWAITE, [
+         "MR SATTERTHWAITE", "HARLEY QUIN WILDCARD"]),
     ],
 )
 def test_endpoint_play_Eileen_Beresford_Satterthwaitte_invalid_combination(
@@ -196,7 +205,8 @@ def test_endpoint_play_Eileen_Beresford_Satterthwaitte_invalid_combination(
         owner_id = setup_data["owner_id"]
         player2_id = setup_data["player2_id"]
         secret_base = (
-            db_session.query(Secret).filter(Secret.type == Secret_Type.INNOCENT).first()
+            db_session.query(Secret).filter(
+                Secret.type == Secret_Type.INNOCENT).first()
         )
         match_card_ids = create_match_cards_for_set(
             db_session, card_names, match_id, owner_id
@@ -205,7 +215,8 @@ def test_endpoint_play_Eileen_Beresford_Satterthwaitte_invalid_combination(
             db_session, secret_base, match_id, [owner_id, player2_id]
         )
         target_secret_id = match_secret_ids[0]
-        secret_services.Secrets_Services(db_session).reveal_secret(target_secret_id)
+        secret_services.SecretsServices(
+            db_session).reveal_secret(target_secret_id)
         set_in = {
             "type": set_type,
             "card_ids": match_card_ids,
@@ -243,7 +254,8 @@ def test_endpoint_play_Pyne(db_session, client, set_type, card_names):
         owner_id = setup_data["owner_id"]
         player2_id = setup_data["player2_id"]
         secret_base = (
-            db_session.query(Secret).filter(Secret.type == Secret_Type.INNOCENT).first()
+            db_session.query(Secret).filter(
+                Secret.type == Secret_Type.INNOCENT).first()
         )
         match_card_ids = create_match_cards_for_set(
             db_session, card_names, match_id, owner_id
@@ -252,7 +264,8 @@ def test_endpoint_play_Pyne(db_session, client, set_type, card_names):
             db_session, secret_base, match_id, [owner_id, player2_id]
         )
         target_secret_id = match_secret_ids[1]
-        secret_services.Secrets_Services(db_session).reveal_secret(target_secret_id)
+        secret_services.SecretsServices(
+            db_session).reveal_secret(target_secret_id)
         set_in = {
             "type": set_type,
             "card_ids": match_card_ids,
@@ -269,11 +282,13 @@ def test_endpoint_play_Pyne(db_session, client, set_type, card_names):
         set_response = response.json()
         assert set_response["type"] == set_type.value
         assert set_response["player_id"] == str(owner_id)
-        new_event = event_services.EventService(db_session).create_event(
-            match_id, owner_id, set_response["type"], None, jsonable_encoder(set_in)
+        new_event = event_services.EventServices(db_session).create_event(
+            match_id, owner_id, set_response["type"], None, jsonable_encoder(
+                set_in)
         )
         assert new_event is not None
-        resutl = event_services.EventService(db_session).resolve_event(new_event)
+        resutl = event_services.EventServices(
+            db_session).resolve_event(new_event)
         assert new_event is not None
         assert resutl["is_revealed"] == False
         db_session.expire_all()
@@ -303,7 +318,8 @@ def test_endpoint_play_Pyne(db_session, client, set_type, card_names):
             ["HERCULE POIROT", "HARLEY QUIN WILDCARD", "HARLEY QUIN WILDCARD"],
             2,
         ),
-        (SetType.MISS_MARPLE, ["MISS MARPLE", "MISS MARPLE", "MISS MARPLE"], 0),
+        (SetType.MISS_MARPLE, ["MISS MARPLE",
+         "MISS MARPLE", "MISS MARPLE"], 0),
         (
             SetType.MISS_MARPLE,
             ["MISS MARPLE", "MISS MARPLE", "HARLEY QUIN WILDCARD"],
@@ -329,7 +345,8 @@ def test_endpoint_play_set_Poirot_Marple(
         owner_id = setup_data["owner_id"]
         player2_id = setup_data["player2_id"]
         secret_base = (
-            db_session.query(Secret).filter(Secret.type == Secret_Type.INNOCENT).first()
+            db_session.query(Secret).filter(
+                Secret.type == Secret_Type.INNOCENT).first()
         )
         match_card_ids = create_match_cards_for_set(
             db_session, card_names, match_id, owner_id
@@ -354,11 +371,13 @@ def test_endpoint_play_set_Poirot_Marple(
         assert set_response["player_id"] == str(owner_id)
         assert set_response["quin_count"] == quins
         db_session.expire_all()
-        new_event = event_services.EventService(db_session).create_event(
-            match_id, owner_id, set_response["type"], None, jsonable_encoder(set_in)
+        new_event = event_services.EventServices(db_session).create_event(
+            match_id, owner_id, set_response["type"], None, jsonable_encoder(
+                set_in)
         )
         assert new_event is not None
-        resutl = event_services.EventService(db_session).resolve_event(new_event)
+        resutl = event_services.EventServices(
+            db_session).resolve_event(new_event)
         assert new_event is not None
         assert resutl["is_revealed"] == True
         match_secret_db = (
@@ -385,7 +404,8 @@ def test_endpoint_play_set_Poirot_Marple(
             ["HERCULE POIROT", "HARLEY QUIN WILDCARD", "HARLEY QUIN WILDCARD"],
         ),
         (SetType.MISS_MARPLE, ["MISS MARPLE", "MISS MARPLE", "MISS MARPLE"]),
-        (SetType.MISS_MARPLE, ["MISS MARPLE", "MISS MARPLE", "HARLEY QUIN WILDCARD"]),
+        (SetType.MISS_MARPLE, ["MISS MARPLE",
+         "MISS MARPLE", "HARLEY QUIN WILDCARD"]),
         (
             SetType.MISS_MARPLE,
             ["MISS MARPLE", "HARLEY QUIN WILDCARD", "HARLEY QUIN WILDCARD"],
@@ -405,12 +425,14 @@ def test_endpoint_play_set_target_secret_required(
         owner_id = setup_data["owner_id"]
         player2_id = setup_data["player2_id"]
         secret_base = (
-            db_session.query(Secret).filter(Secret.type == Secret_Type.INNOCENT).first()
+            db_session.query(Secret).filter(
+                Secret.type == Secret_Type.INNOCENT).first()
         )
         match_card_ids = create_match_cards_for_set(
             db_session, card_names, match_id, owner_id
         )
-        create_match_secrets(db_session, secret_base, match_id, [owner_id, player2_id])
+        create_match_secrets(db_session, secret_base,
+                             match_id, [owner_id, player2_id])
         set_in = {
             "type": set_type,
             "card_ids": match_card_ids,

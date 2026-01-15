@@ -50,13 +50,13 @@ class TestEarlyTrainToPaddingtonEvent:
         db.commit()
         match_cards = self.setup_test_data(db, match.id, 6)
         card_ids = [match_card.id for match_card in match_cards]
-        with patch("app.piles.service.PileService") as mock_pile_service:
+        with patch("app.piles.services.PileServices") as mock_pile_service:
             mock_pile_instance = MagicMock()
             mock_pile_service.return_value = mock_pile_instance
             mock_pile_instance.discard_cards.return_value = None
-            from app.cards.services import Cards_Services
+            from app.cards.services import CardsServices
 
-            cards_service = Cards_Services(db)
+            cards_service = CardsServices(db)
             result = cards_service.early_train_to_paddington_event(
                 match.id, card_ids)
             assert len(result) == 6
@@ -64,7 +64,7 @@ class TestEarlyTrainToPaddingtonEvent:
                 None, match.id, card_ids
             )
 
-    @patch("app.piles.service.PileService")
+    @patch("app.piles.services.PileServices")
     def test_early_train_to_paddington_db_error(self, mock_pile_service, db):
         """Test manejo de errores de base de datos"""
         match = Match(
@@ -82,9 +82,9 @@ class TestEarlyTrainToPaddingtonEvent:
         mock_pile_service.return_value = mock_pile_instance
         mock_pile_instance.discard_cards.side_effect = SQLAlchemyError(
             "DB Error")
-        from app.cards.services import Cards_Services
+        from app.cards.services import CardsServices
 
-        cards_service = Cards_Services(db)
+        cards_service = CardsServices(db)
         with pytest.raises(
             SQLAlchemyError, match="Error al ejecutar evento Early Train to Paddington"
         ):
@@ -101,9 +101,9 @@ class TestEarlyTrainToPaddingtonEvent:
         )
         db.add(match)
         db.commit()
-        from app.cards.services import Cards_Services
+        from app.cards.services import CardsServices
 
-        cards_service = Cards_Services(db)
+        cards_service = CardsServices(db)
         with pytest.raises(
             InvalidCardData, match="Se requiere al menos una carta para descartar"
         ):
@@ -128,9 +128,9 @@ class TestEarlyTrainToPaddingtonEvent:
         db.add(match)
         db.commit()
         invalid_card_ids = [uuid.uuid4(), uuid.uuid4()]
-        from app.cards.services import Cards_Services
+        from app.cards.services import CardsServices
 
-        cards_service = Cards_Services(db)
+        cards_service = CardsServices(db)
         with pytest.raises(
             InvalidCardData,
             match="Una o más cartas no son válidas o no pertenecen a esta partida",
@@ -138,7 +138,7 @@ class TestEarlyTrainToPaddingtonEvent:
             cards_service.early_train_to_paddington_event(
                 match.id, invalid_card_ids)
 
-    @patch("app.piles.service.PileService")
+    @patch("app.piles.services.PileServices")
     def test_early_train_to_paddington_max_cards(self, mock_pile_service, db):
         """Test con el máximo número de cartas (simulando las 6 del mazo)"""
         match = Match(
@@ -155,9 +155,9 @@ class TestEarlyTrainToPaddingtonEvent:
         mock_pile_instance = MagicMock()
         mock_pile_service.return_value = mock_pile_instance
         mock_pile_instance.discard_cards.return_value = None
-        from app.cards.services import Cards_Services
+        from app.cards.services import CardsServices
 
-        cards_service = Cards_Services(db)
+        cards_service = CardsServices(db)
         result = cards_service.early_train_to_paddington_event(
             match.id, card_ids)
         assert len(result) == 6
@@ -177,9 +177,9 @@ class TestEarlyTrainToPaddingtonEvent:
         )
         db.add(match)
         db.commit()
-        from app.cards.services import Cards_Services
+        from app.cards.services import CardsServices
 
-        cards_service = Cards_Services(db)
+        cards_service = CardsServices(db)
         with pytest.raises(
             InvalidCardData, match="Se requiere al menos una carta para descartar"
         ):
@@ -200,9 +200,9 @@ class TestEarlyTrainToPaddingtonEvent:
         valid_card_id = match_cards[0].id
         invalid_card_id = uuid.uuid4()
         mixed_card_ids = [valid_card_id, invalid_card_id]
-        from app.cards.services import Cards_Services
+        from app.cards.services import CardsServices
 
-        cards_service = Cards_Services(db)
+        cards_service = CardsServices(db)
         with pytest.raises(
             InvalidCardData,
             match="Una o más cartas no son válidas o no pertenecen a esta partida",
@@ -210,7 +210,7 @@ class TestEarlyTrainToPaddingtonEvent:
             cards_service.early_train_to_paddington_event(
                 match.id, mixed_card_ids)
 
-    @patch("app.piles.service.PileService")
+    @patch("app.piles.services.PileServices")
     def test_early_train_to_paddington_rollback_on_error(self, mock_pile_service, db):
         """Test que verifica el rollback en caso de error"""
         match = Match(
@@ -229,15 +229,15 @@ class TestEarlyTrainToPaddingtonEvent:
         mock_pile_instance.discard_cards.side_effect = Exception(
             "Generic error")
         with patch.object(db, "rollback") as mock_rollback:
-            from app.cards.services import Cards_Services
+            from app.cards.services import CardsServices
 
-            cards_service = Cards_Services(db)
+            cards_service = CardsServices(db)
             with pytest.raises(Exception):
                 cards_service.early_train_to_paddington_event(
                     match.id, card_ids)
             mock_rollback.assert_called_once()
 
-    @patch("app.piles.service.PileService")
+    @patch("app.piles.services.PileServices")
     def test_early_train_to_paddington_single_card(self, mock_pile_service, db):
         """Test con una sola carta"""
         match = Match(
@@ -254,16 +254,16 @@ class TestEarlyTrainToPaddingtonEvent:
         mock_pile_instance = MagicMock()
         mock_pile_service.return_value = mock_pile_instance
         mock_pile_instance.discard_cards.return_value = None
-        from app.cards.services import Cards_Services
+        from app.cards.services import CardsServices
 
-        cards_service = Cards_Services(db)
+        cards_service = CardsServices(db)
         result = cards_service.early_train_to_paddington_event(
             match.id, card_ids)
         assert len(result) == 1
         assert isinstance(result[0], Match_Card_Schema)
         assert result[0].id == card_ids[0]
 
-    @patch("app.piles.service.PileService")
+    @patch("app.piles.services.PileServices")
     def test_early_train_to_paddington_success(self, mock_pile_service, db):
         """Test exitoso del evento Early Train to Paddington"""
         match = Match(
@@ -280,9 +280,9 @@ class TestEarlyTrainToPaddingtonEvent:
         mock_pile_instance = MagicMock()
         mock_pile_service.return_value = mock_pile_instance
         mock_pile_instance.discard_cards.return_value = None
-        from app.cards.services import Cards_Services
+        from app.cards.services import CardsServices
 
-        cards_service = Cards_Services(db)
+        cards_service = CardsServices(db)
         result = cards_service.early_train_to_paddington_event(
             match.id, card_ids)
         assert len(result) == 3
@@ -307,9 +307,9 @@ class TestEarlyTrainToPaddingtonEvent:
         match_cards = self.setup_test_data(db, match.id, 3)
         card_ids = [match_card.id for match_card in match_cards]
         wrong_match_id = uuid.uuid4()
-        from app.cards.services import Cards_Services
+        from app.cards.services import CardsServices
 
-        cards_service = Cards_Services(db)
+        cards_service = CardsServices(db)
         with pytest.raises(
             InvalidCardData,
             match="Una o más cartas no son válidas o no pertenecen a esta partida",

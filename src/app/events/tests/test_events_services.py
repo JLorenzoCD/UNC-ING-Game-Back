@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.cards.services import Card_event
 from app.events.models import EventStatus
-from app.events.services import EventService
+from app.events.services import EventServices
 
 from app.events.exceptions import EventNotFound
 
@@ -16,7 +16,7 @@ def test_add_response_to_event(db: Session):
 
     Args:
         db: Parameter db."""
-    event_service = EventService(db)
+    event_service = EventServices(db)
     target_player_id_str = str(uuid4())
     event = event_service.create_event(
         match_id=uuid4(),
@@ -51,7 +51,7 @@ def test_create_event_cancelable(db: Session):
     Prueba que si no pasamos status, el evento se crea como PENDING
     y el timer es de 5+ segundos.
     """
-    event_service = EventService(db)
+    event_service = EventServices(db)
     match_id = uuid4()
     player_id = uuid4()
     match_card_id = uuid4()
@@ -72,7 +72,7 @@ def test_create_event_instant_hachazo(db: Session):
     """
     Prueba crear un evento instantaneo con status resolved y tiempo pasado o presente
     """
-    event_service = EventService(db)
+    event_service = EventServices(db)
     match_id = uuid4()
     player_id = uuid4()
     match_card_id = uuid4()
@@ -93,7 +93,7 @@ def test_is_event_ready_to_resolve(db: Session):
     """
     Prueba tu servicio 'is_event_ready_to_resolve'.
     """
-    event_service = EventService(db)
+    event_service = EventServices(db)
     target_player_id_str = str(uuid4())
     event = event_service.create_event(
         match_id=uuid4(),
@@ -117,7 +117,7 @@ def test_play_nsf_race_condition_fails(db: Session):
     """
     Prueba que la lógica atómica funciona (la "condición de carrera").
     """
-    event_service = EventService(db)
+    event_service = EventServices(db)
     event = event_service.create_event(
         match_id=uuid4(),
         player_id=uuid4(),
@@ -135,7 +135,7 @@ def test_play_nsf_success(db: Session):
     Prueba que 'play_nsf_on_event' actualiza el
     contador y el timer.
     """
-    event_service = EventService(db)
+    event_service = EventServices(db)
     event = event_service.create_event(
         match_id=uuid4(),
         player_id=uuid4(),

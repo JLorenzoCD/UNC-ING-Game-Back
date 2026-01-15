@@ -13,8 +13,8 @@ from app.matches.exceptions import MatchInvalidAction, MatchValidationError
 from app.player.exceptions import InvalidPlayerData
 
 
-class Secrets_Services:
-    """Class Secrets_Services."""
+class SecretsServices:
+    """Class SecretsServices."""
 
     def __init__(self, db):
         """init  .

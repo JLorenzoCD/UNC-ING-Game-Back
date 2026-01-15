@@ -8,7 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.cards.models import Match_Card
 
 
-class PileService:
+class PileServices:
     """Service class for managing the card pile."""
 
     def __init__(self, db):

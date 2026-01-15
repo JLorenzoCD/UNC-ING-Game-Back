@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.matches.lifecycle_service import MatchLifecycleService
+from app.matches.lifecycle_service import MatchLifecycleServices
 from app.player.models import Match_Player, Player
 from app.player.exceptions import PlayerNotFoundInMatch
 
@@ -22,7 +22,7 @@ def test_quit_match_service_database_error(db_session):
         match_id=match_id, player_id=player.id, order=1)
     db_session.add(match_player)
     db_session.commit()
-    service = MatchLifecycleService(db_session)
+    service = MatchLifecycleServices(db_session)
     original_commit = db_session.commit
     original_rollback = db_session.rollback
 
@@ -61,7 +61,7 @@ def test_quit_match_service_multiple_players_same_match(db_session):
             Match_Player.match_id == match_id).count()
         == 2
     )
-    service = MatchLifecycleService(db_session)
+    service = MatchLifecycleServices(db_session)
     service.quit_match(match_id, player1.id)
     remaining_players = (
         db_session.query(Match_Player).filter(
@@ -101,7 +101,7 @@ def test_quit_match_service_player_in_different_matches(db_session):
         .count()
         == 2
     )
-    service = MatchLifecycleService(db_session)
+    service = MatchLifecycleServices(db_session)
     service.quit_match(match_id1, player.id)
     assert (
         db_session.query(Match_Player)
@@ -121,7 +121,7 @@ def test_quit_match_service_player_not_in_match(db_session):
     """Test que quit_match lanza PlayerNotFoundInMatch cuando el jugador no está en la partida"""
     match_id = uuid.uuid4()
     player_id = uuid.uuid4()
-    service = MatchLifecycleService(db_session)
+    service = MatchLifecycleServices(db_session)
     with pytest.raises(PlayerNotFoundInMatch):
         service.quit_match(match_id, player_id)
 
@@ -144,7 +144,7 @@ def test_quit_match_service_success(db_session):
         .first()
         is not None
     )
-    service = MatchLifecycleService(db_session)
+    service = MatchLifecycleServices(db_session)
     service.quit_match(match_id, player.id)
     assert (
         db_session.query(Match_Player)
@@ -167,7 +167,7 @@ def test_quit_match_service_with_existing_order(db_session):
     )
     db_session.add(match_player)
     db_session.commit()
-    service = MatchLifecycleService(db_session)
+    service = MatchLifecycleServices(db_session)
     service.quit_match(match_id, player.id)
     assert (
         db_session.query(Match_Player)

@@ -7,15 +7,15 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 
 from app.matches.models import MatchEventType, MatchLogs
 from app.matches.schemas import MatchLogOut
-from app.logs.service import LogService
+from app.logs.services import LogServices
 
 
 class TestLogEdgeCases:
-    """Tests para casos edge y manejo de errores específicos del LogService"""
+    """Tests para casos edge y manejo de errores específicos del LogServices"""
 
     def test_concurrent_log_creation_simulation(self, db_session):
         """Test simular creación concurrente de logs"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         concurrent_logs = [
             ("Player 1 action", MatchEventType.PLAYER_JOIN, uuid.uuid4()),
@@ -24,21 +24,23 @@ class TestLogEdgeCases:
         ]
         created_ids = []
         for message, event_type, player_id in concurrent_logs:
-            log_id = log_service.create_log(match_id, message, event_type, player_id)
+            log_id = log_service.create_log(
+                match_id, message, event_type, player_id)
             created_ids.append(log_id)
         assert len(created_ids) == 3
         logs = log_service.get_logs_by_match(match_id)
         assert len(logs) == 3
         for log in logs:
             matching_data = next(
-                (data for data in concurrent_logs if data[0] == log.message), None
+                (data for data in concurrent_logs if data[0]
+                 == log.message), None
             )
             assert matching_data is not None
             assert log.player_id == matching_data[2]
 
     def test_create_log_commit_failure(self, db_session):
         """Test fallo específico en commit durante creación de log"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         message = "Test message"
         event_type = MatchEventType.PLAYER_JOIN
@@ -50,7 +52,7 @@ class TestLogEdgeCases:
 
     def test_create_log_operational_error(self, db_session):
         """Test error operacional de base de datos"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         message = "Test message"
         event_type = MatchEventType.TURN
@@ -62,7 +64,7 @@ class TestLogEdgeCases:
 
     def test_create_log_with_invalid_uuid(self, db_session):
         """Test crear log con UUID inválido (None)"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = None
         message = "Test message"
         event_type = MatchEventType.PLAYER_JOIN
@@ -71,15 +73,17 @@ class TestLogEdgeCases:
 
     def test_create_log_with_null_bytes(self, db_session):
         """Test crear log con bytes nulos (podría causar problemas en algunas DB)"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         message_with_null = "Message with\x00null byte"
         event_type = MatchEventType.TURN
         try:
-            log_id = log_service.create_log(match_id, message_with_null, event_type)
+            log_id = log_service.create_log(
+                match_id, message_with_null, event_type)
             if log_id:
                 saved_log = (
-                    db_session.query(MatchLogs).filter(MatchLogs.id == log_id).first()
+                    db_session.query(MatchLogs).filter(
+                        MatchLogs.id == log_id).first()
                 )
                 assert saved_log is not None
         except Exception:
@@ -87,18 +91,19 @@ class TestLogEdgeCases:
 
     def test_create_log_with_unicode_characters(self, db_session):
         """Test crear log con caracteres especiales y unicode"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         unicode_message = "Jugador 测试玩家 se unió! 🎮 Émojis: 😊🎯🃏"
         event_type = MatchEventType.PLAYER_JOIN
         log_id = log_service.create_log(match_id, unicode_message, event_type)
         assert log_id is not None
-        saved_log = db_session.query(MatchLogs).filter(MatchLogs.id == log_id).first()
+        saved_log = db_session.query(MatchLogs).filter(
+            MatchLogs.id == log_id).first()
         assert saved_log.message == unicode_message
 
     def test_create_log_with_very_long_uuid_string(self, db_session):
         """Test crear log con string que no es UUID válido"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         invalid_match_id = "not-a-valid-uuid-string-at-all"
         message = "Test message"
         event_type = MatchEventType.PLAYER_JOIN
@@ -107,7 +112,7 @@ class TestLogEdgeCases:
 
     def test_datetime_handling_edge_cases(self, db_session):
         """Test manejo de datetime en casos edge"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         edge_dates = [
             datetime.min,
@@ -134,7 +139,7 @@ class TestLogEdgeCases:
 
     def test_get_log_by_id_nonexistent_log(self, db_session):
         """Test obtener log por ID que no existe"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         nonexistent_id = uuid.uuid4()
         try:
             result = log_service.get_log_by_id(nonexistent_id)
@@ -144,7 +149,7 @@ class TestLogEdgeCases:
 
     def test_get_logs_by_match_with_corrupted_data(self, db_session):
         """Test obtener logs cuando hay datos corruptos en la base de datos"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         corrupt_log = MatchLogs(
             id=uuid.uuid4(),
@@ -163,11 +168,12 @@ class TestLogEdgeCases:
 
     def test_get_logs_query_optimization(self, db_session):
         """Test que las consultas de logs son eficientes con muchos registros"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match1_id = uuid.uuid4()
         match2_id = uuid.uuid4()
         for i in range(50):
-            log_service.create_log(match1_id, f"Match1 log {i}", MatchEventType.TURN)
+            log_service.create_log(
+                match1_id, f"Match1 log {i}", MatchEventType.TURN)
             log_service.create_log(
                 match2_id, f"Match2 log {i}", MatchEventType.PLAYER_JOIN
             )
@@ -179,7 +185,7 @@ class TestLogEdgeCases:
 
     def test_log_service_memory_usage(self, db_session):
         """Test que el servicio de logs no causa memory leaks"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         for cycle in range(10):
             for i in range(5):
@@ -196,8 +202,8 @@ class TestLogEdgeCases:
         assert len(final_logs) == 50
 
     def test_log_service_with_malformed_event_type(self, db_session):
-        """Test LogService con tipos de evento que podrían no existir"""
-        log_service = LogService(db_session)
+        """Test LogServices con tipos de evento que podrían no existir"""
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         message = "Test message"
         try:
@@ -210,7 +216,7 @@ class TestLogEdgeCases:
 
     def test_massive_log_creation(self, db_session):
         """Test crear muchos logs rápidamente (stress test)"""
-        log_service = LogService(db_session)
+        log_service = LogServices(db_session)
         match_id = uuid.uuid4()
         num_logs = 100
         created_ids = []

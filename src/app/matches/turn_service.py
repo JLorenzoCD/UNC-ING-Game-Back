@@ -9,7 +9,7 @@ from app.matches.exceptions import MatchNotFound, MatchValidationError
 from app.matches.services import MatchService
 
 
-class TurnService:
+class TurnServices:
     """Service for turn management in matches."""
 
     def __init__(self, db):
