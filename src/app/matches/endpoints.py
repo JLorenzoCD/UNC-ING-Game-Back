@@ -3,7 +3,6 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.exc import SQLAlchemyError
 
 from app.cards import services as services_cards
 from app.cards.models import Match_Card
@@ -1362,68 +1361,56 @@ async def update_secret_in_match(
     secretIn: secret_schemas.SecretUpdate,
     db=Depends(get_db),
 ) -> secret_schemas.Match_Secret_Schema:
-    """Update secret in match.
 
-    Args:
-        match_id: Parameter match_id.
-        secret_id: Parameter secret_id.
-        secretIn: Parameter secretIn.
-        db: Parameter db.
+    secret_service = secret_services.Secrets_Services(db)
 
-    Returns:
-        Return value."""
-    try:
-        secret_service = secret_services.Secrets_Services(db)
-        secret_service.secret_update_verification(
-            match_id, secret_id, secretIn)
+    secret_service.secret_update_verification(
+        match_id, secret_id, secretIn)
 
-        match_secret_old = secret_service.get_match_secret_by_id(secret_id)
+    match_secret_old = secret_service.get_match_secret_by_id(secret_id)
 
-        match_secret: Match_Secret = secret_service.update_secret(
-            secretIn.action, secret_id, secretIn.target_player_id
-        )
-        match_secret_out: secret_schemas.Match_Secret_Schema = (
-            db_match_secret_2_match_secret_schema(match_secret)
-        )
+    match_secret: Match_Secret = secret_service.update_secret(
+        secretIn.action, secret_id, secretIn.target_player_id
+    )
+    match_secret_out: secret_schemas.Match_Secret_Schema = (
+        db_match_secret_2_match_secret_schema(match_secret)
+    )
 
-        payload = match_secret_out.model_dump(mode="json")
-        msj_ws = make_ws_message(WSEvent.SECRET, payload)
-        await manager.specificBroadcast(msj_ws, match_id)
+    payload = match_secret_out.model_dump(mode="json")
+    msj_ws = make_ws_message(WSEvent.SECRET, payload)
+    await manager.specificBroadcast(msj_ws, match_id)
 
-        if (
-            secretIn.action == Secret_action.REVEAL
-            and match_secret_out.is_revealed == True
-        ):
-            try:
-                res = secret_service.is_murderer_revealed(match_id)
-                if res:
-                    await handle_match_ended(
-                        db, manager, match_id, MatchEndedReason.MURDERER_REVEALED
-                    )
-                elif secret_service.is_everyone_in_social_disgrace(match_id):
-                    await handle_match_ended(
-                        db, manager, match_id, MatchEndedReason.SOCIAL_DISGRACE
-                    )
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=str(e))
-
+    if (
+        secretIn.action == Secret_action.REVEAL
+        and match_secret_out.is_revealed == True
+    ):
         try:
-            secret_update_type_msg = "revelo"
-
-            if secretIn.action.value == "hide_secret":
-                secret_update_type_msg = "oculto"
-            elif secretIn.action.value == "steal_secret":
-                secret_update_type_msg = "robo"
-
-            player = PlayerServices(db).get_player(match_secret_old.player_id)
-            log_message = f"[SECRET] Jugador {player.name} {secret_update_type_msg} un secreto"
-            await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.UPDATE_SECRET, player.id)
+            res = secret_service.is_murderer_revealed(match_id)
+            if res:
+                await handle_match_ended(
+                    db, manager, match_id, MatchEndedReason.MURDERER_REVEALED
+                )
+            elif secret_service.is_everyone_in_social_disgrace(match_id):
+                await handle_match_ended(
+                    db, manager, match_id, MatchEndedReason.SOCIAL_DISGRACE
+                )
         except Exception as e:
-            print(f"[LOG] error creando/broadcast log de secret: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-        return match_secret_out
+    # Log, jugador x actualizo un secreto
+    try:
+        secret_update_type_msg = "revelo"
 
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except SQLAlchemyError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        if secretIn.action.value == "hide_secret":
+            secret_update_type_msg = "oculto"
+        elif secretIn.action.value == "steal_secret":
+            secret_update_type_msg = "robo"
+
+        player = PlayerServices(db).get_player(match_secret_old.player_id)
+        log_message = f"[SECRET] Jugador {player.name} {secret_update_type_msg} un secreto"
+        await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.UPDATE_SECRET, player.id)
+    except Exception as e:
+        print(f"[LOG] error creando/broadcast log de secret: {e}")
+
+    return match_secret_out
