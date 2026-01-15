@@ -48,6 +48,7 @@ from websocketManager.ws_routes import manager
 
 from app.matches.exceptions import PlayersIsInOnGoingMatch
 from app.sets.exceptions import InvalidCardError, TargetSecretError
+from app.cards.exceptions import CardInvalidAction
 
 card_services = services_cards
 router = APIRouter(tags=["matches"], prefix="/matches")
@@ -1301,76 +1302,53 @@ async def play_not_so_fast(
     nsf_count: int,
     db=Depends(get_db),
 ):
-    """Play not so fast.
 
-    Args:
-        match_id: Parameter match_id.
-        player_id: Parameter player_id.
-        match_card_id: Parameter match_card_id.
-        event_id: Parameter event_id.
-        nsf_count: Parameter nsf_count.
-        db: Parameter db."""
+    card_service = services_cards.Cards_Services(db)
+    event_service = services_event.EventService(db)
+
+    card_service.validate_card_ownership(
+        player_id, match_id, match_card_id
+    )
+    typeEvent = card_service.get_event_type_by_card(
+        match_card_id
+    )
+    if typeEvent.value != "NOT SO FAST":
+        raise CardInvalidAction("Carta jugada no es una not so fast")
+
+    updated_event = event_service.update_event_nsf(
+        event_id, nsf_count
+    )
+
+    # Log, jugador jugo un NSF
     try:
-        services_cards.Cards_Services(db).validate_card_ownership(
-            player_id, match_id, match_card_id
-        )
-        typeEvent = services_cards.Cards_Services(db).get_event_type_by_card(
-            match_card_id
-        )
-        if typeEvent.value != "NOT SO FAST":
-            raise Exception("Carta jugada no es una not so fast")
-        updated_event = services_event.EventService(db).update_event_nsf(
-            event_id, nsf_count
-        )
+        player = PlayerServices(db).get_player(player_id)
+        log_message = f"[EVENT] El jugador '{player.name}' jugo una carta 'NOT SO FAST...'"
 
-        try:
-            player = PlayerServices(db).get_player(player_id)
-            log_message = f"[EVENT] El jugador '{player.name}' jugo una carta 'NOT SO FAST...'"
-
-            await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.NOT_SO_FAST, player.id)
-        except Exception as e:
-            print(
-                f"[LOG] error creando/broadcast log de play_not_so_fast: {e}")
-
-        try:
-            PileService(db).discard_cards(
-                player_id, match_id, [match_card_id], delete=False
-            )
-
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail={"error": "Database error", "details": str(e)},
-            )
-
-        discarded_card = (
-            db.query(Match_Card).filter(Match_Card.id == match_card_id).first()
-        )
-        discarded_card_event = db_match_card_2_match_card_schema(
-            discarded_card)
-
-        payload = {
-            "event_id": str(updated_event.id),
-            "event_type": typeEvent.value,
-            "player_id": player_id,
-            "resolve_at_utc": updated_event.resolve_at.isoformat(),
-            "nsf_count": updated_event.nsf_count,
-            "discarded_card": discarded_card_event.model_dump(mode="json"),
-        }
-        await manager.specificBroadcast(
-            make_ws_message(WSEvent.CANCELLATION_WINDOW_OPEN,
-                            payload), match_id
-        )
-
-    except ValueError as e:
-        print(f"alguien ya cancelo la accion error: {e}")
-        return {"status": "failed", "message": "Alguien ya canceló la accion "}
+        await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.NOT_SO_FAST, player.id)
     except Exception as e:
-        print(f"algun error por algun lado error:{e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error al procesar la carta {e}",
-        )
+        print(
+            f"[LOG] error creando/broadcast log de play_not_so_fast: {e}")
+
+    PileService(db).discard_cards(
+        player_id, match_id, [match_card_id], delete=False
+    )
+
+    discarded_card = card_service.get_card_by_id(match_card_id)
+    discarded_card_event = db_match_card_2_match_card_schema(
+        discarded_card)
+
+    payload = {
+        "event_id": str(updated_event.id),
+        "event_type": typeEvent.value,
+        "player_id": player_id,
+        "resolve_at_utc": updated_event.resolve_at.isoformat(),
+        "nsf_count": updated_event.nsf_count,
+        "discarded_card": discarded_card_event.model_dump(mode="json"),
+    }
+    await manager.specificBroadcast(
+        make_ws_message(WSEvent.CANCELLATION_WINDOW_OPEN,
+                        payload), match_id
+    )
 
     return {"status": "ok", "message": "Cancelaste la accion"}
 
