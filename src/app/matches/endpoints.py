@@ -1258,46 +1258,35 @@ async def play_point_your_suspicions(
     event_payload: dict,
     db=Depends(get_db),
 ):
-    """Play point your suspicions.
 
-    Args:
-        match_id: Parameter match_id.
-        player_id: Parameter player_id.
-        event_id: Parameter event_id.
-        event_payload: Parameter event_payload.
-        db: Parameter db."""
+    player_service = PlayerServices(db)
+    event_service = services_event.EventService(db)
+
+    event_update = event_service.update_info_event(
+        event_id, player_id, event_payload["target_player_id"]
+    )
+
+    # Log de un jugador dudando de otro
     try:
-        event_update = services_event.EventService(db).update_info_event(
-            event_id, player_id, event_payload["target_player_id"]
-        )
+        player = player_service.get_player(player_id)
+        player_seleccionado = player_service.get_player(
+            event_payload["target_player_id"])
 
-        try:
-            player = PlayerServices(db).get_player(player_id)
-            player_seleccionado = PlayerServices(db).get_player(
-                event_payload["target_player_id"])
+        log_message = f"[EVENT] El jugador '{player.name}' sospecha del jugador '{player_seleccionado.name}'"
 
-            log_message = f"[EVENT] El jugador '{player.name}' sospecha del jugador '{player_seleccionado.name}'"
-
-            await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.POINT_YOUR_SUSPICIONS, player.id)
-        except Exception as e:
-            print(
-                f"[LOG] error creando/broadcast log de play_point_your_suspicions: {e}")
-
-        if services_event.EventService(db).is_event_ready_to_resolve(event_update):
-            payload = services_event.EventService(
-                db).resolve_event(event_update)
-            await manager.specificBroadcast(
-                make_ws_message(
-                    WSEvent.PLAYER_SECRET_REVEAL,
-                    {"target_player_id": [payload["target_player_id"]]},
-                ),
-                match_id
-            )
+        await LogService(db).create_and_propagate_log(match_id, log_message, MatchEventType.POINT_YOUR_SUSPICIONS, player.id)
     except Exception as e:
-        print(f"Algun error en point your suspicions error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Error al procesar la carta {e}",
+        print(
+            f"[LOG] error creando/broadcast log de play_point_your_suspicions: {e}")
+
+    if event_service.is_event_ready_to_resolve(event_update):
+        payload = event_service.resolve_event(event_update)
+        await manager.specificBroadcast(
+            make_ws_message(
+                WSEvent.PLAYER_SECRET_REVEAL,
+                {"target_player_id": [payload["target_player_id"]]},
+            ),
+            match_id
         )
 
     return {"status": "ok", "message": "Point your suspicions de lujo"}
