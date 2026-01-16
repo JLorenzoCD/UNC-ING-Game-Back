@@ -1068,17 +1068,17 @@ async def play_event(
     card_service = CardsServices(db)
     event_service = EventServices(db)
 
-    # Obtener tipo de evento y crear log ANTES de procesarlo
-    typeEvent = card_service.get_event_type_by_card(match_card_id)
-
     card_service.validate_card_ownership(
         player_id, match_id, match_card_id
     )
+
     typeEvent = card_service.get_event_type_by_card(
         match_card_id
     )
 
     if card_service.is_instant_event(typeEvent.value):
+        # Como es un evento instantánea, el evento se crea y resuelve, ya que no
+        # se puede cancelar con una NSF
         new_event = event_service.create_event(
             match_id,
             player_id,
@@ -1089,21 +1089,22 @@ async def play_event(
         )
         payload = event_service.resolve_event(new_event)
 
+        # Se descarta la carta de evento jugada
         PileServices(db).discard_cards(
             player_id, match_id, [match_card_id], delete=False
         )
 
+        # Mensaje WS sobre la carta de evento jugada
         discarded_card = card_service.get_card_by_id(match_card_id)
         discarded_card_event = db_match_card_2_match_card_schema(
             discarded_card
         ).model_dump(mode="json")
         payload["discarded_card_event"] = discarded_card_event
-
         await manager.specificBroadcast(
             make_ws_message(WSEvent.CARD_EVENT, payload), match_id
         )
 
-        # Logs
+        # Log de la carta de evento jugada y no puede ser cancelada con un NSF
         try:
             player_obj = PlayerServices(db).get_player(player_id)
             log_message = f"[EVENTO] Jugador {player_obj.name} jugó el evento {typeEvent.value} y no puede ser cancelada con una 'NOT SO FAST...'"
@@ -1116,19 +1117,22 @@ async def play_event(
         except Exception as e:
             print(f"[LOG] error creando/broadcast log de evento: {e}")
     else:
+        # El evento se crea y se da el tiempo para poder cancelarla con la NSF
         new_event = event_service.create_event(
             match_id, player_id, typeEvent.value, match_card_id, event_payload
         )
 
+        # Se descarta la carta jugada
         PileServices(db).discard_cards(
             player_id, match_id, [match_card_id], delete=False
         )
 
+        # Mensaje WS para indicar que se jugo una carta de evento y puede ser
+        # cancelada por una NSF
         discarded_card = card_service.get_card_by_id(match_card_id)
         discarded_card_event = db_match_card_2_match_card_schema(
             discarded_card
         ).model_dump(mode="json")
-
         payload = {
             "event_id": str(new_event.id),
             "event_type": typeEvent.value,
@@ -1142,7 +1146,7 @@ async def play_event(
                 WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
         )
 
-        # Logs
+        # Log de la carta de evento jugada y que puede ser cancelada con un NSF
         try:
             player_obj = PlayerServices(db).get_player(player_id)
             log_message = f"[EVENTO] Jugador {player_obj.name} jugó el evento {typeEvent.value}, puedes jugar una carta 'NOT SO FAST...' para cancelarlo"
@@ -1169,9 +1173,12 @@ async def play_card_trade(
 ):
     event_service = EventServices(db)
 
+    # Validación
     CardsServices(db).validate_card_ownership(
         player_id, match_id, event_payload["target_card_id"]
     )
+
+    # Se actualiza los datos del evento en base a los nuevos datos
     event_update = event_service.update_info_event(
         event_id, player_id, event_payload["target_card_id"]
     )
@@ -1187,12 +1194,15 @@ async def play_card_trade(
             f"[LOG] error creando/broadcast log de play_card_trade: {e}")
 
     if event_service.is_event_ready_to_resolve(event_update):
+        # Si el evento ya tiene todos los datos para finalizar, se lo finaliza
+        # y se envía la info por WS
         payload = event_service.resolve_event(event_update)
-
         await manager.specificBroadcast(
             make_ws_message(WSEvent.CARD_EVENT, payload), match_id
         )
 
+        # Se revisa si se intercambio alguna carta devious, si es asi, el jugador
+        # que la recibió debe revelar un secreto propio
         devious_card_targets_players = event_service.get_players_target_devious_card(
             event_update)
         if len(devious_card_targets_players) >= 1:
@@ -1227,9 +1237,12 @@ async def play_dead_card_folly(
 
     event_service = EventServices(db)
 
+    # Validación
     CardsServices(db).validate_card_ownership(
         player_id, match_id, event_payload["target_card_id"]
     )
+
+    # Se actualiza los datos del evento en base a los nuevos datos
     event_update = event_service.update_info_event(
         event_id, player_id, event_payload["target_card_id"]
     )
@@ -1245,11 +1258,15 @@ async def play_dead_card_folly(
             f"[LOG] error creando/broadcast log de play_dead_card_folly: {e}")
 
     if event_service.is_event_ready_to_resolve(event_update):
+        # Si el evento ya tiene todos los datos para finalizar, se lo finaliza
+        # y se envía la info por WS
         payload = event_service.resolve_event(event_update)
         await manager.specificBroadcast(
             make_ws_message(WSEvent.CARD_EVENT, payload), match_id
         )
 
+        # Se revisa si se intercambio alguna carta devious, si es asi, el jugador
+        # que la recibió debe revelar un secreto propio
         devious_card_targets_players = event_service.get_players_target_devious_card(
             event_update)
         if len(devious_card_targets_players) >= 1:
@@ -1285,6 +1302,7 @@ async def play_point_your_suspicions(
     player_service = PlayerServices(db)
     event_service = EventServices(db)
 
+    # Se actualiza los datos del evento en base a los nuevos datos
     event_update = event_service.update_info_event(
         event_id, player_id, event_payload["target_player_id"]
     )
@@ -1303,6 +1321,8 @@ async def play_point_your_suspicions(
             f"[LOG] error creando/broadcast log de play_point_your_suspicions: {e}")
 
     if event_service.is_event_ready_to_resolve(event_update):
+        # Si el evento ya tiene todos los datos para finalizar, se lo finaliza
+        # y se envía la info por WS
         payload = event_service.resolve_event(event_update)
         await manager.specificBroadcast(
             make_ws_message(
@@ -1328,6 +1348,7 @@ async def play_not_so_fast(
     card_service = CardsServices(db)
     event_service = EventServices(db)
 
+    # Validaciones
     card_service.validate_card_ownership(
         player_id, match_id, match_card_id
     )
@@ -1337,6 +1358,7 @@ async def play_not_so_fast(
     if typeEvent.value != "NOT SO FAST":
         raise CardInvalidAction("Carta jugada no es una not so fast")
 
+    # Se modifica el campo nsf del evento para indicar que se jugo una carta NSF
     updated_event = event_service.update_event_nsf(
         event_id, nsf_count
     )
@@ -1351,14 +1373,15 @@ async def play_not_so_fast(
         print(
             f"[LOG] error creando/broadcast log de play_not_so_fast: {e}")
 
+    # Se descarta la carta NSF jugada
     PileServices(db).discard_cards(
         player_id, match_id, [match_card_id], delete=False
     )
 
+    # Mensaje WS de que se re-abre la ventana para poder jugar otra NSF
     discarded_card = card_service.get_card_by_id(match_card_id)
     discarded_card_event = db_match_card_2_match_card_schema(
         discarded_card)
-
     payload = {
         "event_id": str(updated_event.id),
         "event_type": typeEvent.value,
@@ -1387,16 +1410,19 @@ async def update_secret_in_match(
 
     secret_service = SecretsServices(db)
 
+    # Validaciones
     secret_service.secret_update_verification(
         match_id, secret_id, secretIn)
 
     match_secret_old = secret_service.get_match_secret_by_id(secret_id)
 
+    # Actualización del secreto
     match_secret = secret_service.update_secret(
         secretIn.action, secret_id, secretIn.target_player_id
     )
     match_secret_out = db_match_secret_2_match_secret_schema(match_secret)
 
+    # Mensaje WS donde se envía el secreto actualizado
     payload = match_secret_out.model_dump(mode="json")
     msj_ws = make_ws_message(WSEvent.SECRET, payload)
     await manager.specificBroadcast(msj_ws, match_id)
@@ -1405,6 +1431,8 @@ async def update_secret_in_match(
         secretIn.action == Secret_action.REVEAL
         and match_secret_out.is_revealed == True
     ):
+        # Se revisa si el secreto revelado es del acecino, en ese caso se envía
+        # un mensaje por WS para finalizar el juego
         try:
             res = secret_service.is_murderer_revealed(match_id)
             if res:
