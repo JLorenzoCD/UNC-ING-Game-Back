@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.cards.models import Card, Card_Type, Match_Card
 from app.secrets.models import Match_Secret
+from app.secrets.services import SecretsServices
 from app.sets.models import Match_Set, SetType
 from app.sets.schemas import MatchSetOut, SetIn
 from app.sets.utils import db_match_set_2_match_set_schema
@@ -401,3 +402,47 @@ class SetServices:
                 Match_Set.match_id == match_id).all()
         )
         return [db_match_set_2_match_set_schema(match_set) for match_set in match_sets]
+
+    def verification_play_stolen_set(
+        self,
+        set_type: SetType,
+        target_player: UUID,
+        target_secret: UUID
+    ):
+        """
+        Verifica que la info dada sea valida para jugar un set robado
+
+        :rise InvalidCardError:
+        :rise TargetSecretError:
+        :rise SecretNotFound:
+        """
+
+        if not target_player:
+            raise InvalidCardError("Property target_player is empty")
+
+        if (
+            set_type
+            in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE, SetType.PARKER_PYNE]
+            and target_secret is None
+        ):
+            raise TargetSecretError("No hay secreto seleccionado")
+
+        if target_secret:
+            secret = SecretsServices(self._db).get_match_secret_by_id(
+                target_secret
+            )
+            if secret.player_id != target_player:
+                raise TargetSecretError(
+                    "El secreto y el jugador no coinciden"
+                )
+
+            if set_type in [
+                SetType.LADY_EILEEN,
+                SetType.TUPPENCE_BERESFORD,
+                SetType.TOMMY_BERESFORD,
+                SetType.TWO_BERESFORD,
+                SetType.MR_SATTERTHWAITE,
+            ]:
+                raise TargetSecretError(
+                    "No se debería seleccionar secreto en este momento"
+                )

@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from app.cards.exceptions import InvalidCardData, CardInvalidAction, CardNotFound
 
 
-def register_match_exception_handlers(app):
+def register_card_exception_handlers(app):
 
     @app.exception_handler(InvalidCardData)
     async def card_invalid_data_handler(request: Request, exc):

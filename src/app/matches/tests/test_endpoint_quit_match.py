@@ -156,7 +156,7 @@ def test_quit_match_player_not_found(client):
             f"/matches/{match['id']}/quit", params={"player_id": fake_player_id}
         )
     assert response.status_code == 404
-    assert response.json()["detail"] == "Player not found"
+    assert response.json()["detail"] == "The player is not in the match"
 
 
 def test_quit_match_player_not_in_match(client):

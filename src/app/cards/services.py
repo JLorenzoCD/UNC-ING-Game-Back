@@ -504,3 +504,43 @@ class CardsServices:
                 "La carta no existe, no pertenece al jugador o ya fue descartada."
             )
         return True
+
+    def validate_player_can_discard(
+        self, player_id: UUID, match_id: UUID, num_discarded_cards: int
+    ):
+        """
+        Verifica que el jugador puede descartar x cantidad de cartas según las
+        cartas que tiene a mano.
+
+        :raise CardInvalidAction: en caso de que se quiera descartar mas cartas
+        de las que el jugador posee.
+        """
+
+        player_cards_in_hand = self.get_player_cards_in_hand(
+            player_id, match_id)
+
+        if num_discarded_cards > len(player_cards_in_hand):
+            raise CardInvalidAction(
+                "No puedes descartar más cartas de las que tienes")
+
+    def validate_player_can_take(
+        self, player_id: UUID, match_id: UUID, num_take_cards: int, count_cards_pile: int
+    ):
+        """
+        Verifica que el jugador puede tomar x cantidad de cartas del mazo regular.
+
+        :raise CardInvalidAction:
+        """
+
+        player_cards_in_hand = self.get_player_cards_in_hand(
+            player_id, match_id)
+
+        if num_take_cards > 6:
+            raise CardInvalidAction("No puedes tomar mas de 6 cartas")
+
+        if len(player_cards_in_hand) + num_take_cards > 6:
+            raise CardInvalidAction("No puedes tener mas de 6 cartas")
+
+        if count_cards_pile < num_take_cards:
+            raise CardInvalidAction(
+                "No puedes tomar más cartas de las que quedan en el mazo")

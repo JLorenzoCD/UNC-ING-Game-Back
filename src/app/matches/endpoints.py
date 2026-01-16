@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
@@ -24,7 +23,6 @@ from app.matches.ending import handle_match_ended
 # Schemas
 from app.matches.schemas import (
     MatchIn,
-    MatchOut,
     Match_number_of_Player,
     MatchResponse,
     MatchLogOut,
@@ -84,7 +82,7 @@ router = APIRouter(tags=["matches"], prefix="/matches")
 )
 async def get_all_matches(db=Depends(get_db)) -> List[Match_number_of_Player]:
 
-    matches: List[MatchOut] = MatchService(db).get_all()
+    matches = MatchService(db).get_all()
     return matches
 
 
@@ -93,29 +91,33 @@ async def get_all_matches(db=Depends(get_db)) -> List[Match_number_of_Player]:
 )
 async def get_match_by_match_ID(match_id: UUID, db=Depends(get_db)):
 
-    match = MatchService(db).get_match_by_id(match_id)
+    match_service = MatchService(db)
 
-    match_extended = MatchService(db).extended_match(match)
+    match = match_service.get_match_by_id(match_id)
+    match_extended = match_service.extended_match(match)
     return match_extended
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=MatchResponse)
 async def create_match(match_in: MatchIn, db=Depends(get_db)) -> MatchResponse:
 
+    match_service = MatchService(db)
+
+    # Si el jugador ya esta en una partida, se levanta un error y se lo impide
     if (
-        len(MatchService(db).get_ongoing_matches_of_player(match_in.owner_id))
+        len(match_service.get_ongoing_matches_of_player(match_in.owner_id))
         > 0
     ):
         raise PlayersIsInOnGoingMatch()
 
-    match_dto = match_in.to_dto()
-    new_match = MatchService(db).create(match_dto)
+    new_match = match_service.create(
+        match_in.to_dto()
+    )
 
+    # Enviando por WS el nuevo match
     manager.enterMatch(new_match.owner_id, new_match.id)
-
     match_dict = new_match.model_dump(mode="json")
     match_dict["current_player_count"] = 1
-
     ws_message = make_ws_message(WSEvent.MATCH, match_dict)
     await manager.waiting_room_broadcast(ws_message)
 
@@ -128,14 +130,18 @@ async def create_match(match_in: MatchIn, db=Depends(get_db)) -> MatchResponse:
 @router.post("/{match_id}/join", status_code=status.HTTP_200_OK)
 async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
 
-    info_player = PlayerServices(db).get_player(player_id)
+    match_service = MatchService(db)
 
-    if len(MatchService(db).get_ongoing_matches_of_player(player_id)) > 0:
+    # Si el jugador ya esta en una partida, se le impide entrar a otra
+    if len(match_service.get_ongoing_matches_of_player(player_id)) > 0:
         raise PlayersIsInOnGoingMatch()
 
+    # Añadir al jugador a la partida en la db y al WS broadcast de la partida
     MatchLifecycleServices(db).join(match_id, player_id)
-
     manager.enterMatch(player_id, match_id)
+
+    # Mensaje por WS de que ingreso un jugador
+    info_player = PlayerServices(db).get_player(player_id)
     payload = {
         "id": info_player.id,
         "name": info_player.name,
@@ -146,7 +152,7 @@ async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
         make_ws_message(WSEvent.PLAYER_JOIN, payload), match_id
     )
 
-    match_service = MatchService(db)
+    # Mensaje por WS para actualizar el contador de jugadores en la lista de partidas
     match = match_service.get_match_by_id(match_id)
     players_count = match_service.count_players_by_match(match_id)
     new_match = db_match_2_match_schema(match)
@@ -155,6 +161,7 @@ async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
     message_ws = make_ws_message(WSEvent.MATCH, match_dict)
     await manager.waiting_room_broadcast(message_ws)
 
+    # Log de que un jugador entro al lobby
     try:
         log_message = f"[JOIN] Jugador {info_player.name} se unió a la partida"
 
@@ -168,10 +175,10 @@ async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
 @router.put("/{match_id}/quit", status_code=status.HTTP_200_OK)
 async def quit_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
 
-    info_player = PlayerServices(db).get_player(player_id)
+    match_service = MatchService(db)
 
+    # Quitando al jugador de la partida en la DB y del WS broadcast de la partida
     MatchLifecycleServices(db).quit_match(match_id, player_id)
-
     try:
         manager.quitMatch(player_id, match_id)
     except Exception as ws_e:
@@ -179,6 +186,8 @@ async def quit_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
             f"[WS ERROR] Error removing player {player_id} from websocket match {match_id}: {ws_e}"
         )
 
+    # Mensaje por WS de que un jugador abandono la partida
+    info_player = PlayerServices(db).get_player(player_id)
     payload = {
         "id": info_player.id,
         "name": info_player.name,
@@ -189,7 +198,7 @@ async def quit_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
         make_ws_message(WSEvent.PLAYER_QUIT, payload), match_id
     )
 
-    match_service = MatchService(db)
+    # Mensaje por WS para actualizar el contador de jugadores en la lista de partidas
     match = match_service.get_match_by_id(match_id)
     players_count = match_service.count_players_by_match(match_id)
     new_match = db_match_2_match_schema(match)
@@ -198,6 +207,7 @@ async def quit_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
     message_ws = make_ws_message(WSEvent.MATCH, match_dict)
     await manager.waiting_room_broadcast(message_ws)
 
+    # Log de que se fue un jugador
     try:
         log_message = f"[QUIT] Jugador {info_player.name} se fue de la partida."
 
@@ -211,12 +221,12 @@ async def quit_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
 @router.post("/{match_id}/cancel", status_code=status.HTTP_200_OK)
 async def cancel_match(match_id: UUID, owner_id: UUID, db=Depends(get_db)):
 
-    cancelled_match = MatchService(
-        db).cancel_match(match_id, owner_id)
-    cancelled_match.status = MatchStatus.COMPLETED
-
+    # Eliminando el match de la DB y se elimina el WS broadcast para esa partida
+    cancelled_match = MatchService(db).cancel_match(match_id, owner_id)
     manager.close_match(match_id)
 
+    # Mensaje por WS de que se cerro la partida
+    cancelled_match.status = MatchStatus.COMPLETED
     payload = cancelled_match.model_dump(mode="json")
     await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, payload))
 
@@ -229,15 +239,17 @@ async def cancel_match(match_id: UUID, owner_id: UUID, db=Depends(get_db)):
 @router.post("/{match_id}/start", status_code=status.HTTP_200_OK)
 async def start_match(match_id: UUID, db=Depends(get_db)):
 
+    # Actualizando el estado de la partida para indicar que comenzó el juego
     match = MatchLifecycleServices(db).start_game(match_id)
 
+    # Mensaje por WS de que la partida comenzó
     payload = match.model_dump(mode="json")
     await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, payload))
     await manager.specificBroadcast(
         make_ws_message(WSEvent.MATCH, payload), match_id
     )
 
-    # Log para la partida
+    # Log que para saber de quien es el turno actual
     try:
         current_player_id = TurnServices(
             db).get_current_player_by_match(match_id)
@@ -277,9 +289,7 @@ async def get_player_by_ID_match(
     match_id: UUID, db=Depends(get_db)
 ) -> List[Players_by_Match_Schema]:
 
-    players_match: List[Players_by_Match_Schema] = MatchService(
-        db
-    ).get_players_by_match(match_id)
+    players_match = MatchService(db).get_players_by_match(match_id)
     return players_match
 
 
@@ -322,22 +332,19 @@ async def discard_card(
     discarded_cards_ids = cards.card_ids
 
     # ? Esto es validación, se debería de sacar a un método
+    # TODO
     # * Esto en especifico debería de ser un middleware en los endpoints
     # * que afectan al juego
     PlayerServices(
         db).get_player_in_match(player_id, match_id)
 
     # ? ------------------------------------------------------------------------
-    player_cards_in_hand = CardsServices(
-        db).get_player_cards_in_hand(player_id, match_id)
 
-    if len(discarded_cards_ids) > len(player_cards_in_hand):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": "No puedes descartar más cartas de las que tienes"},
-        )
-    # ? ------------------------------------------------------------------------
+    # Se valida de que el jugador puede descartar
+    CardsServices(
+        db).validate_player_can_discard(player_id, match_id, len(discarded_cards_ids))
 
+    # Se descarta
     PileServices(db).discard_cards(
         player_id, match_id, discarded_cards_ids
     )
@@ -347,6 +354,7 @@ async def discard_card(
         match_id, ids
     )
 
+    # Mensaje WS de las cartas descartadas
     try:
         payload = [
             {
@@ -371,6 +379,7 @@ async def discard_card(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error with WebSockets",
         )
 
+    # Log de que un jugador descarto x numero de cartas
     try:
         player_obj = PlayerServices(db).get_player(player_id)
         card_names = []
@@ -397,37 +406,20 @@ async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_d
     taken_cards_ids = cards.card_ids
 
     # ? Esto es validación, se debería de sacar a un método
+    # TODO
     # * Esto en especifico debería de ser un middleware en los endpoints
     # * que afectan al juego
     PlayerServices(
         db).get_player_in_match(player_id, match_id)
 
     # ?-------------------------------------------------------------------------
-    player_cards_in_hand = CardsServices(
-        db).get_player_cards_in_hand(player_id, match_id)
+
+    # Se valida si se puede tomar x numero de cartas
     count_cards_pile = PileServices(db).get_count_cards_pile(match_id)
+    CardsServices(db).validate_player_can_take(
+        player_id, match_id, len(taken_cards_ids), count_cards_pile)
 
-    if count_cards_pile < len(taken_cards_ids):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": "No puedes tomar más cartas de las que quedan en el mazo"
-            },
-        )
-
-    if len(taken_cards_ids) > 6:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": "No puedes tomar mas de 6 cartas"},
-        )
-
-    if len(player_cards_in_hand) + len(taken_cards_ids) > 6:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": "No puedes tener mas de 6 cartas"},
-        )
-    # ?-------------------------------------------------------------------------
-
+    # Toma las cartas
     PileServices(db).take_cards(player_id, match_id, taken_cards_ids)
 
     ids = list(set(taken_cards_ids))
@@ -445,7 +437,7 @@ async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_d
         except Exception as e:
             print(f"Error al handle_match_ended en take_card: {e}")
 
-    # Transmitir por websocket
+    # Mensaje WS de las cartas que tomo el jugador
     try:
         payload = [
             {
@@ -472,7 +464,7 @@ async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_d
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error"
         )
 
-    # Se realiza el log de que el un jugador x cartas
+    # Log de que el un jugador agarro x cartas
     try:
         player_obj = PlayerServices(db).get_player(player_id)
         log_message = f"[TAKE] Jugador {player_obj.name} tomó {len(taken_cards_ids)} carta(s) del mazo"
@@ -494,20 +486,21 @@ async def pass_turn(match_id: UUID, db=Depends(get_db)):
 
     turn_service = TurnServices(db)
 
+    # Se pasa el turno
     match = turn_service.pass_turn_by_id(match_id)
 
+    # Mensaje WS sobre el cambio de turno
     current_player_id = turn_service.get_current_player_by_match(match_id)
     match_dict = db_match_2_match_schema(match).model_dump(mode="json")
     if current_player_id:
         match_dict["current_player_id"] = str(current_player_id)
-
     msg = make_ws_message(WSEvent.TURN, match_dict)
     try:
         await manager.specificBroadcast(msg, match_id)
     except Exception as ws_err:
         print(f"[WS] pass_turn broadcast error: {ws_err}")
 
-    # Logs
+    # Logs sobre el jugador que actualmente esta en su turno
     try:
         if current_player_id:
             player_obj = PlayerServices(db).get_player(current_player_id)
@@ -528,23 +521,18 @@ async def time_out(
     match_id: UUID, player_id: UUID, db=Depends(get_db)
 ) -> Optional[List[Match_Card_Schema]]:
 
-    match_services = MatchService(db)
+    match_service = MatchService(db)
     card_service = CardsServices(db)
     turn_service = TurnServices(db)
+    pile_service = PileServices(db)
 
-    time_now = datetime.now(timezone.utc)
-
-    match = match_services.get_match_by_id(match_id)
-    if not match.timer_turn:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El timer de la partida no está activo.",
-        )
-
-    time_diff = (time_now - match.timer_turn).total_seconds()
-    if time_diff <= 60:
+    # Se valida que se este en timeout
+    is_timeout = match_service.is_timeout()
+    if not is_timeout:
         return None
 
+    # TODO
+    # Se valida de que el jugador este en partida
     PlayerServices(db).get_player_in_match(player_id, match_id)
 
     ids = set()
@@ -566,10 +554,12 @@ async def time_out(
     if not card_of_regular_deck:
         raise CardInvalidAction("Can't get a card from the regular deck")
 
-    PileServices(db).take_cards(
+    # Se le da la carta
+    pile_service.take_cards(
         player_id, match_id, cards=[card_of_regular_deck.id]
     )
 
+    # Mensaje WS de que el jugador descarto y/o tomo una carta
     ids.add(card_of_regular_deck.id)
     ids = list(ids)
     results = MatchService(
@@ -593,7 +583,7 @@ async def time_out(
     )
 
     # Verificar si se terminaron las cartas de mano
-    remaining_after = PileServices(db).get_count_cards_pile(match_id)
+    remaining_after = pile_service.get_count_cards_pile(match_id)
     if remaining_after <= 3:
         try:
             await handle_match_ended(
@@ -607,20 +597,21 @@ async def time_out(
 
     # Pasar turno
     match = turn_service.pass_turn_by_id(match_id)
+
+    # Mensaje WS de que se paso de torno
     current_player_id = turn_service.get_current_player_by_match(
         match_id
     )
     match_dict = db_match_2_match_schema(match).model_dump(mode="json")
     if current_player_id:
         match_dict["current_player_id"] = str(current_player_id)
-
     try:
         msg = make_ws_message(WSEvent.TURN, match_dict)
         await manager.specificBroadcast(msg, match_id)
     except Exception as ws_err:
         print(f"[WS] pass_turn broadcast error: {ws_err}")
 
-    # Logs
+    # Logs del jugador que se encuentra actualmente en turno
     try:
         if current_player_id:
             player_obj = PlayerServices(db).get_player(current_player_id)
@@ -650,6 +641,7 @@ async def play_set(
     set_service = SetServices(db)
     event_service = EventServices(db)
 
+    # Validaciones del set
     set_service.set_verification(
         match_card_ids,
         match_id,
@@ -669,6 +661,8 @@ async def play_set(
     match_set: Optional[MatchSetOut] = None
 
     if setIn.type != SetType.LADY_EILEEN:
+        # En caso de que el set no sea del tipo LADY_EILEEN, se eliminan las cartas
+        # que lo conforman ya que se transforman en la entidad Set
         match_set = set_service.create_set(set_data)
 
         PileServices(db).discard_cards(
@@ -683,6 +677,8 @@ async def play_set(
         await manager.specificBroadcast(ws_msj, match_id)
 
     if setIn.type == SetType.TWO_BERESFORD:
+        # Se crea y se resuelve el evento set, ya que TWO_BERESFORD no puede
+        # ser cancelado
         set_payload = set_service.create_set_payload(
             match_id, setIn, is_Oliver=False
         )
@@ -694,6 +690,8 @@ async def play_set(
             set_payload,
             EventStatus.RESOLVED,
         )
+
+        # Mensaje por WS de que un jugador debe revelar su secreto
         payload = event_service.resolve_event(new_event)
         await manager.specificBroadcast(
             make_ws_message(
@@ -703,9 +701,11 @@ async def play_set(
             match_id,
         )
     elif setIn.type == SetType.LADY_EILEEN:
+        # Se crea el set y el evento
         set_payload = set_service.create_set_payload(
             match_id, setIn, is_Oliver=False
         )
+
         set_payload.update({"is_create_set": True})
         new_set_data = {
             "type": setIn.type.value,
@@ -719,6 +719,8 @@ async def play_set(
         new_event = event_service.create_event(
             match_id, setIn.player_id, setIn.type.value, None, set_payload
         )
+
+        # Mensaje por WS de que se jugo un set y puede ser cancelado por una NSF
         payload = {
             "event_id": str(new_event.id),
             "event_type": setIn.type.value,
@@ -732,12 +734,15 @@ async def play_set(
                 WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
         )
     else:
+        # Se crea el set y el evento
         set_payload = set_service.create_set_payload(
             match_id, setIn, is_Oliver=False
         )
         new_event = event_service.create_event(
             match_id, setIn.player_id, setIn.type.value, None, set_payload
         )
+
+        # Mensaje WS de que se puede cancelar el set mediante una carta NSF
         payload = {
             "event_id": str(new_event.id),
             "event_type": setIn.type.value,
@@ -751,7 +756,7 @@ async def play_set(
                 WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
         )
 
-    # Logs
+    # Logs sel set jugado y si se puede o no cancelar con una NSF
     try:
         setType = setIn.type
         player = PlayerServices(db).get_player(setIn.player_id)
@@ -779,10 +784,11 @@ async def put_down_a_detective(
     match_id: UUID, set_id: UUID, set_info: AddSetIn, db=Depends(get_db)
 ) -> MatchSetOut:
 
-    match_card_ids: List[UUID] = set_info.card_ids
+    match_card_ids = set_info.card_ids
     set_service = SetServices(db)
     event_service = EventServices(db)
 
+    # Verificaciones del set
     set_service.add_card_verification(
         match_card_ids, set_id, set_info.target_player_id, set_info.target_secret_id
     )
@@ -794,9 +800,14 @@ async def put_down_a_detective(
         match_set.type != SetType.LADY_EILEEN
         or card_name == SetType.ADRIADNE_OLIVER.value
     ):
+        # Si el detective que se baje un detective diferente a LADY_EILEEN, se
+        # eliminan las cartas de detectives
+
         if set_service.beresford_brothers_in_set_two_beresford(
             card_name, match_set.type
         ):
+            # En caso de que se baje un detective Beresford a un set del otro
+            # hermano/a Beresford, se trasforma el tipo del set a TWO_BERESFORD
             match_set = set_service.update_setType(
                 set_id, SetType.TWO_BERESFORD)
             match_set_out = db_match_set_2_match_set_schema(match_set)
@@ -807,6 +818,7 @@ async def put_down_a_detective(
             None, match_id, set_info.card_ids, delete=True
         )
 
+        # Mensaje WS de las cartas eliminadas
         payload.update(
             {"deleted_cards": [str(uuid) for uuid in match_card_ids]})
         ws_msj = make_ws_message(WSEvent.SET, payload)
@@ -822,6 +834,8 @@ async def put_down_a_detective(
     )
 
     if card_name == SetType.ADRIADNE_OLIVER.value:
+        # Si se baja el detective ADRIADNE_OLIVER, se crea el evento en el cual
+        # el dueño del set seleccionado debe revelar una carta
         set_in_Oliver = SetIn(
             type=SetType.ADRIADNE_OLIVER,
             card_ids=set_info.card_ids,
@@ -840,6 +854,7 @@ async def put_down_a_detective(
             set_payload,
         )
 
+        # Mensaje WS del evento y su tiempo de cancelación con una NSF
         payload = {
             "event_id": str(new_event.id),
             "event_type": set_in_complete.type.value,
@@ -853,6 +868,8 @@ async def put_down_a_detective(
                 WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
         )
     elif match_set.type == SetType.TWO_BERESFORD:
+        # Se crea el evento del set TWO_BERESFORD y se resuelve, ya que no puede
+        # ser cancelado
         set_payload = set_service.create_set_payload(
             match_id, set_in_complete, is_Oliver=False
         )
@@ -865,8 +882,8 @@ async def put_down_a_detective(
             EventStatus.RESOLVED,
         )
 
+        # Mensaje WS de que un jugador debe revelar su secreto
         payload = event_service.resolve_event(new_event)
-
         await manager.specificBroadcast(
             make_ws_message(
                 WSEvent.PLAYER_SECRET_REVEAL,
@@ -875,6 +892,7 @@ async def put_down_a_detective(
             match_id,
         )
     elif match_set.type == SetType.LADY_EILEEN:
+        # Se crea el evento del set LADY_EILEEN y se da tiempo para jugar una NSF
         set_payload = set_service.create_set_payload(
             match_id, set_in_complete, is_Oliver=False
         )
@@ -888,6 +906,7 @@ async def put_down_a_detective(
             set_payload,
         )
 
+        # Mensaje WS del evento y su tiempo de cancelación con una NSF
         payload = {
             "event_id": str(new_event.id),
             "event_type": set_in_complete.type.value,
@@ -901,6 +920,7 @@ async def put_down_a_detective(
                 WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
         )
     else:
+        # Se crea el evento de set y se da tiempo para jugar una NSF
         set_payload = set_service.create_set_payload(
             match_id, set_in_complete, is_Oliver=False
         )
@@ -912,6 +932,7 @@ async def put_down_a_detective(
             set_payload,
         )
 
+        # Mensaje WS del evento y su tiempo de cancelación con una NSF
         payload = {
             "event_id": str(new_event.id),
             "event_type": set_in_complete.type.value,
@@ -925,7 +946,7 @@ async def put_down_a_detective(
                 WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
         )
 
-    # Logs
+    # Log de que se bajo un detective y si se puede o no cancelar con una carta NSF
     try:
         set_to_play = set_service.get_match_set(set_id, match_id)
         setType = set_to_play.type
@@ -961,45 +982,17 @@ async def play_set_stolen(
     set_service = SetServices(db)
     secret_service = SecretsServices(db)
 
-    # ? Esto es validación, debería de estar como un método de un servicio
+    # Se valida si se puede jugar el set
     match_set = set_service.get_match_set(set_id, match_id)
     set_type = match_set.type
     target_secret = stolen_setIn.target_secret_id
     target_player = stolen_setIn.target_player_id
-    if not target_player:
-        raise InvalidCardError("Property target_player is empty")
-
-    if (
-        set_type
-        in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE, SetType.PARKER_PYNE]
-        and target_secret is None
-    ):
-        raise TargetSecretError("No hay secreto seleccionado")
-
-    if target_secret:
-        secret = secret_service.get_match_secret_by_id(
-            target_secret
-        )
-        if secret.player_id != target_player:
-            raise TargetSecretError(
-                "El secreto y el jugador no coinciden"
-            )
-
-        if set_type in [
-            SetType.LADY_EILEEN,
-            SetType.TUPPENCE_BERESFORD,
-            SetType.TOMMY_BERESFORD,
-            SetType.TWO_BERESFORD,
-            SetType.MR_SATTERTHWAITE,
-        ]:
-            raise TargetSecretError(
-                "No se debería seleccionar secreto en este momento"
-            )
-
-    # ? ------------------------------------------------------------------------
+    set_service.verification_play_stolen_set(
+        set_type, target_player, target_secret)
 
     if target_secret is not None:
         if match_set.type in [SetType.HERCULE_POIROT, SetType.MISS_MARPLE]:
+            # Se revela el secreto seleccionado
             target_secret = secret_service.update_secret(
                 Secret_action.REVEAL, target_secret, target_player
             )
@@ -1007,6 +1000,8 @@ async def play_set_stolen(
                 target_secret)
 
             try:
+                # Se verifica si el acecino fue revelado o todos los inocentes
+                # están en desgracia social
                 res = secret_service.is_murderer_revealed(match_id)
                 if res:
                     await handle_match_ended(
@@ -1020,23 +1015,26 @@ async def play_set_stolen(
                 print(f"Error al verificar condiciones de victoria: {e}")
 
         if match_set.type == SetType.PARKER_PYNE:
+            # Se oculta el secreto seleccionado
             target_secret = secret_service.update_secret(
                 Secret_action.HIDE, target_secret, target_player
             )
             match_secret_out = db_match_secret_2_match_secret_schema(
                 target_secret)
 
+        # Mensaje WS del secreto revelado/ocultado
         payload = match_secret_out.model_dump(mode="json")
         ws_msj = make_ws_message(WSEvent.SECRET, payload)
         await manager.specificBroadcast(ws_msj, match_id)
     else:
+        # Mensaje WS de que el jugador seleccionado debe revelar un secreto propio
         payload = {"target_player_id": [target_player]}
         ws_msj = make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload)
         await manager.specificBroadcast(ws_msj, match_id)
 
     match_set_out = db_match_set_2_match_set_schema(match_set)
 
-    # Logs
+    # Log de que el jugador jugo el set robado
     try:
         player = PlayerServices(db).get_player(match_set_out.player_id)
 

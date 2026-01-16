@@ -16,7 +16,7 @@ from app.secrets.models import Match_Secret
 from app.sets.models import Match_Set
 from app.ws_events.models import WsEvent
 
-from app.matches.exceptions import MatchNotFound, MatchValidationError, OwnerNotFound, PlayersInMatchNotFound
+from app.matches.exceptions import MatchNotFound, MatchValidationError, OwnerNotFound, PlayersInMatchNotFound, MatchInvalidAction
 
 
 class MatchService:
@@ -208,7 +208,7 @@ class MatchService:
         )
         return result
 
-    def get_match_by_id(self, match_id: UUID) -> Match | None:
+    def get_match_by_id(self, match_id: UUID) -> Match:
         """Get a match by its ID."""
         match: Match = self._db.query(Match).filter(
             Match.id == match_id).first()
@@ -301,3 +301,16 @@ class MatchService:
         except SQLAlchemyError as exception:
             self._db.rollback()
             raise exception
+
+    def is_timeout(self, match_id: UUID) -> bool:
+
+        time_now = datetime.now(timezone.utc)
+        match = self.get_match_by_id(match_id)
+        if not match.timer_turn:
+            raise MatchInvalidAction("El timer de la partida no está activo.")
+
+        time_diff = (time_now - match.timer_turn).total_seconds()
+        if time_diff <= 60:
+            return False
+
+        return True
