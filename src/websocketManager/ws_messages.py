@@ -1,7 +1,7 @@
 import json
 from datetime import date, datetime
 from enum import Enum
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from uuid import UUID
 
 
@@ -34,10 +34,11 @@ def custom_encoder(o):
         return str(o)
     if isinstance(o, (date, datetime)):
         return o.isoformat()
-    raise TypeError(f"Object of type {o.__class__.__name__} is not JSON serializable")
+    raise TypeError(
+        f"Object of type {o.__class__.__name__} is not JSON serializable")
 
 
-def make_ws_message(event: WSEvent, payload: Dict[str, Any] | int | str) -> str:
+def make_ws_message(event: WSEvent, payload: Dict[str, Any] | int | str, match_id: Optional[UUID] = None) -> str:
     """Make ws message.
 
     Args:
@@ -46,5 +47,10 @@ def make_ws_message(event: WSEvent, payload: Dict[str, Any] | int | str) -> str:
 
     Returns:
         Return value."""
+
+    event_to_send = event
+    if not match_id is None:
+        event_to_send = f"{match_id}/{event_to_send}"
+
     message = {"event": event, "payload": payload}
     return json.dumps(message, default=custom_encoder)
