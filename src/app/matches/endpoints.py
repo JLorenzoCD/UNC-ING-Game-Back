@@ -65,7 +65,6 @@ from websocketManager.ws_routes import manager
 
 # Exceptions
 from app.matches.exceptions import PlayersIsInOnGoingMatch
-from app.sets.exceptions import InvalidCardError, TargetSecretError
 from app.cards.exceptions import CardInvalidAction
 
 # ------------------------------------------------------------------------------
@@ -149,7 +148,7 @@ async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
         "birthday": info_player.birthday,
     }
     await manager.specificBroadcast(
-        make_ws_message(WSEvent.PLAYER_JOIN, payload), match_id
+        make_ws_message(WSEvent.PLAYER_JOIN, payload, match_id), match_id
     )
 
     # Mensaje por WS para actualizar el contador de jugadores en la lista de partidas
@@ -195,7 +194,7 @@ async def quit_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
         "birthday": info_player.birthday,
     }
     await manager.specificBroadcast(
-        make_ws_message(WSEvent.PLAYER_QUIT, payload), match_id
+        make_ws_message(WSEvent.PLAYER_QUIT, payload, match_id), match_id
     )
 
     # Mensaje por WS para actualizar el contador de jugadores en la lista de partidas
@@ -229,6 +228,9 @@ async def cancel_match(match_id: UUID, owner_id: UUID, db=Depends(get_db)):
     cancelled_match.status = MatchStatus.COMPLETED
     payload = cancelled_match.model_dump(mode="json")
     await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, payload))
+    await manager.specificBroadcast(
+        make_ws_message(WSEvent.MATCH, payload, match_id), match_id
+    )
 
     return {
         "status": "Match cancelled and deleted successfully",
@@ -246,7 +248,7 @@ async def start_match(match_id: UUID, db=Depends(get_db)):
     payload = match.model_dump(mode="json")
     await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, payload))
     await manager.specificBroadcast(
-        make_ws_message(WSEvent.MATCH, payload), match_id
+        make_ws_message(WSEvent.MATCH, payload, match_id), match_id
     )
 
     # Log que para saber de quien es el turno actual
@@ -371,7 +373,7 @@ async def discard_card(
             for card in results
         ]
         await manager.specificBroadcast(
-            make_ws_message(WSEvent.CARDS, payload), match_id
+            make_ws_message(WSEvent.CARDS, payload, match_id), match_id
         )
 
     except Exception:
@@ -455,7 +457,7 @@ async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_d
         ]
 
         await manager.specificBroadcast(
-            make_ws_message(WSEvent.CARDS, payload), match_id
+            make_ws_message(WSEvent.CARDS, payload, match_id), match_id
         )
 
     except Exception as e:
@@ -494,7 +496,7 @@ async def pass_turn(match_id: UUID, db=Depends(get_db)):
     match_dict = db_match_2_match_schema(match).model_dump(mode="json")
     if current_player_id:
         match_dict["current_player_id"] = str(current_player_id)
-    msg = make_ws_message(WSEvent.TURN, match_dict)
+    msg = make_ws_message(WSEvent.TURN, match_dict, match_id)
     try:
         await manager.specificBroadcast(msg, match_id)
     except Exception as ws_err:
@@ -579,7 +581,7 @@ async def time_out(
         for card in results
     ]
     await manager.specificBroadcast(
-        make_ws_message(WSEvent.CARDS, payload), match_id
+        make_ws_message(WSEvent.CARDS, payload, match_id), match_id
     )
 
     # Verificar si se terminaron las cartas de mano
@@ -606,7 +608,7 @@ async def time_out(
     if current_player_id:
         match_dict["current_player_id"] = str(current_player_id)
     try:
-        msg = make_ws_message(WSEvent.TURN, match_dict)
+        msg = make_ws_message(WSEvent.TURN, match_dict, match_id)
         await manager.specificBroadcast(msg, match_id)
     except Exception as ws_err:
         print(f"[WS] pass_turn broadcast error: {ws_err}")
@@ -673,7 +675,7 @@ async def play_set(
         payload = match_set_out.model_dump(mode="json")
         payload.update(
             {"deleted_cards": [str(uuid) for uuid in match_card_ids]})
-        ws_msj = make_ws_message(WSEvent.SET, payload)
+        ws_msj = make_ws_message(WSEvent.SET, payload, match_id)
         await manager.specificBroadcast(ws_msj, match_id)
 
     if setIn.type == SetType.TWO_BERESFORD:
@@ -697,6 +699,7 @@ async def play_set(
             make_ws_message(
                 WSEvent.PLAYER_SECRET_REVEAL,
                 {"target_player_id": [payload["target_player_id"]]},
+                match_id,
             ),
             match_id,
         )
@@ -731,7 +734,7 @@ async def play_set(
         }
         await manager.specificBroadcast(
             make_ws_message(
-                WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
+                WSEvent.CANCELLATION_WINDOW_OPEN, payload, match_id), match_id
         )
     else:
         # Se crea el set y el evento
@@ -753,7 +756,7 @@ async def play_set(
         }
         await manager.specificBroadcast(
             make_ws_message(
-                WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
+                WSEvent.CANCELLATION_WINDOW_OPEN, payload, match_id), match_id
         )
 
     # Logs sel set jugado y si se puede o no cancelar con una NSF
@@ -821,7 +824,7 @@ async def put_down_a_detective(
         # Mensaje WS de las cartas eliminadas
         payload.update(
             {"deleted_cards": [str(uuid) for uuid in match_card_ids]})
-        ws_msj = make_ws_message(WSEvent.SET, payload)
+        ws_msj = make_ws_message(WSEvent.SET, payload, match_id)
         await manager.specificBroadcast(ws_msj, match_id)
 
     set_type = match_set.type
@@ -865,7 +868,7 @@ async def put_down_a_detective(
         }
         await manager.specificBroadcast(
             make_ws_message(
-                WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
+                WSEvent.CANCELLATION_WINDOW_OPEN, payload, match_id), match_id
         )
     elif match_set.type == SetType.TWO_BERESFORD:
         # Se crea el evento del set TWO_BERESFORD y se resuelve, ya que no puede
@@ -888,6 +891,7 @@ async def put_down_a_detective(
             make_ws_message(
                 WSEvent.PLAYER_SECRET_REVEAL,
                 {"target_player_id": [payload["target_player_id"]]},
+                match_id,
             ),
             match_id,
         )
@@ -917,7 +921,7 @@ async def put_down_a_detective(
         }
         await manager.specificBroadcast(
             make_ws_message(
-                WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
+                WSEvent.CANCELLATION_WINDOW_OPEN, payload, match_id), match_id
         )
     else:
         # Se crea el evento de set y se da tiempo para jugar una NSF
@@ -943,7 +947,7 @@ async def put_down_a_detective(
         }
         await manager.specificBroadcast(
             make_ws_message(
-                WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
+                WSEvent.CANCELLATION_WINDOW_OPEN, payload, match_id), match_id
         )
 
     # Log de que se bajo un detective y si se puede o no cancelar con una carta NSF
@@ -1024,12 +1028,13 @@ async def play_set_stolen(
 
         # Mensaje WS del secreto revelado/ocultado
         payload = match_secret_out.model_dump(mode="json")
-        ws_msj = make_ws_message(WSEvent.SECRET, payload)
+        ws_msj = make_ws_message(WSEvent.SECRET, payload, match_id)
         await manager.specificBroadcast(ws_msj, match_id)
     else:
         # Mensaje WS de que el jugador seleccionado debe revelar un secreto propio
         payload = {"target_player_id": [target_player]}
-        ws_msj = make_ws_message(WSEvent.PLAYER_SECRET_REVEAL, payload)
+        ws_msj = make_ws_message(
+            WSEvent.PLAYER_SECRET_REVEAL, payload, match_id)
         await manager.specificBroadcast(ws_msj, match_id)
 
     match_set_out = db_match_set_2_match_set_schema(match_set)
@@ -1101,7 +1106,7 @@ async def play_event(
         ).model_dump(mode="json")
         payload["discarded_card_event"] = discarded_card_event
         await manager.specificBroadcast(
-            make_ws_message(WSEvent.CARD_EVENT, payload), match_id
+            make_ws_message(WSEvent.CARD_EVENT, payload, match_id), match_id
         )
 
         # Log de la carta de evento jugada y no puede ser cancelada con un NSF
@@ -1143,7 +1148,9 @@ async def play_event(
         }
         await manager.specificBroadcast(
             make_ws_message(
-                WSEvent.CANCELLATION_WINDOW_OPEN, payload), match_id
+                WSEvent.CANCELLATION_WINDOW_OPEN, payload, match_id
+            ),
+            match_id,
         )
 
         # Log de la carta de evento jugada y que puede ser cancelada con un NSF
@@ -1198,7 +1205,7 @@ async def play_card_trade(
         # y se envía la info por WS
         payload = event_service.resolve_event(event_update)
         await manager.specificBroadcast(
-            make_ws_message(WSEvent.CARD_EVENT, payload), match_id
+            make_ws_message(WSEvent.CARD_EVENT, payload, match_id), match_id
         )
 
         # Se revisa si se intercambio alguna carta devious, si es asi, el jugador
@@ -1208,8 +1215,11 @@ async def play_card_trade(
         if len(devious_card_targets_players) >= 1:
             await manager.specificBroadcast(
                 make_ws_message(
-                    WSEvent.PLAYER_SECRET_REVEAL, {
-                        "target_player_id": devious_card_targets_players}
+                    WSEvent.PLAYER_SECRET_REVEAL,
+                    {
+                        "target_player_id": devious_card_targets_players
+                    },
+                    match_id
                 ),
                 match_id,
             )
@@ -1262,7 +1272,7 @@ async def play_dead_card_folly(
         # y se envía la info por WS
         payload = event_service.resolve_event(event_update)
         await manager.specificBroadcast(
-            make_ws_message(WSEvent.CARD_EVENT, payload), match_id
+            make_ws_message(WSEvent.CARD_EVENT, payload, match_id), match_id
         )
 
         # Se revisa si se intercambio alguna carta devious, si es asi, el jugador
@@ -1272,8 +1282,11 @@ async def play_dead_card_folly(
         if len(devious_card_targets_players) >= 1:
             await manager.specificBroadcast(
                 make_ws_message(
-                    WSEvent.PLAYER_SECRET_REVEAL, {
-                        "target_player_id": devious_card_targets_players}
+                    WSEvent.PLAYER_SECRET_REVEAL,
+                    {
+                        "target_player_id": devious_card_targets_players
+                    },
+                    match_id,
                 ),
                 match_id,
             )
@@ -1328,6 +1341,7 @@ async def play_point_your_suspicions(
             make_ws_message(
                 WSEvent.PLAYER_SECRET_REVEAL,
                 {"target_player_id": [payload["target_player_id"]]},
+                match_id
             ),
             match_id
         )
@@ -1391,8 +1405,11 @@ async def play_not_so_fast(
         "discarded_card": discarded_card_event.model_dump(mode="json"),
     }
     await manager.specificBroadcast(
-        make_ws_message(WSEvent.CANCELLATION_WINDOW_OPEN,
-                        payload), match_id
+        make_ws_message(
+            WSEvent.CANCELLATION_WINDOW_OPEN,
+            payload,
+            match_id,
+        ), match_id
     )
 
     return {"status": "ok", "message": "Cancelaste la accion"}
@@ -1424,7 +1441,7 @@ async def update_secret_in_match(
 
     # Mensaje WS donde se envía el secreto actualizado
     payload = match_secret_out.model_dump(mode="json")
-    msj_ws = make_ws_message(WSEvent.SECRET, payload)
+    msj_ws = make_ws_message(WSEvent.SECRET, payload, match_id)
     await manager.specificBroadcast(msj_ws, match_id)
 
     if (

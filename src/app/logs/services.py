@@ -90,5 +90,5 @@ class LogServices:
             new_log).model_dump(mode="json")
 
         await manager.specificBroadcast(
-            make_ws_message(WSEvent.LOG, log_out), match_id
+            make_ws_message(WSEvent.LOG, log_out, match_id), match_id
         )

@@ -73,7 +73,7 @@ async def event_resolver_loop():
                                 }
                             await manager.specificBroadcast(
                                 make_ws_message(
-                                    WSEvent.PENDING_TARGET_RESPONSE, payload
+                                    WSEvent.PENDING_TARGET_RESPONSE, payload, event.match_id
                                 ),
                                 event.match_id,
                             )
@@ -87,7 +87,7 @@ async def event_resolver_loop():
                                 ]:
                                     await manager.specificBroadcast(
                                         make_ws_message(
-                                            WSEvent.CARD_EVENT, result_payload
+                                            WSEvent.CARD_EVENT, result_payload, event.match_id
                                         ),
                                         event.match_id,
                                     )
@@ -112,7 +112,8 @@ async def event_resolver_loop():
                                 ):
                                     await manager.specificBroadcast(
                                         make_ws_message(
-                                            WSEvent.SECRET, result_payload),
+                                            WSEvent.SECRET, result_payload, event.match_id
+                                        ),
                                         event.match_id,
                                     )
                                     try:
@@ -151,7 +152,7 @@ async def event_resolver_loop():
                                 ):
                                     data_set = result_payload["data_set"]
                                     data_set_payload = make_ws_message(
-                                        WSEvent.SET, data_set
+                                        WSEvent.SET, data_set, event.match_id
                                     )
                                     await manager.specificBroadcast(
                                         data_set_payload, event.match_id
@@ -161,7 +162,8 @@ async def event_resolver_loop():
                                     await manager.specificBroadcast(
                                         make_ws_message(
                                             WSEvent.PLAYER_SECRET_REVEAL, {
-                                                "target_player_id": [data_accion["target_player_id"]]}
+                                                "target_player_id": [data_accion["target_player_id"]]},
+                                            event.match_id
                                         ),
                                         event.match_id,
                                     )
@@ -169,7 +171,8 @@ async def event_resolver_loop():
                                     await manager.specificBroadcast(
                                         make_ws_message(
                                             WSEvent.PLAYER_SECRET_REVEAL, {
-                                                "target_player_id": [result_payload["target_player_id"]]}
+                                                "target_player_id": [result_payload["target_player_id"]]},
+                                            event.match_id
                                         ),
                                         event.match_id,
                                     )
@@ -193,7 +196,8 @@ async def event_resolver_loop():
                             "message": "Error in the execution of event",
                         }
                         await manager.specificBroadcast(
-                            make_ws_message(WSEvent.EVENT_CANCELLED, payload),
+                            make_ws_message(
+                                WSEvent.EVENT_CANCELLED, payload,  event.match_id),
                             event.match_id,
                         )
                 else:
@@ -230,7 +234,8 @@ async def event_resolver_loop():
                         }
 
                     await manager.specificBroadcast(
-                        make_ws_message(WSEvent.EVENT_CANCELLED, payload),
+                        make_ws_message(WSEvent.EVENT_CANCELLED,
+                                        payload,  event.match_id),
                         event.match_id,
                     )
 
