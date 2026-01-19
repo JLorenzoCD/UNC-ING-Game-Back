@@ -529,7 +529,7 @@ async def time_out(
     pile_service = PileServices(db)
 
     # Se valida que se este en timeout
-    is_timeout = match_service.is_timeout()
+    is_timeout = match_service.is_timeout(match_id)
     if not is_timeout:
         return None
 

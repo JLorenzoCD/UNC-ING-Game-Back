@@ -48,9 +48,9 @@ def make_ws_message(event: WSEvent, payload: Dict[str, Any] | int | str, match_i
     Returns:
         Return value."""
 
-    event_to_send = event
+    event_to_send = event.value
     if not match_id is None:
         event_to_send = f"{match_id}/{event_to_send}"
 
-    message = {"event": event, "payload": payload}
+    message = {"event": event_to_send, "payload": payload}
     return json.dumps(message, default=custom_encoder)
