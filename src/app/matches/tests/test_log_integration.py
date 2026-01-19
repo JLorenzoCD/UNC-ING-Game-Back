@@ -292,7 +292,7 @@ class TestLogIntegration:
             match_id, message, event_type, player_id)
         log_out = log_service.get_log_by_id(log_id)
         ws_message_str = make_ws_message(
-            WSEvent.LOG, log_out.model_dump(mode="json"))
+            WSEvent.LOG, log_out.model_dump(mode="json"), match_id)
         assert isinstance(ws_message_str, str)
         assert '"event": "new_log"' in ws_message_str
         assert '"payload":' in ws_message_str
