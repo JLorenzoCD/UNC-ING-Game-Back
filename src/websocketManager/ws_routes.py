@@ -102,7 +102,7 @@ class ConnectionManager:
             last_event = WsEventsService(
                 db).get_last_match_event_no_log(match_id)
 
-            if last_event:
+            if last_event is not None:
                 await self.safe_send_message(last_event.message, ws)
 
         except Exception as e:
@@ -151,15 +151,18 @@ class ConnectionManager:
         # Se elimina el match actual del diccionario de matches
         self.matches.pop(match_id, None)
 
-    async def specificBroadcast(self, message: str, match_id: UUID):
+    async def specificBroadcast(self, message: str, match_id: UUID, is_in_lobby: Optional[bool] = False):
 
-        setws = self.matches.get(match_id, set())
+        setws = set()
+        if match_id in self.matches:
+            setws = self.matches[match_id]
 
-        db = self._get_db_session()
-        try:
-            WsEventsService(db).create_event(match_id, message)
-        finally:
-            db.close()
+        if not is_in_lobby:
+            try:
+                db = self._get_db_session()
+                WsEventsService(db).create_event(match_id, message)
+            finally:
+                db.close()
 
         for ws in list(setws):
             await self.safe_send_message(message, ws)

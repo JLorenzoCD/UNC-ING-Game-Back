@@ -64,7 +64,6 @@ from websocketManager.ws_messages import WSEvent
 from websocketManager.ws_routes import manager
 
 # Exceptions
-from app.matches.exceptions import PlayersIsInOnGoingMatch
 from app.cards.exceptions import CardInvalidAction
 
 # ------------------------------------------------------------------------------
@@ -102,13 +101,6 @@ async def create_match(match_in: MatchIn, db=Depends(get_db)) -> MatchResponse:
 
     match_service = MatchService(db)
 
-    # Si el jugador ya esta en una partida, se levanta un error y se lo impide
-    if (
-        len(match_service.get_ongoing_matches_of_player(match_in.owner_id))
-        > 0
-    ):
-        raise PlayersIsInOnGoingMatch()
-
     new_match = match_service.create(
         match_in.to_dto()
     )
@@ -129,10 +121,6 @@ async def create_match(match_in: MatchIn, db=Depends(get_db)) -> MatchResponse:
 async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
 
     match_service = MatchService(db)
-
-    # Si el jugador ya esta en una partida, se le impide entrar a otra
-    if len(match_service.get_ongoing_matches_of_player(player_id)) > 0:
-        raise PlayersIsInOnGoingMatch()
 
     # Añadir al jugador a la partida en la db y al WS broadcast de la partida
     MatchLifecycleServices(db).join(match_id, player_id)
@@ -221,7 +209,7 @@ async def cancel_match(match_id: UUID, owner_id: UUID, db=Depends(get_db)):
     payload = cancelled_match.model_dump(mode="json")
     await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, payload))
     await manager.specificBroadcast(
-        make_ws_message(WSEvent.MATCH, payload, match_id), match_id
+        make_ws_message(WSEvent.MATCH, payload, match_id), match_id, True
     )
 
     return {
