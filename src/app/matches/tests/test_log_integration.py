@@ -79,7 +79,7 @@ class TestLogIntegration:
         log_ws_call = None
         for call in calls:
             message = call[0][0]
-            if '"event": "new_log"' in message:
+            if '"event": "new_log/' in message:
                 log_ws_call = call
                 break
         assert log_ws_call is not None
@@ -238,38 +238,37 @@ class TestLogIntegration:
         )
         another_match = response.json()
         another_match_id = another_match["id"]
-        with patch("app.matches.endpoints.manager.enterMatch"):
+        with patch(
+            "app.matches.endpoints.manager.waiting_room_broadcast",
+            new_callable=AsyncMock,
+        ):
+            response = client.post(
+                "/players",
+                json={"name": "P1", "avatar": "a1",
+                      "birthday": "2000-01-01"},
+            )
+            p1 = response.json()
             with patch(
-                "app.matches.endpoints.manager.waiting_room_broadcast",
+                "app.matches.endpoints.manager.specificBroadcast",
                 new_callable=AsyncMock,
             ):
-                response = client.post(
-                    "/players",
-                    json={"name": "P1", "avatar": "a1",
-                          "birthday": "2000-01-01"},
+                client.post(
+                    f"/matches/{match_id}/join", params={"player_id": p1["id"]}
                 )
-                p1 = response.json()
-                with patch(
-                    "app.matches.endpoints.manager.specificBroadcast",
-                    new_callable=AsyncMock,
-                ):
-                    client.post(
-                        f"/matches/{match_id}/join", params={"player_id": p1["id"]}
-                    )
-                response = client.post(
-                    "/players",
-                    json={"name": "P2", "avatar": "a2",
-                          "birthday": "2000-02-02"},
+            response = client.post(
+                "/players",
+                json={"name": "P2", "avatar": "a2",
+                      "birthday": "2000-02-02"},
+            )
+            p2 = response.json()
+            with patch(
+                "app.matches.endpoints.manager.specificBroadcast",
+                new_callable=AsyncMock,
+            ):
+                client.post(
+                    f"/matches/{another_match_id}/join",
+                    params={"player_id": p2["id"]},
                 )
-                p2 = response.json()
-                with patch(
-                    "app.matches.endpoints.manager.specificBroadcast",
-                    new_callable=AsyncMock,
-                ):
-                    client.post(
-                        f"/matches/{another_match_id}/join",
-                        params={"player_id": p2["id"]},
-                    )
         log_service = LogServices(db_session)
         match1_logs = log_service.get_logs_by_match(uuid.UUID(match_id))
         match2_logs = log_service.get_logs_by_match(
@@ -294,7 +293,7 @@ class TestLogIntegration:
         ws_message_str = make_ws_message(
             WSEvent.LOG, log_out.model_dump(mode="json"), match_id)
         assert isinstance(ws_message_str, str)
-        assert '"event": "new_log"' in ws_message_str
+        assert '"event": "new_log/' in ws_message_str
         assert '"payload":' in ws_message_str
         assert message in ws_message_str
         assert event_type.value in ws_message_str

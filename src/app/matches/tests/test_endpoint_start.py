@@ -1,5 +1,5 @@
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -22,7 +22,7 @@ def test_endpoint_start_match(client, db_session, num_players):
     with patch("app.matches.endpoints.manager") as mock_manager:
         mock_manager.specificBroadcast = AsyncMock()
         mock_manager.waiting_room_broadcast = AsyncMock()
-        mock_manager.enterMatch = MagicMock()
+        mock_manager.enterMatch = AsyncMock()
         birthdates = [
             "2000-09-10",
             "2000-09-20",
@@ -198,6 +198,7 @@ def test_endpoint_start_match(client, db_session, num_players):
         if response_start.status_code != 200:
             print(f"Error details: {response_start.json()}")
         assert response_start.status_code == 200
-        match_db = db_session.query(Match).filter(Match.id == match_uuid).first()
+        match_db = db_session.query(Match).filter(
+            Match.id == match_uuid).first()
         assert match_db is not None
         assert match_db.status == MatchStatus.IN_PROGRESS

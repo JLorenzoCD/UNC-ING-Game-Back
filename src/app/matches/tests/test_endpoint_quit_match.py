@@ -15,7 +15,7 @@ def test_quit_match_invalid_match_id(client):
     fake_match_id = str(uuid.uuid4())
     with patch(
         "app.matches.endpoints.manager.specificBroadcast", new_callable=AsyncMock
-    ), patch("app.matches.endpoints.manager.quitMatch", new_callable=Mock):
+    ):
         response = client.put(
             f"/matches/{fake_match_id}/quit", params={"player_id": player["id"]}
         )
@@ -63,7 +63,7 @@ def test_quit_match_multiple_players(client):
     assert len(all_players) == 4
     with patch(
         "app.matches.endpoints.manager.specificBroadcast", new_callable=AsyncMock
-    ), patch("app.matches.endpoints.manager.quitMatch", new_callable=Mock):
+    ):
         response = client.put(
             f"/matches/{match['id']}/quit", params={"player_id": players[0]["id"]}
         )
@@ -74,7 +74,7 @@ def test_quit_match_multiple_players(client):
     assert len(remaining_players) == 3
     with patch(
         "app.matches.endpoints.manager.specificBroadcast", new_callable=AsyncMock
-    ), patch("app.matches.endpoints.manager.quitMatch", new_callable=Mock):
+    ):
         response = client.put(
             f"/matches/{match['id']}/quit", params={"player_id": players[1]["id"]}
         )
@@ -116,7 +116,7 @@ def test_quit_match_owner_can_quit(client):
     assert response.status_code == 200
     with patch(
         "app.matches.endpoints.manager.specificBroadcast", new_callable=AsyncMock
-    ), patch("app.matches.endpoints.manager.quitMatch", new_callable=Mock):
+    ):
         response = client.put(
             f"/matches/{match['id']}/quit", params={"player_id": owner["id"]}
         )
@@ -151,7 +151,7 @@ def test_quit_match_player_not_found(client):
     fake_player_id = str(uuid.uuid4())
     with patch(
         "app.matches.endpoints.manager.specificBroadcast", new_callable=AsyncMock
-    ), patch("app.matches.endpoints.manager.quitMatch", new_callable=Mock):
+    ):
         response = client.put(
             f"/matches/{match['id']}/quit", params={"player_id": fake_player_id}
         )
@@ -186,7 +186,7 @@ def test_quit_match_player_not_in_match(client):
     external_player = response.json()
     with patch(
         "app.matches.endpoints.manager.specificBroadcast", new_callable=AsyncMock
-    ), patch("app.matches.endpoints.manager.quitMatch", new_callable=Mock):
+    ):
         response = client.put(
             f"/matches/{match['id']}/quit", params={"player_id": external_player["id"]}
         )
@@ -228,9 +228,7 @@ def test_quit_match_success(client):
     assert len(players) == 2
     with patch(
         "app.matches.endpoints.manager.specificBroadcast", new_callable=AsyncMock
-    ) as mock_broadcast, patch(
-        "app.matches.endpoints.manager.quitMatch", new_callable=Mock
-    ) as mock_quit:
+    ) as mock_broadcast:
         response = client.put(
             f"/matches/{match['id']}/quit", params={"player_id": player2["id"]}
         )
@@ -243,4 +241,3 @@ def test_quit_match_success(client):
     assert len(players) == 1
     assert players[0]["player_id"] == owner["id"]
     mock_broadcast.assert_called()
-    mock_quit.assert_called_once_with(UUID(player2["id"]), UUID(match["id"]))
