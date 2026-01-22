@@ -114,7 +114,6 @@ async def create_match(match_in: MatchIn, db=Depends(get_db)) -> MatchResponse:
     )
 
     # Enviando por WS el nuevo match
-    manager.enterMatch(new_match.owner_id, new_match.id)
     match_dict = new_match.model_dump(mode="json")
     match_dict["current_player_count"] = 1
     ws_message = make_ws_message(WSEvent.MATCH, match_dict)
@@ -137,7 +136,6 @@ async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
 
     # Añadir al jugador a la partida en la db y al WS broadcast de la partida
     MatchLifecycleServices(db).join(match_id, player_id)
-    manager.enterMatch(player_id, match_id)
 
     # Mensaje por WS de que ingreso un jugador
     info_player = PlayerServices(db).get_player(player_id)
@@ -178,12 +176,6 @@ async def quit_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
 
     # Quitando al jugador de la partida en la DB y del WS broadcast de la partida
     MatchLifecycleServices(db).quit_match(match_id, player_id)
-    try:
-        manager.quitMatch(player_id, match_id)
-    except Exception as ws_e:
-        print(
-            f"[WS ERROR] Error removing player {player_id} from websocket match {match_id}: {ws_e}"
-        )
 
     # Mensaje por WS de que un jugador abandono la partida
     info_player = PlayerServices(db).get_player(player_id)
