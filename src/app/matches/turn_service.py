@@ -61,3 +61,23 @@ class TurnServices:
         self._db.refresh(match)
 
         return match
+
+    def set_timeout_turn_by_match_id(self, match_id: UUID):
+        """Set timeout turn for current player."""
+
+        try:
+            match = MatchService(self._db).get_match_by_id(match_id)
+        except Exception:
+            raise MatchNotFound()
+
+        if match.status != MatchStatus.IN_PROGRESS:
+            raise MatchValidationError("The match is not in progress")
+
+        if match.current_player_order is None:
+            raise MatchValidationError("current_player_order Invalid")
+
+        match.timer_turn = datetime.now(timezone.utc)
+        self._db.commit()
+        self._db.refresh(match)
+
+        return match

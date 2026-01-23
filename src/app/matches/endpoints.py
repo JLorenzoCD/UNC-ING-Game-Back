@@ -227,6 +227,8 @@ async def start_match(match_id: UUID, db=Depends(get_db)):
     # Mensaje por WS de que la partida comenzó
     payload = match.model_dump(mode="json")
     await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, payload))
+
+    TurnServices(db).set_timeout_turn_by_match_id(match_id)
     await manager.specificBroadcast(
         make_ws_message(WSEvent.MATCH, payload, match_id), match_id
     )
