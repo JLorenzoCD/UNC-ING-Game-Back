@@ -161,21 +161,22 @@ class MatchService:
 
     def get_all(self) -> List[match_schemas.Match_number_of_Player]:
         """Get all matches with player count."""
+
         try:
             matches = self._db.query(Match).all()
+
             combined = []
             for match in matches:
                 match_out = db_match_2_match_schema(match)
                 player_count = self.count_players_by_match(match.id)
+
                 extended_match = match_schemas.Match_number_of_Player(
                     **match_out.model_dump(), current_player_count=player_count
                 )
                 combined.append(extended_match)
             return combined
-        except SQLAlchemyError:
-            self._db.rollback()
-            raise
         except Exception:
+            self._db.rollback()
             raise
 
     def get_cards_by_match(
@@ -218,30 +219,31 @@ class MatchService:
 
         return match
 
-    def get_ongoing_matches_of_player(self, player_id: UUID) -> List[UUID]:
-        """Get ongoing matches of player.
-
-        Args:
-            player_id: Parameter player_id.
-
-        Returns:
-            Return value."""
+    def get_ongoing_matches_of_player(self, player_id: UUID) -> List[match_schemas.Match_number_of_Player]:
 
         try:
-            match_players = (
-                self._db.query(Match_Player)
-                .join(Match, Match_Player.match_id == Match.id)
+            matches = (
+                self._db.query(Match)
+                .join(Match_Player, Match_Player.match_id == Match.id)
                 .filter(
                     Match_Player.player_id == player_id,
                     Match.status != MatchStatus.COMPLETED,
                 )
                 .all()
             )
-            return [mp.match_id for mp in match_players]
-        except SQLAlchemyError:
-            self._db.rollback()
-            raise
+
+            combined = []
+            for match in matches:
+                match_out = db_match_2_match_schema(match)
+                player_count = self.count_players_by_match(match.id)
+
+                extended_match = match_schemas.Match_number_of_Player(
+                    **match_out.model_dump(), current_player_count=player_count
+                )
+                combined.append(extended_match)
+            return combined
         except Exception:
+            self._db.rollback()
             raise
 
     def get_players_by_match(

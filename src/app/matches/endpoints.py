@@ -113,6 +113,15 @@ async def create_match(match_in: MatchIn, db=Depends(get_db)) -> MatchResponse:
 
     return MatchResponse(id=new_match.id)
 
+
+@router.get(
+    "/player/{player_id}", status_code=status.HTTP_200_OK, response_model=List[Match_number_of_Player]
+)
+async def get_all_ongoing_matches_of_player(player_id: UUID, db=Depends(get_db)) -> List[Match_number_of_Player]:
+
+    match_player = MatchService(db).get_ongoing_matches_of_player(player_id)
+    return match_player
+
 # ------------------------------------------------------------------------------
 # ------------- Unirse, salir, cancelar o iniciar una partida ------------------
 
