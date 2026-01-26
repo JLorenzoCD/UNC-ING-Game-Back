@@ -277,9 +277,9 @@ class MatchService:
 
         return result
 
-    def get_players_from_match(self, match_id: UUID):
+    def get_players_from_match(self, match_id: UUID) -> list[Match_Player]:
         """Get all players from a match."""
-        return (
+        return list(
             self._db.query(Match_Player).filter(
                 Match_Player.match_id == match_id).all()
         )
@@ -287,9 +287,6 @@ class MatchService:
     def get_secrets_by_match(self, match_id: UUID):
         """Get all secrets in a match with detailed information (uses repository)."""
         return self._repository.get_secrets_with_details(match_id)
-
-    def update_match(self) -> Match:
-        """Update match - placeholder method."""
 
     def update_status_match(self, match_id: UUID, new_status: str) -> None:
         """Update the status of a match."""

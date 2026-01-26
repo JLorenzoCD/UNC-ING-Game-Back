@@ -9,6 +9,7 @@ class WSEvent(str, Enum):
     """Class WSEvent."""
 
     MATCH = "match"
+    ONGOING_MATCH = "ongoing_match"
     PLAYER_JOIN = "player_join"
     PLAYER_QUIT = "player_quit"
     TURN = "turn"

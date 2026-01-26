@@ -174,6 +174,14 @@ class ConnectionManager:
         for ws in waiting_room_copy:
             await self.safe_send_message(message, ws)
 
+    async def waiting_room_to_specific_player(self, message: str, players_ids: list[UUID]):
+
+        waiting_room_copy = list(self.waiting_room)
+
+        for ws in waiting_room_copy:
+            if ws.player_id in players_ids:
+                await self.safe_send_message(message, ws)
+
     def debug_connections_state(self):
         """Debug method to print current connections state"""
 

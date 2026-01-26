@@ -108,8 +108,8 @@ async def create_match(match_in: MatchIn, db=Depends(get_db)) -> MatchResponse:
     # Enviando por WS el nuevo match
     match_dict = new_match.model_dump(mode="json")
     match_dict["current_player_count"] = 1
-    ws_message = make_ws_message(WSEvent.MATCH, match_dict)
-    await manager.waiting_room_broadcast(ws_message)
+    await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, match_dict))
+    await manager.waiting_room_to_specific_player(make_ws_message(WSEvent.ONGOING_MATCH, match_dict), [new_match.owner_id])
 
     return MatchResponse(id=new_match.id)
 
@@ -148,12 +148,13 @@ async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
 
     # Mensaje por WS para actualizar el contador de jugadores en la lista de partidas
     match = match_service.get_match_by_id(match_id)
-    players_count = match_service.count_players_by_match(match_id)
+    players_in_match = match_service.get_players_from_match(match_id)
     new_match = db_match_2_match_schema(match)
     match_dict = new_match.model_dump(mode="json")
-    match_dict["current_player_count"] = players_count
-    message_ws = make_ws_message(WSEvent.MATCH, match_dict)
-    await manager.waiting_room_broadcast(message_ws)
+    match_dict["current_player_count"] = len(players_in_match)
+    await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, match_dict))
+    players_ids = [p.player_id for p in players_in_match]
+    await manager.waiting_room_to_specific_player(make_ws_message(WSEvent.ONGOING_MATCH, match_dict), players_ids)
 
     # Log de que un jugador entro al lobby
     try:
@@ -188,12 +189,13 @@ async def quit_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
 
     # Mensaje por WS para actualizar el contador de jugadores en la lista de partidas
     match = match_service.get_match_by_id(match_id)
-    players_count = match_service.count_players_by_match(match_id)
+    players_in_match = match_service.get_players_from_match(match_id)
     new_match = db_match_2_match_schema(match)
     match_dict = new_match.model_dump(mode="json")
-    match_dict["current_player_count"] = players_count
-    message_ws = make_ws_message(WSEvent.MATCH, match_dict)
-    await manager.waiting_room_broadcast(message_ws)
+    match_dict["current_player_count"] = len(players_in_match)
+    await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, match_dict))
+    players_ids = [p.player_id for p in players_in_match]
+    await manager.waiting_room_to_specific_player(make_ws_message(WSEvent.ONGOING_MATCH, match_dict), players_ids)
 
     # Log de que se fue un jugador
     try:
@@ -209,14 +211,20 @@ async def quit_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
 @router.post("/{match_id}/cancel", status_code=status.HTTP_200_OK)
 async def cancel_match(match_id: UUID, owner_id: UUID, db=Depends(get_db)):
 
+    match_service = MatchService(db)
+
     # Eliminando el match de la DB y se elimina el WS broadcast para esa partida
-    cancelled_match = MatchService(db).cancel_match(match_id, owner_id)
+    cancelled_match = match_service.cancel_match(match_id, owner_id)
     manager.close_match(match_id)
 
     # Mensaje por WS de que se cerro la partida
     cancelled_match.status = MatchStatus.COMPLETED
     payload = cancelled_match.model_dump(mode="json")
     await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, payload))
+    players_in_match = match_service.get_players_from_match(match_id)
+    players_ids = [p.player_id for p in players_in_match]
+    await manager.waiting_room_to_specific_player(make_ws_message(WSEvent.ONGOING_MATCH, payload), players_ids)
+
     await manager.specificBroadcast(
         make_ws_message(WSEvent.MATCH, payload, match_id), match_id, True
     )
@@ -236,6 +244,9 @@ async def start_match(match_id: UUID, db=Depends(get_db)):
     # Mensaje por WS de que la partida comenzó
     payload = match.model_dump(mode="json")
     await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, payload))
+    players_in_match = MatchService(db).get_players_from_match(match_id)
+    players_ids = [p.player_id for p in players_in_match]
+    await manager.waiting_room_to_specific_player(make_ws_message(WSEvent.ONGOING_MATCH, payload), players_ids)
 
     TurnServices(db).set_timeout_turn_by_match_id(match_id)
     await manager.specificBroadcast(

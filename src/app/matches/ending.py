@@ -3,7 +3,12 @@ from uuid import UUID
 
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.matches.services import MatchService
 from app.matches.models import Match, MatchStatus
+from app.matches.utils import db_match_2_match_schema
+from app.secrets.services import SecretsServices
+
+from websocketManager.ws_messages import WSEvent, make_ws_message
 
 
 class MatchEndedReason(Enum):
@@ -22,25 +27,27 @@ async def handle_match_ended(db, manager, match_id: UUID, reason: MatchEndedReas
         manager: Parameter manager.
         match_id: Parameter match_id.
         reason: Parameter reason."""
-    from app.matches.services import MatchService
-    from app.secrets.services import SecretsServices
-    from websocketManager.ws_messages import WSEvent, make_ws_message
 
     try:
         match_row = db.query(Match).filter(Match.id == match_id).first()
     except SQLAlchemyError as e:
         raise e
+
     if match_row is None:
         return None
     if match_row.status == MatchStatus.COMPLETED:
         return None
+
     info = SecretsServices(db).get_full_info(match_id)
+
     try:
         MatchService(db).update_status_match(match_id, MatchStatus.COMPLETED)
     except SQLAlchemyError as e:
         raise e
+
     if not info:
         return None
+
     detailstmp = ""
     if reason == MatchEndedReason.MURDERER_REVEALED:
         if info["accomplice_name"]:
@@ -73,6 +80,16 @@ async def handle_match_ended(db, manager, match_id: UUID, reason: MatchEndedReas
             make_ws_message(WSEvent.MATCH_COMPLETED,
                             payload, match_id), match_id
         )
+
+        match_service = MatchService(db)
+        match_out = db_match_2_match_schema(
+            match_service.get_match_by_id(match_id))
+        match_dict = match_out.model_dump(mode="json")
+        await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, match_dict))
+        players_in_match = match_service.get_players_from_match(match_id)
+        players_ids = [p.player_id for p in players_in_match]
+        await manager.waiting_room_to_specific_player(make_ws_message(WSEvent.ONGOING_MATCH, match_dict), players_ids)
+
     except Exception as e:
         print(f"Error al enviar WS: {e}")
     try:
