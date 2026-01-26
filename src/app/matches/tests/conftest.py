@@ -263,6 +263,7 @@ def setup_match_and_players(client, db_session):
     return {
         "match_id": match_id,
         "match_str_id": match["id"],
+        "match": match,
         "owner_id": owner_id,
         "owner_str_id": owner["id"],
         "player2_id": player2_id,

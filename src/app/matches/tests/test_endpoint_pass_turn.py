@@ -13,6 +13,7 @@ def test_pass_turn_invalid_match_id(client, db_session):
     with patch("app.matches.endpoints.manager") as ws:
         ws.specificBroadcast = AsyncMock()
         ws.waiting_room_broadcast = AsyncMock()
+        ws.waiting_room_to_specific_player = AsyncMock()
         ws.enterMatch = AsyncMock()
         fake_match_id = str(uuid.uuid4())
         r = client.put(f"/matches/{fake_match_id}/pass_turn")
@@ -29,6 +30,7 @@ def test_pass_turn_match_not_in_progress(client, db_session):
     with patch("app.matches.endpoints.manager") as ws:
         ws.specificBroadcast = AsyncMock()
         ws.waiting_room_broadcast = AsyncMock()
+        ws.waiting_room_to_specific_player = AsyncMock()
         ws.enterMatch = AsyncMock()
         ctx = setup_match_and_players(client, db_session)
         match_id = ctx["match_str_id"]
@@ -47,6 +49,7 @@ def test_pass_turn_success_increment(client, db_session):
     with patch("app.matches.endpoints.manager") as ws:
         ws.specificBroadcast = AsyncMock()
         ws.waiting_room_broadcast = AsyncMock()
+        ws.waiting_room_to_specific_player = AsyncMock()
         ws.enterMatch = AsyncMock()
         ctx = setup_match_and_players(client, db_session)
         match_id = ctx["match_str_id"]

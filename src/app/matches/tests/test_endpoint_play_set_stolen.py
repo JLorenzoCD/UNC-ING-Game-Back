@@ -13,7 +13,8 @@ def create_existing_set(
     db_session, set_type: SetType, match_id: UUID, player_id: UUID
 ) -> UUID:
     """Helper para crear un Match_Set ya existente en la BBDD."""
-    match_set = Match_Set(type=set_type, match_id=match_id, player_id=player_id)
+    match_set = Match_Set(
+        type=set_type, match_id=match_id, player_id=player_id)
     db_session.add(match_set)
     db_session.commit()
     db_session.refresh(match_set)
@@ -48,10 +49,12 @@ def test_play_set_stolen_invalid_set(db_session, client):
     with patch("app.matches.endpoints.manager") as mock_manager:
         mock_manager.specificBroadcast = AsyncMock()
         mock_manager.waiting_room_broadcast = AsyncMock()
+        mock_manager.waiting_room_to_specific_player = AsyncMock()
         setup_data = setup_match_and_players(client, db_session)
         match_str_id = setup_data["match_str_id"]
         player2_id = setup_data["player2_id"]
-        payload = {"target_player_id": str(player2_id), "target_secret_id": None}
+        payload = {"target_player_id": str(
+            player2_id), "target_secret_id": None}
         response = client.put(
             f"/matches/{match_str_id}/sets/{uuid4()}/stolen",
             json=jsonable_encoder(payload),
@@ -84,15 +87,18 @@ def test_play_set_stolen_success(
     with patch("app.matches.endpoints.manager") as mock_manager:
         mock_manager.specificBroadcast = AsyncMock()
         mock_manager.waiting_room_broadcast = AsyncMock()
+        mock_manager.waiting_room_to_specific_player = AsyncMock()
         setup_data = setup_match_and_players(client, db_session)
         match_id = setup_data["match_id"]
         match_str_id = setup_data["match_str_id"]
         owner_id = setup_data["owner_id"]
         player2_id = setup_data["player2_id"]
-        set_id = create_existing_set(db_session, set_type_to_rob, match_id, owner_id)
+        set_id = create_existing_set(
+            db_session, set_type_to_rob, match_id, owner_id)
         str_set_id = str(set_id)
         secret_base = (
-            db_session.query(Secret).filter(Secret.type == Secret_Type.INNOCENT).first()
+            db_session.query(Secret).filter(
+                Secret.type == Secret_Type.INNOCENT).first()
         )
         secret_ids_target = create_match_secrets(
             db_session,

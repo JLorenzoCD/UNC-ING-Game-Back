@@ -5,6 +5,51 @@ from app.matches.models import MatchStatus
 from app.matches.tests.conftest import setup_match_and_players
 
 
+class FakeDummyManager:
+    """Class FakeDummyManager."""
+
+    def __init__(self):
+        """init  ."""
+        self.broadcast_called = False
+        self.waiting_room_broadcast_called = False
+        self.waiting_room_to_specific_player_called = False
+        self.closed = False
+
+    def close_match(self, match_id):
+        """Close match.
+
+        Args:
+            match_id: Parameter match_id."""
+        self.closed = True
+
+    async def specificBroadcast(self, msg, match_id):
+        """Specificbroadcast.
+
+        Args:
+            msg: Parameter msg.
+            match_id: Parameter match_id."""
+        self.broadcast_called = True
+        return None
+
+    async def waiting_room_broadcast(self, msg):
+        """Specificbroadcast.
+
+        Args:
+            msg: Parameter msg.
+            match_id: Parameter match_id."""
+        self.waiting_room_broadcast_called = True
+        return None
+
+    async def waiting_room_to_specific_player(self, msg, player_id):
+        """Specificbroadcast.
+
+        Args:
+            msg: Parameter msg.
+            match_id: Parameter match_id."""
+        self.waiting_room_to_specific_player_called = True
+        return None
+
+
 @pytest.mark.asyncio
 async def test_handle_match_ended_basic(db_session, client):
     """Test handle match ended basic.
@@ -16,30 +61,6 @@ async def test_handle_match_ended_basic(db_session, client):
     match_id = setup["match_id"]
     match_str_id = setup["match_str_id"]
     client.post(f"/matches/{match_str_id}/start")
-
-    class FakeDummyManager:
-        """Class FakeDummyManager."""
-
-        def __init__(self):
-            """init  ."""
-            self.broadcast_called = False
-            self.closed = False
-
-        def close_match(self, match_id):
-            """Close match.
-
-            Args:
-                match_id: Parameter match_id."""
-            self.closed = True
-
-        async def specificBroadcast(self, msg, match_id):
-            """Specificbroadcast.
-
-            Args:
-                msg: Parameter msg.
-                match_id: Parameter match_id."""
-            self.broadcast_called = True
-            return None
 
     manager = FakeDummyManager()
     payload = await handle_match_ended(
@@ -69,30 +90,6 @@ async def test_handle_match_ended_deck_finished(db_session, client):
     match_str_id = setup["match_str_id"]
     client.post(f"/matches/{match_str_id}/start")
 
-    class FakeDummyManager:
-        """Class FakeDummyManager."""
-
-        def __init__(self):
-            """init  ."""
-            self.broadcast_called = False
-            self.closed = False
-
-        def close_match(self, match_id):
-            """Close match.
-
-            Args:
-                match_id: Parameter match_id."""
-            self.closed = True
-
-        async def specificBroadcast(self, msg, match_id):
-            """Specificbroadcast.
-
-            Args:
-                msg: Parameter msg.
-                match_id: Parameter match_id."""
-            self.broadcast_called = True
-            return None
-
     manager = FakeDummyManager()
     payload = await handle_match_ended(
         db_session, manager, match_id, MatchEndedReason.DECK_FINISHED
@@ -120,30 +117,6 @@ async def test_handle_match_ended_social_disgrace(db_session, client):
     match_id = setup["match_id"]
     match_str_id = setup["match_str_id"]
     client.post(f"/matches/{match_str_id}/start")
-
-    class FakeDummyManager:
-        """Class FakeDummyManager."""
-
-        def __init__(self):
-            """init  ."""
-            self.broadcast_called = False
-            self.closed = False
-
-        def close_match(self, match_id):
-            """Close match.
-
-            Args:
-                match_id: Parameter match_id."""
-            self.closed = True
-
-        async def specificBroadcast(self, msg, match_id):
-            """Specificbroadcast.
-
-            Args:
-                msg: Parameter msg.
-                match_id: Parameter match_id."""
-            self.broadcast_called = True
-            return None
 
     manager = FakeDummyManager()
     payload = await handle_match_ended(

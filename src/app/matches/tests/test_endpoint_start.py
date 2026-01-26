@@ -22,6 +22,7 @@ def test_endpoint_start_match(client, db_session, num_players):
     with patch("app.matches.endpoints.manager") as mock_manager:
         mock_manager.specificBroadcast = AsyncMock()
         mock_manager.waiting_room_broadcast = AsyncMock()
+        mock_manager.waiting_room_to_specific_player = AsyncMock()
         mock_manager.enterMatch = AsyncMock()
         birthdates = [
             "2000-09-10",

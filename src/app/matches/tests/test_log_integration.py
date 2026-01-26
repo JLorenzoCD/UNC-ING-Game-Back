@@ -93,6 +93,9 @@ class TestLogIntegration:
         with patch(
             "app.matches.endpoints.manager.waiting_room_broadcast",
             new_callable=AsyncMock,
+        ), patch(
+            "app.matches.endpoints.manager.waiting_room_to_specific_player",
+            new_callable=AsyncMock,
         ):
             with patch(
                 "app.matches.endpoints.manager.specificBroadcast",
@@ -136,6 +139,9 @@ class TestLogIntegration:
         match_id = setup_data["match_str_id"]
         with patch(
             "app.matches.endpoints.manager.waiting_room_broadcast",
+            new_callable=AsyncMock,
+        ), patch(
+            "app.matches.endpoints.manager.waiting_room_to_specific_player",
             new_callable=AsyncMock,
         ):
             with patch(
@@ -240,6 +246,9 @@ class TestLogIntegration:
         another_match_id = another_match["id"]
         with patch(
             "app.matches.endpoints.manager.waiting_room_broadcast",
+            new_callable=AsyncMock,
+        ), patch(
+            "app.matches.endpoints.manager.waiting_room_to_specific_player",
             new_callable=AsyncMock,
         ):
             response = client.post(

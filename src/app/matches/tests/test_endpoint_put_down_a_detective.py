@@ -132,6 +132,7 @@ def test_put_down_a_detective(
     with patch("app.matches.endpoints.manager") as mock_manager, patch("app.matches.endpoints.LogServices.create_and_propagate_log", new_callable=Mock):
         mock_manager.specificBroadcast = AsyncMock()
         mock_manager.waiting_room_broadcast = AsyncMock()
+        mock_manager.waiting_room_to_specific_player = AsyncMock()
         setup_data = setup_match_and_players(client, db_session)
         match_id = setup_data["match_id"]
         match_str_id = setup_data["match_str_id"]

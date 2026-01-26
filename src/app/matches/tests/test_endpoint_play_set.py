@@ -61,6 +61,7 @@ def test_endpoint_play_Eileen(
     with patch("app.matches.endpoints.manager") as mock_manager:
         mock_manager.specificBroadcast = AsyncMock()
         mock_manager.waiting_room_broadcast = AsyncMock()
+        mock_manager.waiting_room_to_specific_player = AsyncMock()
         setup_data = setup_match_and_players(client, db_session)
         match_id = setup_data["match_id"]
         match_str_id = setup_data["match_str_id"]
@@ -144,6 +145,7 @@ def test_endpoint_play_Eileen_Beresford_Satterthwaitte(
     with patch("app.matches.endpoints.manager") as mock_manager:
         mock_manager.specificBroadcast = AsyncMock()
         mock_manager.waiting_room_broadcast = AsyncMock()
+        mock_manager.waiting_room_to_specific_player = AsyncMock()
         setup_data = setup_match_and_players(client, db_session)
         match_id = setup_data["match_id"]
         match_str_id = setup_data["match_str_id"]
@@ -199,6 +201,7 @@ def test_endpoint_play_Eileen_Beresford_Satterthwaitte_invalid_combination(
     with patch("app.matches.endpoints.manager") as mock_manager:
         mock_manager.specificBroadcast = AsyncMock()
         mock_manager.waiting_room_broadcast = AsyncMock()
+        mock_manager.waiting_room_to_specific_player = AsyncMock()
         setup_data = setup_match_and_players(client, db_session)
         match_id = setup_data["match_id"]
         match_str_id = setup_data["match_str_id"]
@@ -248,6 +251,7 @@ def test_endpoint_play_Pyne(db_session, client, set_type, card_names):
     with patch("app.matches.endpoints.manager") as mock_manager:
         mock_manager.specificBroadcast = AsyncMock()
         mock_manager.waiting_room_broadcast = AsyncMock()
+        mock_manager.waiting_room_to_specific_player = AsyncMock()
         setup_data = setup_match_and_players(client, db_session)
         match_id = setup_data["match_id"]
         match_str_id = setup_data["match_str_id"]
@@ -339,6 +343,7 @@ def test_endpoint_play_set_Poirot_Marple(
     with patch("app.matches.endpoints.manager") as mock_manager:
         mock_manager.specificBroadcast = AsyncMock()
         mock_manager.waiting_room_broadcast = AsyncMock()
+        mock_manager.waiting_room_to_specific_player = AsyncMock()
         setup_data = setup_match_and_players(client, db_session)
         match_id = setup_data["match_id"]
         match_str_id = setup_data["match_str_id"]
@@ -419,6 +424,7 @@ def test_endpoint_play_set_target_secret_required(
     with patch("app.matches.endpoints.manager") as mock_manager:
         mock_manager.specificBroadcast = AsyncMock()
         mock_manager.waiting_room_broadcast = AsyncMock()
+        mock_manager.waiting_room_to_specific_player = AsyncMock()
         setup_data = setup_match_and_players(client, db_session)
         match_id = setup_data["match_id"]
         match_str_id = setup_data["match_str_id"]
