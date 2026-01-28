@@ -219,12 +219,14 @@ async def cancel_match(match_id: UUID, owner_id: UUID, db=Depends(get_db)):
 
     # Mensaje por WS de que se cerro la partida
     cancelled_match.status = MatchStatus.COMPLETED
-    payload = cancelled_match.model_dump(mode="json")
-    await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, payload))
     players_in_match = match_service.get_players_from_match(match_id)
+    match_dict = cancelled_match.model_dump(mode="json")
+    match_dict["current_player_count"] = len(players_in_match)
+    await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, match_dict))
     players_ids = [p.player_id for p in players_in_match]
-    await manager.waiting_room_to_specific_player(make_ws_message(WSEvent.ONGOING_MATCH, payload), players_ids)
+    await manager.waiting_room_to_specific_player(make_ws_message(WSEvent.ONGOING_MATCH, match_dict), players_ids)
 
+    payload = cancelled_match.model_dump(mode="json")
     await manager.specificBroadcast(
         make_ws_message(WSEvent.MATCH, payload, match_id), match_id, True
     )
@@ -242,12 +244,14 @@ async def start_match(match_id: UUID, db=Depends(get_db)):
     match = MatchLifecycleServices(db).start_game(match_id)
 
     # Mensaje por WS de que la partida comenzó
-    payload = match.model_dump(mode="json")
-    await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, payload))
     players_in_match = MatchService(db).get_players_from_match(match_id)
+    match_dict = match.model_dump(mode="json")
+    match_dict["current_player_count"] = len(players_in_match)
+    await manager.waiting_room_broadcast(make_ws_message(WSEvent.MATCH, match_dict))
     players_ids = [p.player_id for p in players_in_match]
-    await manager.waiting_room_to_specific_player(make_ws_message(WSEvent.ONGOING_MATCH, payload), players_ids)
+    await manager.waiting_room_to_specific_player(make_ws_message(WSEvent.ONGOING_MATCH, match_dict), players_ids)
 
+    payload = match.model_dump(mode="json")
     TurnServices(db).set_timeout_turn_by_match_id(match_id)
     await manager.specificBroadcast(
         make_ws_message(WSEvent.MATCH, payload, match_id), match_id
