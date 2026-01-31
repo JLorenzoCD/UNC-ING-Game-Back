@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime, timezone
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.cards import services as card_services

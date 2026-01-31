@@ -318,9 +318,9 @@ class SecretsServices:
         try:
             self._db.commit()
             self._db.refresh(match_secret)
-        except SQLAlchemyError as e:
+        except SQLAlchemyError:
             self._db.rollback()
-            raise e
+            raise
 
     def secret_update_verification(
         self, match_id: UUID, match_secret_id: UUID, secretIn: SecretUpdate
@@ -392,9 +392,9 @@ class SecretsServices:
         try:
             self._db.commit()
             self._db.refresh(match_secret)
-        except SQLAlchemyError as e:
+        except SQLAlchemyError:
             self._db.rollback()
-            raise e
+            raise
 
     def update_secret(
         self, action: Secret_action, match_secret_id: UUID, player_id: UUID = None

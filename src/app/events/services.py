@@ -435,9 +435,7 @@ class EventServices:
                 raise EventNotFound(
                     "Event_id no encontrado, ventana de tiempo terminado o alguien ya jugo not so fast"
                 )
-        except SQLAlchemyError:
-            self._db.rollback()
-            raise
+
         except Exception:
             self._db.rollback()
             raise

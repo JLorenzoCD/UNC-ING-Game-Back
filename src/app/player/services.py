@@ -39,9 +39,9 @@ class PlayerServices:
             self._db.rollback()
             raise InvalidPlayerData()
 
-        except Exception as e:
+        except Exception:
             self._db.rollback()
-            raise e  # Algún error inesperado (status=500)
+            raise  # Algún error inesperado (status=500)
 
     def get_player(self, player_id: UUID) -> Player | None:
         """Get a player by ID."""
@@ -50,8 +50,6 @@ class PlayerServices:
             player = self._db.get(Player, player_id)
         except DataError:
             raise InvalidPlayerData()
-        except Exception as e:
-            raise e  # Algún error inesperado (status=500)
 
         if not player:
             raise PlayerNotFound()
@@ -70,8 +68,6 @@ class PlayerServices:
             )
         except DataError:
             raise InvalidPlayerData()
-        except Exception as e:
-            raise e  # Algún error inesperado (status=500)
 
         if not player:
             raise PlayerNotFoundInMatch()

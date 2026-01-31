@@ -42,9 +42,9 @@ class LogServices:
             self._db.commit()
             self._db.refresh(new_log)
             return new_log.id
-        except SQLAlchemyError as exception:
+        except Exception:
             self._db.rollback()
-            raise exception
+            raise
 
     def get_log_by_id(self, log_id: UUID) -> match_schemas.MatchLogOut:
         """Get a specific log by ID."""
@@ -52,9 +52,9 @@ class LogServices:
             log = self._db.query(MatchLogs).filter(
                 MatchLogs.id == log_id).first()
             return db_match_log_2_match_log_schema(log)
-        except SQLAlchemyError as exception:
+        except Exception:
             self._db.rollback()
-            raise exception
+            raise
 
     def get_logs_by_match(self, match_id: UUID) -> List[match_schemas.MatchLogOut]:
         """Get all logs for a match."""
@@ -82,9 +82,9 @@ class LogServices:
             self._db.add(new_log)
             self._db.commit()
             self._db.refresh(new_log)
-        except SQLAlchemyError as e:
+        except SQLAlchemyError:
             self._db.rollback()
-            raise e
+            raise
 
         log_out = db_match_log_2_match_log_schema(
             new_log).model_dump(mode="json")

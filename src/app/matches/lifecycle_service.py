@@ -63,10 +63,8 @@ class MatchLifecycleServices:
             for mp, _ in tied:
                 mp.order = order
                 order += 1
-        try:
-            self._db.commit()
-        except SQLAlchemyError:
-            raise
+
+        self._db.commit()
 
     def deal_cards(
         self, match_cards: list[Match_Card], match_players: list[Match_Player]
@@ -199,9 +197,9 @@ class MatchLifecycleServices:
         try:
             self._db.delete(match_player)
             self._db.commit()
-        except SQLAlchemyError as exception:
+        except Exception:
             self._db.rollback()
-            raise exception
+            raise
 
     def start_game(self, match_id: UUID) -> MatchOut:
         """Start a match if conditions are met."""
@@ -234,9 +232,9 @@ class MatchLifecycleServices:
                 self.assign_player_order(match_id)
                 try:
                     self._db.commit()
-                except SQLAlchemyError as exception:
+                except Exception:
                     self._db.rollback()
-                    raise exception
+                    raise
                 return db_match_2_match_schema(match)
             else:
                 raise MatchValidationError(

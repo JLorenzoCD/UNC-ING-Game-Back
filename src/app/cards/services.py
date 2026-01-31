@@ -48,14 +48,13 @@ class CardsServices:
 
         Args:
             target_player_id: Parameter target_player_id.
-            target_secret_id: Parameter target_secret_id."""
-        try:
-            match_secret = secret_services.SecretsServices(self._db).update_secret(
-                Secret_action.STEAL, target_secret_id, target_player_id
-            )
-            return match_secret
-        except Exception as e:
-            raise e
+            target_secret_id: Parameter target_secret_id.
+        """
+
+        match_secret = secret_services.SecretsServices(self._db).update_secret(
+            Secret_action.STEAL, target_secret_id, target_player_id
+        )
+        return match_secret
 
     def another_victim_event(self):
         """Another victim event."""
@@ -309,18 +308,17 @@ class CardsServices:
         PileServices(self._db).take_cards(
             player_id, match_id, [target_card_id]
         )
-        try:
-            taken_card = (
-                self._db.query(Match_Card)
-                .filter(Match_Card.id == target_card_id)
-                .first()
-            )
-            if taken_card:
-                self._db.refresh(taken_card)
-            else:
-                raise CardInvalidAction("carta incorrecta")
-        except SQLAlchemyError as e:
-            raise e
+
+        taken_card = (
+            self._db.query(Match_Card)
+            .filter(Match_Card.id == target_card_id)
+            .first()
+        )
+        if taken_card:
+            self._db.refresh(taken_card)
+        else:
+            raise CardInvalidAction("carta incorrecta")
+
         return taken_card
 
     def pass_cards_in_direction(
@@ -418,8 +416,6 @@ class CardsServices:
             )
         except DataError:
             raise InvalidCardData()
-        except Exception as e:
-            raise e  # Algún error inesperado (status=500)
 
         return player_cards_in_hand
 
@@ -432,8 +428,6 @@ class CardsServices:
 
         except DataError:
             raise InvalidCardData()
-        except Exception:
-            raise  # Algún error inesperado (status=500)
 
         return card
 
@@ -454,8 +448,6 @@ class CardsServices:
 
         except DataError:
             raise InvalidCardData()
-        except Exception:
-            raise  # Algún error inesperado (status=500)
 
         return card
 
@@ -476,8 +468,6 @@ class CardsServices:
 
         except DataError:
             raise InvalidCardData()
-        except Exception:
-            raise  # Algún error inesperado (status=500)
 
         return card
 

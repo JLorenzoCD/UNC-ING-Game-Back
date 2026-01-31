@@ -28,10 +28,7 @@ async def handle_match_ended(db, manager, match_id: UUID, reason: MatchEndedReas
         match_id: Parameter match_id.
         reason: Parameter reason."""
 
-    try:
-        match_row = db.query(Match).filter(Match.id == match_id).first()
-    except SQLAlchemyError as e:
-        raise e
+    match_row = db.query(Match).filter(Match.id == match_id).first()
 
     if match_row is None:
         return None
@@ -40,10 +37,7 @@ async def handle_match_ended(db, manager, match_id: UUID, reason: MatchEndedReas
 
     info = SecretsServices(db).get_full_info(match_id)
 
-    try:
-        MatchService(db).update_status_match(match_id, MatchStatus.COMPLETED)
-    except SQLAlchemyError as e:
-        raise e
+    MatchService(db).update_status_match(match_id, MatchStatus.COMPLETED)
 
     if not info:
         return None
