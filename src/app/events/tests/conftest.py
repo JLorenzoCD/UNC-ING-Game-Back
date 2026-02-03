@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.models.db import Base, get_db
-from main import app, init_data_total
+from app.database.init_service import init_data
+from main import app
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 engine = create_engine(
@@ -13,7 +14,8 @@ engine = create_engine(
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+TestingSessionLocal = sessionmaker(
+    autocommit=False, autoflush=False, bind=engine)
 
 
 @pytest.fixture
@@ -37,8 +39,8 @@ def db():
     (scope 'function', se borra después de cada test)
     """
     Base.metadata.create_all(bind=engine)
-    init_data_total()
     session = TestingSessionLocal()
+    init_data(session)
     try:
         yield session
     finally:
