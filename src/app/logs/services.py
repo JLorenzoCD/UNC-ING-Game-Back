@@ -8,7 +8,7 @@ from websocketManager.ws_routes import manager
 from websocketManager.ws_messages import WSEvent, make_ws_message
 
 from app.matches import schemas as match_schemas
-from app.matches.models import MatchLogs
+from app.logs.models import MatchLogs
 from app.matches.utils import db_match_log_2_match_log_schema
 
 

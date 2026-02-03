@@ -5,7 +5,8 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.matches.models import MatchEventType, MatchLogs
+from app.matches.models import MatchEventType
+from app.logs.models import MatchLogs
 from app.matches.schemas import MatchLogOut
 from app.logs.services import LogServices
 
