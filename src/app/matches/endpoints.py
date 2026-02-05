@@ -157,12 +157,7 @@ async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
     await manager.waiting_room_to_specific_player(make_ws_message(WSEvent.ONGOING_MATCH, match_dict), players_ids)
 
     # Log de que un jugador entro al lobby
-    try:
-        log_message = f"[JOIN] Jugador {info_player.name} se unió a la partida"
-
-        await LogServices(db).create_and_propagate_log(match_id, log_message, MatchEventType.PLAYER_JOIN, info_player.id)
-    except Exception as e:
-        print(f"[LOG] error creando/broadcast log de join: {e}")
+    await LogServices(db).send_player_join_to_match(match_id, player_id)
 
     return {"match_id": match_id}
 
@@ -198,12 +193,7 @@ async def quit_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
     await manager.waiting_room_to_specific_player(make_ws_message(WSEvent.ONGOING_MATCH, match_dict), players_ids)
 
     # Log de que se fue un jugador
-    try:
-        log_message = f"[QUIT] Jugador {info_player.name} se fue de la partida."
-
-        await LogServices(db).create_and_propagate_log(match_id, log_message, MatchEventType.PLAYER_QUIT, info_player.id)
-    except Exception as e:
-        print(f"[LOG] error creando/broadcast log de quit: {e}")
+    await LogServices(db).send_player_quit_to_match(match_id, player_id)
 
     return {"status": "success"}
 
@@ -258,20 +248,7 @@ async def start_match(match_id: UUID, db=Depends(get_db)):
     )
 
     # Log que para saber de quien es el turno actual
-    try:
-        current_player_id = TurnServices(
-            db).get_current_player_by_match(match_id)
-
-        if current_player_id:
-            player_obj = PlayerServices(db).get_player(current_player_id)
-            log_message = f"[TURN] Es turno de {player_obj.name}"
-
-            await LogServices(db).create_and_propagate_log(match_id, log_message, MatchEventType.TURN, player_obj.id)
-        else:
-            print(
-                f"[LOG] No se pudo obtener current_player_id para match {match_id}")
-    except Exception as e:
-        print(f"[LOG] error creando/broadcast log de turno: {e}")
+    await LogServices(db).send_curr_player_turn_in_match(match_id)
 
     return {"status": "Match started successfully"}
 
@@ -388,21 +365,12 @@ async def discard_card(
         )
 
     # Log de que un jugador descarto x numero de cartas
-    try:
-        player_obj = PlayerServices(db).get_player(player_id)
-        card_names = []
-        for card in results:
-            card_names.append(card[6])
-        cards_text = (
-            ", ".join(card_names)
-            if len(card_names) <= 3
-            else f"{', '.join(card_names[:3])} y {len(card_names) - 3} más"
-        )
-        log_message = f"[DISCARD] Jugador {player_obj.name} descartó {len(discarded_cards_ids)} carta(s): {cards_text}"
-        await LogServices(db).create_and_propagate_log(match_id, log_message, MatchEventType.DISCARD_CARDS, player_obj.id)
-
-    except Exception as e:
-        print(f"[LOG] error creando/broadcast log de discard: {e}")
+    await LogServices(db).send_player_discard_cards(
+        match_id,
+        player_id,
+        results,
+        len(discarded_cards_ids)
+    )
 
     return {"status": "success", "cards_discarded": len(discarded_cards_ids)}
 
@@ -473,14 +441,11 @@ async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_d
         )
 
     # Log de que el un jugador agarro x cartas
-    try:
-        player_obj = PlayerServices(db).get_player(player_id)
-        log_message = f"[TAKE] Jugador {player_obj.name} tomó {len(taken_cards_ids)} carta(s) del mazo"
-
-        await LogServices(db).create_and_propagate_log(match_id, log_message, MatchEventType.TAKE_CARDS, player_obj.id)
-
-    except Exception as e:
-        print(f"[LOG] error creando/broadcast log de take: {e}")
+    await LogServices(db).send_player_take_cards(
+        match_id,
+        player_id,
+        len(taken_cards_ids)
+    )
 
     return {"status": "success", "cards_taken": len(taken_cards_ids)}
 
@@ -509,17 +474,7 @@ async def pass_turn(match_id: UUID, db=Depends(get_db)):
         print(f"[WS] pass_turn broadcast error: {ws_err}")
 
     # Logs sobre el jugador que actualmente esta en su turno
-    try:
-        if current_player_id:
-            player_obj = PlayerServices(db).get_player(current_player_id)
-            log_message = f"[TURN] Es turno de {player_obj.name}"
-
-            await LogServices(db).create_and_propagate_log(match_id, log_message, MatchEventType.TURN, player_obj.id)
-        else:
-            print(
-                f"[LOG] No se pudo obtener current_player_id para match {match_id}")
-    except Exception as e:
-        print(f"[LOG] error creando/broadcast log de turno: {e}")
+    await LogServices(db).send_curr_player_turn_in_match(match_id, current_player_id)
 
     return {"match_id": match_id}
 
@@ -620,18 +575,11 @@ async def time_out(
         print(f"[WS] pass_turn broadcast error: {ws_err}")
 
     # Logs del jugador que se encuentra actualmente en turno
-    try:
-        if current_player_id:
-            player_obj = PlayerServices(db).get_player(current_player_id)
-            log_message = f"[TIMEOUT] Ocurrió un timeout, ahora es turno de {player_obj.name}"
-
-            await LogServices(db).create_and_propagate_log(match_id, log_message, MatchEventType.TURN, player_obj.id)
-        else:
-            print(
-                f"[LOG] No se pudo obtener current_player_id para match {match_id}"
-            )
-    except Exception as e:
-        print(f"[LOG] error creando/broadcast log de turno: {e}")
+    await LogServices(db).send_curr_player_turn_in_match(
+        match_id,
+        current_player_id,
+        is_timeout=True
+    )
 
     return results
 
@@ -766,24 +714,11 @@ async def play_set(
         )
 
     # Logs sel set jugado y si se puede o no cancelar con una NSF
-    try:
-        setType = setIn.type
-        player = PlayerServices(db).get_player(setIn.player_id)
-
-        msg_nsf = "y puedes jugar una carta 'NOT SO FAST...' para cancelarlo"
-        if setType == SetType.TWO_BERESFORD:
-            msg_nsf = " y no puede ser cancelada con una 'NOT SO FAST...'"
-
-        log_message = f"[SET] Jugador '{player.name}' jugó el set '{setType.value}'{msg_nsf}"
-        event_type = getattr(MatchEventType, setType.name, None)
-        if event_type:
-            await LogServices(db).create_and_propagate_log(match_id, log_message, event_type, player.id)
-        else:
-            print(
-                f"[LOG] Warning: No matching MatchEventType for SetType {setType.name}"
-            )
-    except Exception as e:
-        print(f"[LOG] error creando/broadcast log de play_set: {e}")
+    await LogServices(db).send_player_play_set(
+        match_id,
+        setIn.player_id,
+        setIn.type
+    )
 
     return match_set
 
@@ -957,26 +892,11 @@ async def put_down_a_detective(
         )
 
     # Log de que se bajo un detective y si se puede o no cancelar con una carta NSF
-    try:
-        set_to_play = set_service.get_match_set(set_id, match_id)
-        setType = set_to_play.type
-        player = PlayerServices(db).get_player(set_to_play.player_id)
-
-        msg_nsf = "y puedes jugar una carta 'NOT SO FAST...' para cancelarlo"
-        if set_to_play.type == SetType.TWO_BERESFORD:
-            msg_nsf = " y no puede ser cancelada con una 'NOT SO FAST...'"
-
-        log_message = f"[SET] Jugador {player.name} bajo un detective, ejecutando el evento de set de '{new_event.event_type}'{msg_nsf}"
-        event_type = getattr(MatchEventType, setType.name, None)
-        if event_type:
-            await LogServices(db).create_and_propagate_log(match_id, log_message, event_type, player.id)
-        else:
-            print(
-                f"[LOG] Warning: No matching MatchEventType for SetType {setType.name}"
-            )
-    except Exception as e:
-        print(
-            f"[LOG] error creando/broadcast log de put_down_a_detective: {e}")
+    await LogServices(db).send_player_put_down_a_detective(
+        match_id,
+        set_id,
+        new_event.event_type
+    )
 
     return match_set
 
@@ -1046,20 +966,11 @@ async def play_set_stolen(
     match_set_out = db_match_set_2_match_set_schema(match_set)
 
     # Log de que el jugador jugo el set robado
-    try:
-        player = PlayerServices(db).get_player(match_set_out.player_id)
-
-        setType = match_set_out.type
-        log_message = f"[SET] Jugador {player.name} jugó el set {setType.value}"
-        event_type = getattr(MatchEventType, setType.name, None)
-        if event_type:
-            await LogServices(db).create_and_propagate_log(match_id, log_message, event_type, player.id)
-        else:
-            print(
-                f"[LOG] Warning: No matching MatchEventType for SetType {setType.name}"
-            )
-    except Exception as e:
-        print(f"[LOG] error creando/broadcast log de set robado: {e}")
+    await LogServices(db).send_player_stolen_set(
+        match_id,
+        player_id=match_set_out.player_id,
+        set_type=match_set_out.type
+    )
 
     return match_set_out
 
@@ -1116,17 +1027,11 @@ async def play_event(
         )
 
         # Log de la carta de evento jugada y no puede ser cancelada con un NSF
-        try:
-            player_obj = PlayerServices(db).get_player(player_id)
-            log_message = f"[EVENTO] Jugador {player_obj.name} jugó el evento {typeEvent.value} y no puede ser cancelada con una 'NOT SO FAST...'"
-            event_type = getattr(MatchEventType, typeEvent.name, None)
-            if event_type:
-                await LogServices(db).create_and_propagate_log(match_id, log_message, event_type, player_obj.id)
-            else:
-                print(
-                    f"[LOG] Warning: No matching MatchEventType for Card_event {typeEvent.name}")
-        except Exception as e:
-            print(f"[LOG] error creando/broadcast log de evento: {e}")
+        await LogServices(db).send_player_play_event_not_cancelable(
+            match_id,
+            player_id,
+            typeEvent
+        )
     else:
         # El evento se crea y se da el tiempo para poder cancelarla con la NSF
         new_event = event_service.create_event(
@@ -1160,18 +1065,11 @@ async def play_event(
         )
 
         # Log de la carta de evento jugada y que puede ser cancelada con un NSF
-        try:
-            player_obj = PlayerServices(db).get_player(player_id)
-            log_message = f"[EVENTO] Jugador {player_obj.name} jugó el evento {typeEvent.value}, puedes jugar una carta 'NOT SO FAST...' para cancelarlo"
-            # Mapear Card_event a MatchEventType usando el nombre
-            event_type = getattr(MatchEventType, typeEvent.name, None)
-            if event_type:
-                await LogServices(db).create_and_propagate_log(match_id, log_message, event_type, player_obj.id)
-            else:
-                print(
-                    f"[LOG] Warning: No matching MatchEventType for Card_event {typeEvent.name}")
-        except Exception as e:
-            print(f"[LOG] error creando/broadcast log de evento: {e}")
+        await LogServices(db).send_player_play_event_cancelable(
+            match_id,
+            player_id,
+            typeEvent
+        )
 
     return {"status": "event_created", "event_id": new_event.id}
 
@@ -1197,14 +1095,11 @@ async def play_card_trade(
     )
 
     # Log de carta seleccionada
-    try:
-        player = PlayerServices(db).get_player(player_id)
-        log_message = f"[EVENT] El jugador '{player.name}' selecciono una carta para intercambiar'"
-
-        await LogServices(db).create_and_propagate_log(match_id, log_message, MatchEventType.CARD_TRADE, player.id)
-    except Exception as e:
-        print(
-            f"[LOG] error creando/broadcast log de play_card_trade: {e}")
+    await LogServices(db).send_player_select_card_to_trade(
+        match_id,
+        player_id,
+        MatchEventType.CARD_TRADE
+    )
 
     if event_service.is_event_ready_to_resolve(event_update):
         # Si el evento ya tiene todos los datos para finalizar, se lo finaliza
@@ -1231,13 +1126,11 @@ async def play_card_trade(
             )
 
             # Log, ya que se intercambio una carta devious
-            try:
-                log_message = f"[EVENT] Se ha/n recibido alguna carta 'DEVIOUS', el jugador/es tendrá/n que revelar un secreto propio."
-
-                await LogServices(db).create_and_propagate_log(match_id, log_message, MatchEventType.CARD_TRADE, player.id)
-            except Exception as e:
-                print(
-                    f"[LOG] error creando/broadcast log de play_card_trade: {e}")
+            await LogServices(db).send_player_trade_devious_card(
+                match_id,
+                player_id,
+                MatchEventType.CARD_TRADE
+            )
 
     return {"status": "ok", "message": "CardTrade de lujo"}
 
@@ -1264,14 +1157,11 @@ async def play_dead_card_folly(
     )
 
     # Log de carta seleccionada
-    try:
-        player = PlayerServices(db).get_player(player_id)
-        log_message = f"[EVENT] El jugador '{player.name}' selecciono una carta para intercambiar'"
-
-        await LogServices(db).create_and_propagate_log(match_id, log_message, MatchEventType.DEAD_CARD_FOLLY, player.id)
-    except Exception as e:
-        print(
-            f"[LOG] error creando/broadcast log de play_dead_card_folly: {e}")
+    await LogServices(db).send_player_select_card_to_trade(
+        match_id,
+        player_id,
+        MatchEventType.DEAD_CARD_FOLLY
+    )
 
     if event_service.is_event_ready_to_resolve(event_update):
         # Si el evento ya tiene todos los datos para finalizar, se lo finaliza
@@ -1298,13 +1188,11 @@ async def play_dead_card_folly(
             )
 
             # Log, ya que se intercambio una carta devious
-            try:
-                log_message = f"[EVENT] Se ha/n recibido alguna carta 'DEVIOUS', el jugador/es tendrá/n que revelar un secreto propio."
-
-                await LogServices(db).create_and_propagate_log(match_id, log_message, MatchEventType.DEAD_CARD_FOLLY, player.id)
-            except Exception as e:
-                print(
-                    f"[LOG] error creando/broadcast log de play_dead_card_folly: {e}")
+            await LogServices(db).send_player_trade_devious_card(
+                match_id,
+                player_id,
+                MatchEventType.DEAD_CARD_FOLLY
+            )
 
     return {"status": "ok", "message": "Dead card folly de lujo"}
 
@@ -1318,7 +1206,6 @@ async def play_point_your_suspicions(
     db=Depends(get_db),
 ):
 
-    player_service = PlayerServices(db)
     event_service = EventServices(db)
 
     # Se actualiza los datos del evento en base a los nuevos datos
@@ -1327,17 +1214,11 @@ async def play_point_your_suspicions(
     )
 
     # Log de un jugador dudando de otro
-    try:
-        player = player_service.get_player(player_id)
-        player_seleccionado = player_service.get_player(
-            event_payload["target_player_id"])
-
-        log_message = f"[EVENT] El jugador '{player.name}' sospecha del jugador '{player_seleccionado.name}'"
-
-        await LogServices(db).create_and_propagate_log(match_id, log_message, MatchEventType.POINT_YOUR_SUSPICIONS, player.id)
-    except Exception as e:
-        print(
-            f"[LOG] error creando/broadcast log de play_point_your_suspicions: {e}")
+    await LogServices(db).send_player_point_suspicions(
+        match_id,
+        player_id,
+        event_payload["target_player_id"]
+    )
 
     if event_service.is_event_ready_to_resolve(event_update):
         # Si el evento ya tiene todos los datos para finalizar, se lo finaliza
@@ -1384,14 +1265,7 @@ async def play_not_so_fast(
     )
 
     # Log, jugador jugo un NSF
-    try:
-        player = PlayerServices(db).get_player(player_id)
-        log_message = f"[EVENT] El jugador '{player.name}' jugo una carta 'NOT SO FAST...'"
-
-        await LogServices(db).create_and_propagate_log(match_id, log_message, MatchEventType.NOT_SO_FAST, player.id)
-    except Exception as e:
-        print(
-            f"[LOG] error creando/broadcast log de play_not_so_fast: {e}")
+    await LogServices(db).send_player_play_nsf(match_id, player_id)
 
     # Se descarta la carta NSF jugada
     PileServices(db).discard_cards(
@@ -1471,18 +1345,10 @@ async def update_secret_in_match(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     # Log, jugador x actualizo un secreto
-    try:
-        secret_update_type_msg = "revelo"
-
-        if secretIn.action.value == "hide_secret":
-            secret_update_type_msg = "oculto"
-        elif secretIn.action.value == "steal_secret":
-            secret_update_type_msg = "robo"
-
-        player = PlayerServices(db).get_player(match_secret_old.player_id)
-        log_message = f"[SECRET] Jugador {player.name} {secret_update_type_msg} un secreto"
-        await LogServices(db).create_and_propagate_log(match_id, log_message, MatchEventType.UPDATE_SECRET, player.id)
-    except Exception as e:
-        print(f"[LOG] error creando/broadcast log de secret: {e}")
+    await LogServices(db).send_update_secret(
+        match_id,
+        player_id=match_secret_old.player_id,
+        secret_action=secretIn.action
+    )
 
     return match_secret_out

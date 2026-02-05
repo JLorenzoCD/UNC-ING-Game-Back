@@ -43,7 +43,7 @@ class PlayerServices:
             self._db.rollback()
             raise  # Algún error inesperado (status=500)
 
-    def get_player(self, player_id: UUID) -> Player | None:
+    def get_player(self, player_id: UUID) -> Player:
         """Get a player by ID."""
 
         try:

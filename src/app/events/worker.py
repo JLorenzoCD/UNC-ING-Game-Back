@@ -177,12 +177,11 @@ async def event_resolver_loop():
                                         event.match_id,
                                     )
 
-                        try:
-                            log_message = f"[EVENT] El evento '{event.event_type.capitalize()}' no fue cancelado"
-                            await LogServices(db).create_and_propagate_log(event.match_id, log_message, MatchEventType.NOT_SO_FAST, event.player_id)
-                        except Exception as e:
-                            print(
-                                f"[LOG] error creando/broadcast log de worker-played: {e}")
+                        await LogServices(db).send_event_not_cancelate(
+                            match_id=event.match_id,
+                            player_id=event.player_id,
+                            event=event,
+                        )
 
                     except Exception as e:
                         db.rollback()
@@ -239,12 +238,12 @@ async def event_resolver_loop():
                         event.match_id,
                     )
 
-                    try:
-                        log_message = f"[EVENT] El evento '{event.event_type.capitalize()}' fue cancelado por una carta 'NOT SO FAST...'"
-                        await LogServices(db).create_and_propagate_log(event.match_id, log_message, MatchEventType.NOT_SO_FAST, event.player_id)
-                    except Exception as e:
-                        print(
-                            f"[LOG] error creando/broadcast log de worker-canceled: {e}")
+                    await LogServices(db).send_event_cancelate(
+                        match_id=event.match_id,
+                        player_id=event.player_id,
+                        event=event
+                    )
+
         except Exception as e:
             print(f"Error crítico en el bucle de resolución: {e}")
             db.rollback()
