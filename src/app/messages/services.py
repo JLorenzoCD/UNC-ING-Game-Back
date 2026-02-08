@@ -174,7 +174,7 @@ class MessageServices:
                 if len(card_names) <= 3
                 else f"{', '.join(card_names[:3])} y {len(card_names) - 3} más"
             )
-            log_message = f"[DISCARD] Jugador {player.name} descartó {len(len_discarded_cards)} carta(s): {cards_text}"
+            log_message = f"[DISCARD] Jugador {player.name} descartó {len_discarded_cards} carta(s): {cards_text}"
 
             await self._pre_create_and_propagate_log(match_id, log_message, MatchEventType.DISCARD_CARDS, player.id, "send_player_discard_cards")
 
