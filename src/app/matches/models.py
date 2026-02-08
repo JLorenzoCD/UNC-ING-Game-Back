@@ -21,6 +21,7 @@ class MatchEventType(PyEnum):
 
     PLAYER_JOIN = "Player Join"
     PLAYER_QUIT = "Player Quit"
+    PLAYER_SEND_MESSAGE = "Player Send Message"
     TURN = "Turn"
     HERCULE_POIROT = "Hercule Poirot"
     MISS_MARPLE = "Miss Marple"

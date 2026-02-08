@@ -1,14 +1,15 @@
 from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
+from contextlib import suppress
 
 from sqlalchemy.exc import SQLAlchemyError
 
 from websocketManager.ws_routes import manager
 from websocketManager.ws_messages import WSEvent, make_ws_message
 
-from app.matches import schemas as match_schemas
-from app.logs.models import MatchLogs
+from app.messages.schemas import MatchMessageOut
+from app.messages.models import MatchMessage
 from app.matches.utils import db_match_log_2_match_log_schema
 
 from app.matches.turn_service import TurnServices
@@ -22,8 +23,8 @@ from app.cards.services import Card_event
 from app.events.models import EventosDeTurno
 
 
-class LogServices:
-    """Service class for managing match logs."""
+class MessageServices:
+    """Service class for managing match msg."""
 
     def __init__(self, db):
         """init  .
@@ -40,7 +41,7 @@ class LogServices:
         player_id: Optional[UUID] = None,
     ) -> UUID:
         """Create a new log entry for a match."""
-        new_log = MatchLogs(
+        new_log = MatchMessage(
             match_id=match_id,
             message=message,
             event_type=event_type,
@@ -56,20 +57,20 @@ class LogServices:
             self._db.rollback()
             raise
 
-    def get_log_by_id(self, log_id: UUID) -> match_schemas.MatchLogOut:
+    def get_log_by_id(self, log_id: UUID) -> MatchMessageOut:
         """Get a specific log by ID."""
         try:
-            log = self._db.query(MatchLogs).filter(
-                MatchLogs.id == log_id).first()
+            log = self._db.query(MatchMessage).filter(
+                MatchMessage.id == log_id).first()
             return db_match_log_2_match_log_schema(log)
         except Exception:
             self._db.rollback()
             raise
 
-    def get_logs_by_match(self, match_id: UUID) -> List[match_schemas.MatchLogOut]:
+    def get_msgs_by_match(self, match_id: UUID) -> List[MatchMessageOut]:
         """Get all logs for a match."""
-        result = self._db.query(MatchLogs).filter(
-            MatchLogs.match_id == match_id).all()
+        result = self._db.query(MatchMessage).filter(
+            MatchMessage.match_id == match_id).all()
         return [db_match_log_2_match_log_schema(match_log) for match_log in result]
 
     async def create_and_propagate_log(
@@ -78,15 +79,17 @@ class LogServices:
         message: str,
         event_type: str,
         player_id: Optional[UUID] = None,
-    ):
+        is_system_msg: Optional[bool] = True,
+    ) -> MatchMessageOut:
         """Create a new log entry for a match and propagate by websockets"""
 
-        new_log = MatchLogs(
+        new_log = MatchMessage(
             match_id=match_id,
             message=message,
             event_type=event_type,
             player_id=player_id,
             created_at=datetime.now(),
+            is_system_msg=is_system_msg
         )
         try:
             self._db.add(new_log)
@@ -99,16 +102,19 @@ class LogServices:
         log_out = db_match_log_2_match_log_schema(
             new_log).model_dump(mode="json")
 
-        await manager.specificBroadcast(
-            make_ws_message(WSEvent.LOG, log_out, match_id), match_id
-        )
+        with suppress(Exception):
+            await manager.specificBroadcast(
+                make_ws_message(WSEvent.MESSAGE, log_out, match_id), match_id
+            )
+
+        return log_out
 
     async def _pre_create_and_propagate_log(self, match_id: UUID, msg: str, event_type: MatchEventType, player_id: UUID, err_name: str):
         try:
             await self.create_and_propagate_log(match_id, msg, event_type, player_id)
         except Exception as e:
             print(
-                f"[LOG] Error creando/broadcast LogServices de '{err_name}': {e}")
+                f"[LOG] Error creando/broadcast MessageServices de '{err_name}': {e}")
 
     async def send_player_join_to_match(self, match_id: UUID, player_id: UUID):
         try:

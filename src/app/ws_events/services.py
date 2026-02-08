@@ -32,7 +32,7 @@ class WsEventsService:
         return event
 
     def get_last_match_event_no_log(self, match_id: UUID) -> WsEvent | None:
-        """Get last match event. When last_event.message.event != "new_log"
+        """Get last match event. When last_event.message.event != "message"
 
         Args:
             match_id: Parameter match_id.
@@ -43,7 +43,7 @@ class WsEventsService:
             self._db.query(WsEvent)
             .filter(
                 WsEvent.match_id == match_id,
-                ~WsEvent.message.contains('"event": "new_log"')
+                ~WsEvent.message.contains('"event": "message"')
             )
             .order_by(WsEvent.send_at.desc())
             .first()

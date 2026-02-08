@@ -1,6 +1,7 @@
 from app.matches.models import Match
-from app.matches.schemas import Match_Player_Schema, MatchLogOut, MatchOut
+from app.matches.schemas import Match_Player_Schema, MatchOut
 from app.player.models import Match_Player
+from app.messages.schemas import MatchMessageOut
 
 
 def db_match_2_match_schema(db_match: Match) -> MatchOut:
@@ -19,7 +20,7 @@ def db_match_log_2_match_log_schema(db_match_log):
 
     Args:
         db_match_log: Parameter db_match_log."""
-    return MatchLogOut.model_validate(db_match_log)
+    return MatchMessageOut.model_validate(db_match_log)
 
 
 def db_match_player_2_match_player_schema(

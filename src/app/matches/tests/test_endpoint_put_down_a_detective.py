@@ -129,7 +129,7 @@ def test_put_down_a_detective(
     Verifica que añadir una carta a un set existente (PUT) funciona,
     manejando la lógica de descarte y los casos especiales.
     """
-    with patch("app.matches.endpoints.manager") as mock_manager, patch("app.matches.endpoints.LogServices.send_player_put_down_a_detective", new_callable=AsyncMock):
+    with patch("app.matches.endpoints.manager") as mock_manager, patch("app.matches.endpoints.MessageServices.send_player_put_down_a_detective", new_callable=AsyncMock):
         mock_manager.specificBroadcast = AsyncMock()
         mock_manager.waiting_room_broadcast = AsyncMock()
         mock_manager.waiting_room_to_specific_player = AsyncMock()

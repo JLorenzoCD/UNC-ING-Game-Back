@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Enum, ForeignKey
+from sqlalchemy import Boolean, Enum, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -9,12 +9,13 @@ from app.models.db import Base
 from app.matches.models import MatchEventType
 
 
-class MatchLogs(Base):
+class MatchMessage(Base):
     """
-    Representa los logs de una partida (Match).
+    Representa los mensajes de una partida (Match), tanto del sistema como de
+    los jugadores.
     """
 
-    __tablename__ = "match_logs"
+    __tablename__ = "match_messages"
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4
     )
@@ -34,5 +35,7 @@ class MatchLogs(Base):
         ),
         nullable=False,
     )
-    match = relationship("Match", backref="match_logs")
-    player = relationship("Player", backref="match_logs")
+    is_system_msg: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    match = relationship("Match", backref="match_messages")
+    player = relationship("Player", backref="match_messages")

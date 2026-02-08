@@ -115,15 +115,3 @@ class Match_number_of_Player(BaseModel):
     current_player_order: int
     current_player_count: int
     timer_turn: Optional[datetime]
-
-
-class MatchLogOut(BaseModel):
-    """Class MatchLogOut."""
-
-    model_config = ConfigDict(from_attributes=True)
-    id: UUID
-    match_id: UUID
-    message: str
-    created_at: datetime
-    player_id: Optional[UUID]
-    event_type: MatchEventType

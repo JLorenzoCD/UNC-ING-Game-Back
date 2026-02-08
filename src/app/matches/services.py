@@ -8,7 +8,7 @@ from app.cards.models import Match_Card
 from app.events.models import EventosDeTurno
 from app.matches import schemas as match_schemas
 from app.matches.models import Match, MatchStatus
-from app.logs.models import MatchLogs
+from app.messages.models import MatchMessage
 from app.matches.schemas import MatchOut
 from app.matches.utils import db_match_2_match_schema
 from app.player.models import Match_Player, Player
@@ -49,8 +49,8 @@ class MatchService:
             self._db.query(Match_Player).filter(
                 Match_Player.match_id == match_id
             ).delete()
-            self._db.query(MatchLogs).filter(
-                MatchLogs.match_id == match_id).delete()
+            self._db.query(MatchMessage).filter(
+                MatchMessage.match_id == match_id).delete()
             self._db.query(Match).filter(Match.id == match_id).delete()
             self._db.commit()
         except SQLAlchemyError as exception:

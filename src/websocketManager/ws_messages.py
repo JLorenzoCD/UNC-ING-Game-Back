@@ -23,7 +23,7 @@ class WSEvent(str, Enum):
     EVENT_CANCELLED = "event_cancelled"
     PENDING_TARGET_RESPONSE = "pending_target_response"
     CARD_EVENT = "card_event"
-    LOG = "new_log"
+    MESSAGE = "message"
 
 
 def custom_encoder(o):

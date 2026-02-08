@@ -14,7 +14,7 @@ from app.secrets.services import SecretsServices
 from app.sets.services import SetServices
 from app.events.services import EventServices
 from app.piles.services import PileServices
-from app.logs.services import LogServices
+from app.messages.services import MessageServices
 from app.matches.turn_service import TurnServices
 from app.matches.lifecycle_service import MatchLifecycleServices
 
@@ -25,7 +25,6 @@ from app.matches.schemas import (
     MatchIn,
     Match_number_of_Player,
     MatchResponse,
-    MatchLogOut,
     Cards_by_Match_Schema,
     Players_by_Match_Schema,
 )
@@ -43,6 +42,10 @@ from app.sets.schemas import (
     MatchSetOut,
     AddSetIn,
     stoleSetIn,
+)
+from app.messages.schemas import (
+    MatchMessageOut,
+    MatchMessageIn,
 )
 
 # Utils
@@ -157,7 +160,7 @@ async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
     await manager.waiting_room_to_specific_player(make_ws_message(WSEvent.ONGOING_MATCH, match_dict), players_ids)
 
     # Log de que un jugador entro al lobby
-    await LogServices(db).send_player_join_to_match(match_id, player_id)
+    await MessageServices(db).send_player_join_to_match(match_id, player_id)
 
     return {"match_id": match_id}
 
@@ -193,7 +196,7 @@ async def quit_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
     await manager.waiting_room_to_specific_player(make_ws_message(WSEvent.ONGOING_MATCH, match_dict), players_ids)
 
     # Log de que se fue un jugador
-    await LogServices(db).send_player_quit_to_match(match_id, player_id)
+    await MessageServices(db).send_player_quit_to_match(match_id, player_id)
 
     return {"status": "success"}
 
@@ -248,21 +251,12 @@ async def start_match(match_id: UUID, db=Depends(get_db)):
     )
 
     # Log que para saber de quien es el turno actual
-    await LogServices(db).send_curr_player_turn_in_match(match_id)
+    await MessageServices(db).send_curr_player_turn_in_match(match_id)
 
     return {"status": "Match started successfully"}
 
 # ------------------------------------------------------------------------------
 # ---------------------- Obtener datos de la partida ---------------------------
-
-
-@router.get(
-    "/{match_id}/logs", status_code=status.HTTP_200_OK, response_model=List[MatchLogOut]
-)
-async def get_logs(match_id: UUID, db=Depends(get_db)) -> List[MatchLogOut]:
-
-    logs = LogServices(db).get_logs_by_match(match_id)
-    return logs
 
 
 @router.get(
@@ -303,6 +297,34 @@ async def get_sets(match_id: UUID, db=Depends(get_db)):
 
     sets = SetServices(db).get_sets_by_match(match_id)
     return sets
+
+# ------------------------------------------------------------------------------
+# ------------------------ Obtener y enviar mensajes ---------------------------
+
+
+@router.get(
+    "/{match_id}/messages", status_code=status.HTTP_200_OK, response_model=List[MatchMessageOut]
+)
+async def get_all_messages(match_id: UUID, db=Depends(get_db)) -> List[MatchMessageOut]:
+
+    messages = MessageServices(db).get_msgs_by_match(match_id)
+    return messages
+
+
+@router.post("/{match_id}/message", status_code=status.HTTP_201_CREATED)
+async def player_send_message(
+    match_id: UUID, msgIn=MatchMessageIn, db=Depends(get_db)
+) -> MatchMessageOut:
+
+    msg = await MessageServices(db).create_and_propagate_log(
+        match_id=match_id,
+        message=msgIn.message,
+        event_type=MatchEventType.PLAYER_SEND_MESSAGE,
+        player_id=msgIn.player_id,
+        is_system_msg=False,
+    )
+
+    return msg
 
 # ------------------------------------------------------------------------------
 # -------------------------- Descartar y levantar cartas -----------------------
@@ -365,7 +387,7 @@ async def discard_card(
         )
 
     # Log de que un jugador descarto x numero de cartas
-    await LogServices(db).send_player_discard_cards(
+    await MessageServices(db).send_player_discard_cards(
         match_id,
         player_id,
         results,
@@ -441,7 +463,7 @@ async def take_card(match_id: UUID, cards: take_Match_Cards_in, db=Depends(get_d
         )
 
     # Log de que el un jugador agarro x cartas
-    await LogServices(db).send_player_take_cards(
+    await MessageServices(db).send_player_take_cards(
         match_id,
         player_id,
         len(taken_cards_ids)
@@ -474,7 +496,7 @@ async def pass_turn(match_id: UUID, db=Depends(get_db)):
         print(f"[WS] pass_turn broadcast error: {ws_err}")
 
     # Logs sobre el jugador que actualmente esta en su turno
-    await LogServices(db).send_curr_player_turn_in_match(match_id, current_player_id)
+    await MessageServices(db).send_curr_player_turn_in_match(match_id, current_player_id)
 
     return {"match_id": match_id}
 
@@ -575,7 +597,7 @@ async def time_out(
         print(f"[WS] pass_turn broadcast error: {ws_err}")
 
     # Logs del jugador que se encuentra actualmente en turno
-    await LogServices(db).send_curr_player_turn_in_match(
+    await MessageServices(db).send_curr_player_turn_in_match(
         match_id,
         current_player_id,
         is_timeout=True
@@ -714,7 +736,7 @@ async def play_set(
         )
 
     # Logs sel set jugado y si se puede o no cancelar con una NSF
-    await LogServices(db).send_player_play_set(
+    await MessageServices(db).send_player_play_set(
         match_id,
         setIn.player_id,
         setIn.type
@@ -892,7 +914,7 @@ async def put_down_a_detective(
         )
 
     # Log de que se bajo un detective y si se puede o no cancelar con una carta NSF
-    await LogServices(db).send_player_put_down_a_detective(
+    await MessageServices(db).send_player_put_down_a_detective(
         match_id,
         set_id,
         new_event.event_type
@@ -966,7 +988,7 @@ async def play_set_stolen(
     match_set_out = db_match_set_2_match_set_schema(match_set)
 
     # Log de que el jugador jugo el set robado
-    await LogServices(db).send_player_stolen_set(
+    await MessageServices(db).send_player_stolen_set(
         match_id,
         player_id=match_set_out.player_id,
         set_type=match_set_out.type
@@ -1027,7 +1049,7 @@ async def play_event(
         )
 
         # Log de la carta de evento jugada y no puede ser cancelada con un NSF
-        await LogServices(db).send_player_play_event_not_cancelable(
+        await MessageServices(db).send_player_play_event_not_cancelable(
             match_id,
             player_id,
             typeEvent
@@ -1065,7 +1087,7 @@ async def play_event(
         )
 
         # Log de la carta de evento jugada y que puede ser cancelada con un NSF
-        await LogServices(db).send_player_play_event_cancelable(
+        await MessageServices(db).send_player_play_event_cancelable(
             match_id,
             player_id,
             typeEvent
@@ -1095,7 +1117,7 @@ async def play_card_trade(
     )
 
     # Log de carta seleccionada
-    await LogServices(db).send_player_select_card_to_trade(
+    await MessageServices(db).send_player_select_card_to_trade(
         match_id,
         player_id,
         MatchEventType.CARD_TRADE
@@ -1126,7 +1148,7 @@ async def play_card_trade(
             )
 
             # Log, ya que se intercambio una carta devious
-            await LogServices(db).send_player_trade_devious_card(
+            await MessageServices(db).send_player_trade_devious_card(
                 match_id,
                 player_id,
                 MatchEventType.CARD_TRADE
@@ -1157,7 +1179,7 @@ async def play_dead_card_folly(
     )
 
     # Log de carta seleccionada
-    await LogServices(db).send_player_select_card_to_trade(
+    await MessageServices(db).send_player_select_card_to_trade(
         match_id,
         player_id,
         MatchEventType.DEAD_CARD_FOLLY
@@ -1188,7 +1210,7 @@ async def play_dead_card_folly(
             )
 
             # Log, ya que se intercambio una carta devious
-            await LogServices(db).send_player_trade_devious_card(
+            await MessageServices(db).send_player_trade_devious_card(
                 match_id,
                 player_id,
                 MatchEventType.DEAD_CARD_FOLLY
@@ -1214,7 +1236,7 @@ async def play_point_your_suspicions(
     )
 
     # Log de un jugador dudando de otro
-    await LogServices(db).send_player_point_suspicions(
+    await MessageServices(db).send_player_point_suspicions(
         match_id,
         player_id,
         event_payload["target_player_id"]
@@ -1265,7 +1287,7 @@ async def play_not_so_fast(
     )
 
     # Log, jugador jugo un NSF
-    await LogServices(db).send_player_play_nsf(match_id, player_id)
+    await MessageServices(db).send_player_play_nsf(match_id, player_id)
 
     # Se descarta la carta NSF jugada
     PileServices(db).discard_cards(
@@ -1345,7 +1367,7 @@ async def update_secret_in_match(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     # Log, jugador x actualizo un secreto
-    await LogServices(db).send_update_secret(
+    await MessageServices(db).send_update_secret(
         match_id,
         player_id=match_secret_old.player_id,
         secret_action=secretIn.action

@@ -18,8 +18,7 @@ from app.sets.models import SetType
 from websocketManager.ws_messages import WSEvent, make_ws_message
 from websocketManager.ws_routes import manager
 
-from app.logs.services import LogServices
-from app.matches.models import MatchEventType
+from app.messages.services import MessageServices
 from app.piles.services import PileServices
 
 
@@ -177,7 +176,7 @@ async def event_resolver_loop():
                                         event.match_id,
                                     )
 
-                        await LogServices(db).send_event_not_cancelate(
+                        await MessageServices(db).send_event_not_cancelate(
                             match_id=event.match_id,
                             player_id=event.player_id,
                             event=event,
@@ -238,7 +237,7 @@ async def event_resolver_loop():
                         event.match_id,
                     )
 
-                    await LogServices(db).send_event_cancelate(
+                    await MessageServices(db).send_event_cancelate(
                         match_id=event.match_id,
                         player_id=event.player_id,
                         event=event
