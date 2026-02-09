@@ -316,7 +316,7 @@ async def player_send_message(
     match_id: UUID, msgIn=MatchMessageIn, db=Depends(get_db)
 ) -> MatchMessageOut:
 
-    msg = await MessageServices(db).create_and_propagate_log(
+    msg = await MessageServices(db).create_and_propagate_msg(
         match_id=match_id,
         message=msgIn.message,
         event_type=MatchEventType.PLAYER_SEND_MESSAGE,

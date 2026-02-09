@@ -15,12 +15,9 @@ def db_match_2_match_schema(db_match: Match) -> MatchOut:
     return MatchOut.model_validate(db_match)
 
 
-def db_match_log_2_match_log_schema(db_match_log):
-    """Db match log 2 match log schema.
+def db_match_msg_2_match_msg_schema(db_match_msg):
 
-    Args:
-        db_match_log: Parameter db_match_log."""
-    return MatchMessageOut.model_validate(db_match_log)
+    return MatchMessageOut.model_validate(db_match_msg)
 
 
 def db_match_player_2_match_player_schema(

@@ -278,7 +278,7 @@ class TestDiscardCardsEndpoint:
             "card_ids": [str(other_match_card.id)],
         }
 
-        with patch("app.matches.endpoints.manager.specificBroadcast", new_callable=AsyncMock), patch("app.matches.endpoints.MessageServices.create_and_propagate_log", new_callable=Mock):
+        with patch("app.matches.endpoints.manager.specificBroadcast", new_callable=AsyncMock), patch("app.matches.endpoints.MessageServices.create_and_propagate_msg", new_callable=Mock):
             response = client.put(
                 f"/matches/{setup_data['match_str_id']}/cards/discard",
                 json=request_data,
@@ -312,7 +312,7 @@ class TestDiscardCardsEndpoint:
             "card_ids": [str(player_cards[0].id)],
         }
 
-        with patch("app.matches.endpoints.manager.specificBroadcast", new_callable=AsyncMock), patch("app.matches.endpoints.MessageServices.create_and_propagate_log", new_callable=Mock):
+        with patch("app.matches.endpoints.manager.specificBroadcast", new_callable=AsyncMock), patch("app.matches.endpoints.MessageServices.create_and_propagate_msg", new_callable=Mock):
             response = client.put(
                 f"/matches/{setup_data['match_str_id']}/cards/discard",
                 json=request_data,
@@ -412,7 +412,7 @@ class TestCombinedTakeDiscardScenarios:
         db_session.add_all(player_match_cards + deck_match_cards)
         db_session.commit()
 
-        with patch("app.matches.endpoints.manager", new_callable=AsyncMock), patch("app.matches.endpoints.MessageServices.create_and_propagate_log", new_callable=Mock):
+        with patch("app.matches.endpoints.manager", new_callable=AsyncMock), patch("app.matches.endpoints.MessageServices.create_and_propagate_msg", new_callable=Mock):
             discard_data = {
                 "player_id": setup_data["owner_str_id"],
                 "card_ids": [
