@@ -311,14 +311,14 @@ async def get_all_messages(match_id: UUID, db=Depends(get_db)) -> List[MatchMess
     return messages
 
 
-@router.post("/{match_id}/message", status_code=status.HTTP_201_CREATED)
+@router.post("/{match_id}/messages", status_code=status.HTTP_201_CREATED)
 async def player_send_message(
-    match_id: UUID, msgIn=MatchMessageIn, db=Depends(get_db)
+    match_id: UUID, msgIn: MatchMessageIn, db=Depends(get_db)
 ) -> MatchMessageOut:
 
     msg = await MessageServices(db).create_and_propagate_msg(
         match_id=match_id,
-        message=msgIn.message,
+        message=f"[MESSAGE] {msgIn.message}",
         event_type=MatchEventType.PLAYER_SEND_MESSAGE,
         player_id=msgIn.player_id,
         is_system_msg=False,
