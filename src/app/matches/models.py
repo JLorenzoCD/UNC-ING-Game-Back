@@ -63,14 +63,17 @@ class Match(Base):
     status: Mapped[MatchStatus] = mapped_column(
         Enum(MatchStatus, name="match_status"), default=MatchStatus.WAITING, index=True
     )
-    min_players: Mapped[int] = mapped_column(Integer, default=2)
-    max_players: Mapped[int] = mapped_column(Integer, default=6)
     owner_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("players.id"), nullable=False, index=True
     )
+    password: Mapped[str | None] = mapped_column(nullable=True)
+
+    min_players: Mapped[int] = mapped_column(Integer, default=2)
+    max_players: Mapped[int] = mapped_column(Integer, default=6)
     current_player_order: Mapped[int] = mapped_column(Integer, default=1)
     timer_turn: Mapped[DateTime | None] = mapped_column(
         TIMESTAMP(timezone=True), default=None, index=True
     )
+
     owner = relationship("Player", backref="matches")
     events = relationship("EventosDeTurno", back_populates="match")
