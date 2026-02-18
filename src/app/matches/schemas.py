@@ -2,11 +2,11 @@ from datetime import date, datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
 
 from app.cards.models import Card_Type
 from app.matches.dto import MatchDTO
-from app.matches.models import MatchEventType, MatchStatus
+from app.matches.models import MatchStatus
 from app.secrets.models import Secret_Type
 
 
@@ -115,3 +115,10 @@ class Match_number_of_Player(BaseModel):
     current_player_order: int
     current_player_count: int
     timer_turn: Optional[datetime]
+
+    @computed_field
+    @property
+    def is_private(self) -> bool:
+        # Se envía true solo si el campo password del modelo es diferente de
+        # None, de esta forma se evita enviar la contraseña
+        return getattr(self, "password", None) is not None

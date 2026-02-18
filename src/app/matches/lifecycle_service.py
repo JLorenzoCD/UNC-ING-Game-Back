@@ -4,7 +4,6 @@ from datetime import date
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy.exc import SQLAlchemyError
 
 from app.cards.models import Card, Match_Card
 from app.cards.services import CardsServices
