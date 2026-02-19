@@ -6,9 +6,8 @@ from uuid import UUID
 
 @dataclass
 class MatchDTO:
-    """Class MatchDTO."""
-
     name: str
     min_players: int
     max_players: int
     owner_id: UUID
+    password: str | None = None

@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, computed_field
+from pydantic import BaseModel, ConfigDict, computed_field, Field
 
 from app.cards.models import Card_Type
 from app.matches.dto import MatchDTO
@@ -17,17 +17,15 @@ class MatchIn(BaseModel):
     min_players: int
     max_players: int
     owner_id: UUID
+    password: Optional[str] = None
 
     def to_dto(self) -> MatchDTO:
-        """To dto.
-
-        Returns:
-            Return value."""
         return MatchDTO(
             name=self.name,
             min_players=self.min_players,
             max_players=self.max_players,
             owner_id=self.owner_id,
+            password=self.password
         )
 
 
@@ -43,6 +41,14 @@ class MatchOut(BaseModel):
     owner_id: UUID
     current_player_order: int
     timer_turn: Optional[datetime]
+
+    # Campo que no se va a enviar
+    password: Optional[str] = Field(exclude=True, default=None)
+
+    @computed_field
+    @property
+    def is_private(self) -> bool:
+        return self.password is not None
 
 
 class MatchResponse(BaseModel):
@@ -116,9 +122,10 @@ class Match_number_of_Player(BaseModel):
     current_player_count: int
     timer_turn: Optional[datetime]
 
+    # Campo que no se va a enviar
+    password: Optional[str] = Field(exclude=True, default=None)
+
     @computed_field
     @property
     def is_private(self) -> bool:
-        # Se envía true solo si el campo password del modelo es diferente de
-        # None, de esta forma se evita enviar la contraseña
-        return getattr(self, "password", None) is not None
+        return self.password is not None
