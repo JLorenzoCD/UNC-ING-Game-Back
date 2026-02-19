@@ -99,6 +99,7 @@ class MatchService:
             raise OwnerNotFound()
         new_match = Match(
             name=match_dto.name,
+            password=match_dto.password,
             min_players=match_dto.min_players,
             max_players=match_dto.max_players,
             owner_id=owner.id,
@@ -131,7 +132,9 @@ class MatchService:
         match_out = db_match_2_match_schema(match)
         player_count = self.count_players_by_match(match.id)
         extended_match = match_schemas.Match_number_of_Player(
-            **match_out.model_dump(), current_player_count=player_count
+            **match_out.model_dump(),
+            current_player_count=player_count,
+            password=match_out.password,
         )
         return extended_match
 
@@ -171,8 +174,11 @@ class MatchService:
                 match_out = db_match_2_match_schema(match)
                 player_count = self.count_players_by_match(match.id)
 
+                print("=========================", match_out)
                 extended_match = match_schemas.Match_number_of_Player(
-                    **match_out.model_dump(), current_player_count=player_count
+                    **match_out.model_dump(),
+                    current_player_count=player_count,
+                    password=match_out.password
                 )
                 combined.append(extended_match)
             return combined
@@ -239,7 +245,9 @@ class MatchService:
                 player_count = self.count_players_by_match(match.id)
 
                 extended_match = match_schemas.Match_number_of_Player(
-                    **match_out.model_dump(), current_player_count=player_count
+                    **match_out.model_dump(),
+                    current_player_count=player_count,
+                    password=match_out.password,
                 )
                 combined.append(extended_match)
             return combined
