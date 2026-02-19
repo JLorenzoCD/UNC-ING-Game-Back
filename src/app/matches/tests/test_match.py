@@ -73,5 +73,5 @@ def test_create_match(db_session):
     assert dto.max_players == match_in.max_players
     assert dto.owner_id == match_in.owner_id
     dumped = match_in.model_dump()
-    for key in ["name", "min_players", "max_players", "owner_id"]:
+    for key in ["name", "min_players", "max_players", "owner_id", "password"]:
         assert key in dumped
