@@ -1,7 +1,7 @@
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Body, HTTPException, status
 
 # Necessary fun so that all endpoints can access the db
 from app.models.db import get_db
@@ -27,6 +27,7 @@ from app.matches.schemas import (
     MatchResponse,
     Cards_by_Match_Schema,
     Players_by_Match_Schema,
+    MatchJoinIn,
 )
 from app.cards.schemas import (
     Match_Card_Schema,
@@ -67,6 +68,7 @@ from websocketManager.ws_messages import WSEvent
 from websocketManager.ws_routes import manager
 
 # Exceptions
+from app.matches.exceptions import MatchValidationError
 from app.cards.exceptions import CardInvalidAction
 
 # ------------------------------------------------------------------------------
@@ -130,9 +132,15 @@ async def get_all_ongoing_matches_of_player(player_id: UUID, db=Depends(get_db))
 
 
 @router.post("/{match_id}/join", status_code=status.HTTP_200_OK)
-async def join_match(match_id: UUID, player_id: UUID, db=Depends(get_db)):
+async def join_match(match_id: UUID, player_id: UUID, body: MatchJoinIn = Body(MatchJoinIn()), db=Depends(get_db)):
 
     match_service = MatchService(db)
+
+    match = match_service.get_match_by_id(match_id)
+    if match.password is not None and body.password is None:
+        raise MatchValidationError("Password is required")
+    if match.password is not None and match.password != body.password:
+        raise MatchValidationError("Invalid password")
 
     # Añadir al jugador a la partida en la db y al WS broadcast de la partida
     MatchLifecycleServices(db).join(match_id, player_id)

@@ -174,7 +174,6 @@ class MatchService:
                 match_out = db_match_2_match_schema(match)
                 player_count = self.count_players_by_match(match.id)
 
-                print("=========================", match_out)
                 extended_match = match_schemas.Match_number_of_Player(
                     **match_out.model_dump(),
                     current_player_count=player_count,

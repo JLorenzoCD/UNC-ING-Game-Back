@@ -57,6 +57,10 @@ class MatchResponse(BaseModel):
     id: UUID
 
 
+class MatchJoinIn(BaseModel):
+    password: Optional[str] = None
+
+
 class Match_Player_Schema(BaseModel):
     """Class Match_Player_Schema."""
 
