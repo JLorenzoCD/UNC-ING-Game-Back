@@ -83,9 +83,9 @@ router = APIRouter(tags=["matches"], prefix="/matches")
 @router.get(
     "/", status_code=status.HTTP_200_OK, response_model=List[Match_number_of_Player]
 )
-async def get_all_matches(db=Depends(get_db)) -> List[Match_number_of_Player]:
+async def get_all_matches(search: Optional[str] = None, db=Depends(get_db)) -> List[Match_number_of_Player]:
 
-    matches = MatchService(db).get_all()
+    matches = MatchService(db).get_all(search)
     return matches
 
 
@@ -122,9 +122,10 @@ async def create_match(match_in: MatchIn, db=Depends(get_db)) -> MatchResponse:
 @router.get(
     "/player/{player_id}", status_code=status.HTTP_200_OK, response_model=List[Match_number_of_Player]
 )
-async def get_all_ongoing_matches_of_player(player_id: UUID, db=Depends(get_db)) -> List[Match_number_of_Player]:
+async def get_all_ongoing_matches_of_player(player_id: UUID, search: Optional[str] = None, db=Depends(get_db)) -> List[Match_number_of_Player]:
 
-    match_player = MatchService(db).get_ongoing_matches_of_player(player_id)
+    match_player = MatchService(
+        db).get_ongoing_matches_of_player(player_id, search)
     return match_player
 
 # ------------------------------------------------------------------------------

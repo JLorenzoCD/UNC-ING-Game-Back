@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -163,11 +163,14 @@ class MatchService:
         except Exception:
             raise
 
-    def get_all(self) -> List[match_schemas.Match_number_of_Player]:
+    def get_all(self, search: Optional[str] = None) -> List[match_schemas.Match_number_of_Player]:
         """Get all matches with player count."""
 
         try:
-            matches = self._db.query(Match).all()
+            query = self._db.query(Match)
+            if search:
+                query = query.filter(Match.name.contains(search))
+            matches = query.all()
 
             combined = []
             for match in matches:
@@ -225,18 +228,20 @@ class MatchService:
 
         return match
 
-    def get_ongoing_matches_of_player(self, player_id: UUID) -> List[match_schemas.Match_number_of_Player]:
+    def get_ongoing_matches_of_player(self, player_id: UUID, search: Optional[str] = None) -> List[match_schemas.Match_number_of_Player]:
 
         try:
-            matches = (
+            query = (
                 self._db.query(Match)
                 .join(Match_Player, Match_Player.match_id == Match.id)
                 .filter(
                     Match_Player.player_id == player_id,
                     Match.status != MatchStatus.COMPLETED,
                 )
-                .all()
             )
+            if search:
+                query = query.filter(Match.name.contains(search))
+            matches = query.all()
 
             combined = []
             for match in matches:
